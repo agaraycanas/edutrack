@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="m1d" nombre="Fundamentos de la Programación">
+        <tema n="1" fini="2025-9-12" ffin="2025-10-2" comentario=""/>
+        <tema n="2" fini="2025-10-2" ffin="2025-10-9" comentario=""/>
+        <tema n="3" fini="2025-10-10" ffin="2025-10-16" comentario=""/>
+        <tema n="4" fini="2025-10-17" ffin="2025-10-27" comentario=""/>
+        <tema n="5" fini="2025-11-17" ffin="2025-11-24" comentario=""/>
+        <tema n="6" fini="2025-12-1" ffin="2026-1-30" comentario=""/>
+        <tema n="7" fini="2026-2-2" ffin="2026-2-20" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="w1" nombre="Fundamentos de la programación">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-18" comentario=""/>
+        <tema n="2" fini="2025-9-25" ffin="2025-10-2" comentario=""/>
+        <tema n="3" fini="2025-10-3" ffin="2025-10-9" comentario=""/>
+        <tema n="4" fini="2025-10-10" ffin="2025-10-31" comentario=""/>
+        <tema n="5" fini="2025-11-14" ffin="2025-11-21" comentario=""/>
+        <tema n="6" fini="2025-11-28" ffin="2026-1-19" comentario=""/>
+        <tema n="7" fini="2026-1-26" ffin="2026-2-20" comentario=""/>
+        <tema n="8" fini="2026-2-23" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2a" nombre="Aplicaciones Web">
+        <tema n="1" fini="2025-9-12" ffin="2025-10-1" comentario=""/>
+        <tema n="2" fini="2025-10-2" ffin="2025-12-10" comentario=""/>
+        <tema n="3" fini="2025-12-12" ffin="2026-1-30" comentario=""/>
+        <tema n="4" fini="2026-2-2" ffin="2026-2-27" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2a" nombre="Digitalización aplicada a los sectores productivos">
+        <tema n="1" fini="2025-9-24" ffin="2025-10-15" comentario=""/>
+        <tema n="2" fini="2025-10-22" ffin="2025-11-5" comentario=""/>
+        <tema n="3" fini="2025-11-12" ffin="2025-11-26" comentario=""/>
+        <tema n="4" fini="2025-12-3" ffin="2026-1-9" comentario=""/>
+        <tema n="5" fini="2026-1-12" ffin="2026-2-27" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Aplicaciones Web">
+        <tema n="1" fini="2025-9-12" ffin="2025-10-1" comentario=""/>
+        <tema n="2" fini="2025-10-2" ffin="2025-12-3" comentario=""/>
+        <tema n="3" fini="2025-12-5" ffin="2026-1-29" comentario=""/>
+        <tema n="4" fini="2026-1-30" ffin="2026-2-25" comentario=""/>
+    </asignatura>
+</seguimiento>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="m1v" nombre="Sistemas informáticos">
+        <tema n="1" fini="2025-11-10" ffin="2025-11-28" comentario=""/>
+        <tema n="2" fini="2025-12-4" ffin="2025-12-19" comentario=""/>
+        <tema n="3" fini="2026-1-12" ffin="" comentario=""/>
+        <tema n="4" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2v" nombre="Desarrollo de interfaces">
+        <tema n="1" fini="2025-10-20" ffin="2025-11-7" comentario=""/>
+        <tema n="2" fini="2025-11-10" ffin="2025-11-21" comentario=""/>
+        <tema n="3" fini="2025-11-25" ffin="2025-12-19" comentario=""/>
+        <tema n="4" fini="2026-1-8" ffin="2026-1-16" comentario=""/>
+        <tema n="5" fini="2026-1-19" ffin="2026-1-23" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2v" nombre="Digitalización aplicada a los sectores productivos">
+        <tema n="1" fini="2025-10-20" ffin="2025-10-31" comentario=""/>
+        <tema n="2" fini="2025-11-3" ffin="2025-11-18" comentario=""/>
+        <tema n="3" fini="2025-11-25" ffin="2025-12-16" comentario=""/>
+        <tema n="4" fini="2026-1-12" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2v" nombre="Sistemas de gestión empresarial">
+        <tema n="1" fini="2025-10-20" ffin="2025-11-5" comentario=""/>
+        <tema n="2" fini="2025-11-6" ffin="2025-11-21" comentario=""/>
+        <tema n="3" fini="2025-11-24" ffin="2025-12-19" comentario=""/>
+        <tema n="4" fini="2026-1-12" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+    </asignatura>
+</seguimiento>

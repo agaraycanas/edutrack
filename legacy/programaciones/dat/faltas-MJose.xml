@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE faltas SYSTEM "faltas.dtd">
+<faltas>
+<falta causa="Enfermedad">2024-12-17</falta> 
+                    <falta causa="Enfermedad">2024-12-19</falta> 
+                    <falta causa="">2025-10-24</falta> 
+                    <falta causa="">2025-10-22</falta> 
+                    <falta causa="">2025-10-21</falta> 
+                    <falta causa="">2025-10-20</falta> 
+                    <falta causa="">2025-10-17</falta> 
+                    <falta causa="Enfermedad">2025-9-29</falta> 
+                    <falta causa="Enfermedad">2025-9-30</falta> 
+                    <falta causa="Enfermedad">2025-10-1</falta> 
+                    <falta causa="Enfermedad">2026-1-9</falta> 
+                    <falta causa="GAMERGY">2025-12-12</falta> 
+                    <falta causa="Enfermedad">2026-1-9</falta> 
+                    <falta causa="No vino nadie">2025-11-17</falta> 
+                    <falta causa="Examen BD">4-11-2025</falta>
+        </faltas>

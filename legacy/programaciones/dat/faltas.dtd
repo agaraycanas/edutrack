@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT faltas (falta*)>
+
+<!ELEMENT falta (#PCDATA)>
+	<!ATTLIST falta
+		causa CDATA #REQUIRED
+	>			

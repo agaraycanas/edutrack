@@ -1,0 +1,4 @@
+AuthType Basic
+AuthName "Acceso restringido - Solo usuarios autorizados"
+AuthUserFile /opt/lampp/htdocs/programaciones/usuarios
+Require valid-user

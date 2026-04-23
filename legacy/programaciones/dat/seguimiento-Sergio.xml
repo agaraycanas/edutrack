@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="s1b" nombre="Aplicaciones ofimáticas">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-19" comentario=""/>
+        <tema n="2" fini="2025-9-22" ffin="2025-10-24" comentario="Retrasos derivados de huelgas, otras causas externas y el propio grupo que ha avanzado más lento de lo esperado ha provocado un retraso en la fecha estimada"/>
+        <tema n="3" fini="2025-10-27" ffin="2025-12-5" comentario="Retrasos por falta de ritmo del grupo"/>
+        <tema n="4" fini="2025-12-5" ffin="2025-12-12" comentario=""/>
+        <tema n="5" fini="2025-12-12" ffin="2025-12-19" comentario=""/>
+        <tema n="6" fini="2026-1-9" ffin="2026-2-13" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s1b" nombre="Fundamentos de las Bases de datos">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-26" comentario=""/>
+        <tema n="2" fini="2025-10-1" ffin="2025-10-17" comentario=""/>
+        <tema n="3" fini="2025-10-22" ffin="2025-11-28" comentario=""/>
+        <tema n="4" fini="2025-12-3" ffin="2025-12-19" comentario=""/>
+        <tema n="5" fini="2026-1-9" ffin="2026-2-11" comentario=""/>
+        <tema n="6" fini="2026-2-13" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s1a" nombre="Aplicaciones ofimáticas">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-19" comentario=""/>
+        <tema n="2" fini="2025-9-22" ffin="2025-10-24" comentario="Retrasos derivados de huelgas, otras causas externas y el propio grupo que ha avanzado más lento de lo esperado ha provocado un retraso en la fecha estimada"/>
+        <tema n="3" fini="2025-10-27" ffin="2025-12-5" comentario="Retrasos por falta de ritmo del grupo"/>
+        <tema n="4" fini="2025-12-5" ffin="2025-12-12" comentario=""/>
+        <tema n="5" fini="2025-12-12" ffin="2025-12-19" comentario=""/>
+        <tema n="6" fini="2026-1-8" ffin="2026-2-13" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+    </asignatura>
+
+
+
+</seguimiento>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="m1v" nombre="Fundamentos de la Programación">
+        <tema n="1" fini="2025-10-30" ffin="2025-12-4" comentario=""/>
+        <tema n="2" fini="2025-11-4" ffin="2025-11-14" comentario=""/>
+        <tema n="3" fini="2025-11-25" ffin="2025-12-19" comentario=""/>
+        <tema n="4" fini="2026-1-9" ffin="2026-1-30" comentario=""/>
+        <tema n="5" fini="2026-2-3" ffin="2026-2-6" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="2026-2-10" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m1v" nombre="Programación">
+        <tema n="1" fini="2025-10-30" ffin="2025-10-31" comentario=""/>
+        <tema n="2" fini="2025-11-4" ffin="2025-11-7" comentario=""/>
+        <tema n="3" fini="2025-11-10" ffin="2025-11-27" comentario=""/>
+        <tema n="4" fini="2025-11-28" ffin="2025-12-18" comentario=""/>
+        <tema n="5" fini="2026-1-8" ffin="2026-1-23" comentario=""/>
+        <tema n="6" fini="2026-1-26" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="12" fini="" ffin="" comentario=""/>
+        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="14" fini="" ffin="" comentario=""/>
+        <tema n="15" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2v" nombre="Programación de servicios y procesos">
+        <tema n="1" fini="2025-10-30" ffin="2025-11-26" comentario=""/>
+        <tema n="2" fini="2025-11-27" ffin="2025-12-18" comentario=""/>
+        <tema n="3" fini="2026-1-8" ffin="2026-1-29" comentario=""/>
+        <tema n="4" fini="2026-2-2" ffin="2026-2-5" comentario=""/>
+        <tema n="5" fini="2026-2-9" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2v" nombre="Programación en Pyhton">
+        <tema n="1" fini="2025-10-31" ffin="2025-10-31" comentario=""/>
+        <tema n="2" fini="2025-10-31" ffin="2025-11-7" comentario=""/>
+        <tema n="3" fini="2025-11-7" ffin="2025-11-10" comentario=""/>
+        <tema n="4" fini="2025-11-14" ffin="2025-12-15" comentario=""/>
+        <tema n="5" fini="2026-1-9" ffin="2026-1-30" comentario=""/>
+        <tema n="6" fini="2026-1-30" ffin="2026-2-20" comentario=""/>
+    </asignatura>
+</seguimiento>

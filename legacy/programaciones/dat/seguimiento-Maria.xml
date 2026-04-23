@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="s2a" nombre="Servicios en red">
+        <tema n="1" fini="2025-9-10" ffin="2025-10-24" comentario=""/>
+        <tema n="2" fini="2025-10-27" ffin="2025-11-17" comentario=""/>
+        <tema n="3" fini="2025-11-24" ffin="2025-12-18" comentario=""/>
+        <tema n="4" fini="2025-11-18" ffin="2025-11-21" comentario=""/>
+        <tema n="5" fini="2026-2-16" ffin="2026-2-20" comentario=""/>
+        <tema n="6" fini="2026-1-12" ffin="2026-1-30" comentario=""/>
+        <tema n="7" fini="2026-2-2" ffin="2026-2-13" comentario=""/>
+        <tema n="8" fini="2025-12-19" ffin="2026-1-9" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Servicios en red">
+        <tema n="1" fini="2025-9-10" ffin="2025-10-24" comentario=""/>
+        <tema n="2" fini="2025-10-27" ffin="2025-11-17" comentario=""/>
+        <tema n="3" fini="2025-11-24" ffin="2025-12-18" comentario=""/>
+        <tema n="4" fini="2025-11-18" ffin="2025-11-21" comentario=""/>
+        <tema n="5" fini="2026-2-16" ffin="2026-2-20" comentario=""/>
+        <tema n="6" fini="2026-1-12" ffin="2026-1-30" comentario=""/>
+        <tema n="7" fini="2026-2-2" ffin="2026-2-13" comentario=""/>
+        <tema n="8" fini="2025-12-19" ffin="2026-1-9" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="14" fini="" ffin="" comentario=""/>
+    </asignatura>
+</seguimiento>

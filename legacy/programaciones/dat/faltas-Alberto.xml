@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE faltas SYSTEM "faltas.dtd">
+<faltas>
+<falta causa="Huelga">2012-11-14</falta> 
+                    <falta causa="enfermedad">2012-11-27</falta> 
+                    <falta causa="huelga">2013-10-24</falta> 
+                    <falta causa="a.p.">2015-10-8</falta> 
+                    <falta causa="a.p.">2015-10-9</falta> 
+                    <falta causa="a.p.">2015-10-12</falta> 
+                    <falta causa="a.p.">2015-10-13</falta> 
+                    <falta causa="a.p.">2015-10-14</falta> 
+                    <falta causa="a.p.">2015-10-15</falta> 
+                    <falta causa="enfermedad">2016-10-5</falta> 
+                    <falta causa="enfermedad">2016-10-6</falta> 
+                    <falta causa="Madrid skills">2016-10-25</falta> 
+                    <falta causa="Revisión médica">2024-10-22</falta> 
+                    <falta causa="baja">12-9-2025</falta>
+                    <falta causa="baja">15-9-2025</falta>
+                    <falta causa="baja">16-9-2025</falta>
+                    <falta causa="baja">17-9-2025</falta>
+                    <falta causa="baja">18-9-2025</falta>
+                    <falta causa="baja">19-9-2025</falta>
+                    <falta causa="baja">22-9-2025</falta>
+                    <falta causa="baja">23-9-2025</falta>
+                    <falta causa="baja">24-9-2025</falta>
+                    <falta causa="baja">25-9-2025</falta>
+                    <falta causa="baja">26-9-2025</falta>
+        </faltas>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT seguimiento (asignatura*)>
+
+<!ELEMENT asignatura (tema*)>
+	<!ATTLIST asignatura
+		nombre CDATA #REQUIRED
+		grupo CDATA #REQUIRED
+	>			
+	
+	<!ELEMENT tema (#PCDATA)>
+		<!ATTLIST tema
+			n CDATA #REQUIRED
+			fini CDATA #REQUIRED
+			ffin CDATA #REQUIRED
+                        comentario CDATA #REQUIRED
+		>
+				

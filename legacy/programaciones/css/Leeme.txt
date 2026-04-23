@@ -1,0 +1,28 @@
+Buenas Alberto. Te mando un primer diseño usando CSS2.1/HTML4 y sin que tengas que tocar el código para incluir clases e identificadores en algunas etiquetas. Lo único que tienes que hacer es corregir los errore que tiene el código. A ver que te parece. Te digo los cambios que tienes que meter y te mando un index.html con esos errores ya corregidos:
+
+- Estructurar completamente el HTML. La cabecera, hasta la apertura de la etiqueta body, ha de ser esta:
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xml:lang="es" xmlns="http://www.w3.org/1999/xhtml">
+       <head>
+               ﻿<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+               <link rel="stylesheet" href="estilos.css" media="all" />
+               <title>.:: Estimación de progreso de programaciones ::.</title>
+       </head>
+       <body>  
+
+- Y, lógicamente, ha de cerrar con esto:
+
+       </body>
+</html>
+
+- La fila de celdas de cabecera (<th>) debe de estar también entre dos etiquetas <tr></tr>. Es una fila especial de la tabla, pero sigue siendo una fila.
+
+- Fíjate que casi nunca comienzas las filas con la etiqueta tr y sólo la terminas. Además, dejas filas en blanco frecuentemente que contienen una sola celda (<tr><td></td> </tr>). También omites la celda final, en todas las filas, la que corresponde con el %total real. y entonces la línea no puede llegar al final.
+
+Si quieres algo más bonito (colorear filas pares/impares, ayuda contextual al pasar el ratón por las celdas de cabecera, etc.) se puede hacer pero, o bien tienes que meter clases e identificadores en el html (yo te diría donde) o usar css3 con lo que en los Explorer 8, por ejemplo, se vería fatal. Ya me cuentas.
+
+
+Salud,
+
+Josemaría

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="s1a" nombre="Fundamentos de las Bases de datos">
+        <tema n="1" fini="" ffin="" comentario=""/>
+        <tema n="2" fini="" ffin="" comentario=""/>
+        <tema n="3" fini="" ffin="" comentario=""/>
+        <tema n="4" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="i1" nombre="Operaciones auxiliares">
+        <tema n="1" fini="2025-9-15" ffin="2025-9-26" comentario=""/>
+        <tema n="2" fini="2025-9-29" ffin="2025-10-24" comentario=""/>
+        <tema n="3" fini="2025-10-28" ffin="2025-11-21" comentario=""/>
+        <tema n="4" fini="2025-11-21" ffin="2025-12-5" comentario=""/>
+        <tema n="5" fini="2025-12-5" ffin="2026-1-13" comentario=""/>
+        <tema n="6" fini="2026-1-14" ffin="2026-2-5" comentario=""/>
+        <tema n="7" fini="2026-2-5" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="i2" nombre="Ofimática y archivo de documentos">
+        <tema n="1" fini="2025-9-15" ffin="2025-10-17" comentario=""/>
+        <tema n="2" fini="2025-10-20" ffin="2025-11-14" comentario=""/>
+        <tema n="3" fini="2025-11-17" ffin="2026-1-9" comentario=""/>
+        <tema n="4" fini="2026-1-9" ffin="2026-1-26" comentario=""/>
+        <tema n="5" fini="2026-1-26" ffin="2026-2-2" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+    </asignatura>
+</seguimiento>

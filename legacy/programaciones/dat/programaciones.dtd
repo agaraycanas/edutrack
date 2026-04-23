@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT programacion (departamento*)>
+
+<!ELEMENT departamento (curso*)>
+	<!ATTLIST departamento
+		nombre CDATA #REQUIRED
+	>
+
+	<!ELEMENT curso (asignatura*)>
+		<!ATTLIST curso
+			nombre CDATA #REQUIRED
+		>
+	
+		<!ELEMENT asignatura (grupo*,tema*)>
+			<!ATTLIST asignatura
+				nombre CDATA #REQUIRED
+			>
+			
+			<!ELEMENT grupo (#PCDATA)>
+				<!ATTLIST grupo
+					id CDATA #REQUIRED
+					profe CDATA #REQUIRED
+					nif CDATA #REQUIRED
+					inicio CDATA #REQUIRED
+					fin CDATA #REQUIRED
+					Mon CDATA #REQUIRED
+					Tue CDATA #REQUIRED
+					Wed CDATA #REQUIRED
+					Thu CDATA #REQUIRED
+					Fri CDATA #REQUIRED
+				>
+		
+			<!ELEMENT tema (#PCDATA)>
+				<!ATTLIST tema
+					n CDATA #REQUIRED
+					titulo CDATA #REQUIRED
+					horas CDATA #REQUIRED
+				>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="w2" nombre="Despliegue de aplicaciones web">
+        <tema n="1" fini="2025-9-30" ffin="2025-10-24" comentario=""/>
+        <tema n="2" fini="2025-11-14" ffin="2026-1-12" comentario="Desde el 17/11 al 21/11 estuve de baja por enfermedad"/>
+        <tema n="3" fini="2026-1-13" ffin="2026-2-6" comentario=""/>
+        <tema n="4" fini="2025-10-28" ffin="2025-11-11" comentario=""/>
+        <tema n="5" fini="2026-2-9" ffin="2026-2-20" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s1a" nombre="Aplicaciones ofimáticas">
+        <tema n="1" fini="" ffin="" comentario=""/>
+        <tema n="2" fini="" ffin="" comentario=""/>
+        <tema n="3" fini="" ffin="" comentario=""/>
+        <tema n="4" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s1a" nombre="Redes locales">
+        <tema n="1" fini="2025-9-29" ffin="2025-10-8" comentario=""/>
+        <tema n="2" fini="2025-10-9" ffin="2025-10-15" comentario=""/>
+        <tema n="3" fini="2025-10-16" ffin="2025-10-23" comentario=""/>
+        <tema n="4" fini="2025-10-27" ffin="2025-10-31" comentario=""/>
+        <tema n="5" fini="2025-11-3" ffin="2025-11-14" comentario="Desde el 17/11 al 21/11 estuve de baja por enfermedad"/>
+        <tema n="6" fini="2025-12-2" ffin="2025-12-18" comentario=""/>
+        <tema n="7" fini="2026-1-8" ffin="2026-1-15" comentario=""/>
+        <tema n="8" fini="2026-1-19" ffin="2026-1-27" comentario=""/>
+        <tema n="9" fini="2025-11-24" ffin="2025-12-1" comentario=""/>
+        <tema n="10" fini="2026-2-2" ffin="2026-2-6" comentario=""/>
+        <tema n="11" fini="2026-2-9" ffin="2026-2-13" comentario=""/>
+        <tema n="12" fini="2026-2-16" ffin="" comentario=""/>
+        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="14" fini="" ffin="" comentario=""/>
+        <tema n="15" fini="" ffin="" comentario=""/>
+        <tema n="16" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s1b" nombre="Redes locales">
+        <tema n="1" fini="2025-9-29" ffin="2025-10-8" comentario=""/>
+        <tema n="2" fini="2025-10-9" ffin="2025-10-15" comentario=""/>
+        <tema n="3" fini="2025-10-16" ffin="2025-10-24" comentario=""/>
+        <tema n="4" fini="2025-10-27" ffin="2025-10-31" comentario=""/>
+        <tema n="5" fini="2025-11-3" ffin="2025-11-14" comentario="Desde el 17/11 al 21/11 estuve de baja por enfermedad"/>
+        <tema n="6" fini="2025-12-2" ffin="2025-12-18" comentario=""/>
+        <tema n="7" fini="2026-1-8" ffin="2026-1-15" comentario=""/>
+        <tema n="8" fini="2026-1-16" ffin="2026-2-24" comentario=""/>
+        <tema n="9" fini="2025-11-24" ffin="2025-12-1" comentario=""/>
+        <tema n="10" fini="2026-2-2" ffin="2026-2-6" comentario=""/>
+        <tema n="11" fini="2026-2-9" ffin="2026-2-13" comentario=""/>
+        <tema n="12" fini="2026-2-16" ffin="" comentario=""/>
+        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="14" fini="" ffin="" comentario=""/>
+        <tema n="15" fini="" ffin="" comentario=""/>
+        <tema n="16" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2a" nombre="Seguridad en redes">
+        <tema n="1" fini="" ffin="" comentario=""/>
+        <tema n="2" fini="" ffin="" comentario=""/>
+        <tema n="3" fini="" ffin="" comentario=""/>
+        <tema n="4" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Seguridad en redes">
+        <tema n="1" fini="" ffin="" comentario=""/>
+        <tema n="2" fini="" ffin="" comentario=""/>
+        <tema n="3" fini="" ffin="" comentario=""/>
+        <tema n="4" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="14" fini="" ffin="" comentario=""/>
+        <tema n="15" fini="" ffin="" comentario=""/>
+        <tema n="16" fini="" ffin="" comentario=""/>
+        <tema n="17" fini="" ffin="" comentario=""/>
+        <tema n="18" fini="" ffin="" comentario=""/>
+        <tema n="19" fini="" ffin="" comentario=""/>
+        <tema n="20" fini="" ffin="" comentario=""/>
+    </asignatura>
+</seguimiento>

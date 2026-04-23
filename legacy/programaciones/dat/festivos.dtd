@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT festivos (festivo*)>
+
+<!ELEMENT festivo (#PCDATA)>
+	<!ATTLIST festivo
+		causa CDATA #REQUIRED
+	>			

@@ -1,0 +1,25 @@
+<html>
+    <head>
+        <script type="text/javascript">
+            <!--
+            function guardar() {
+                var textoADevolver=document.f.texto.value;
+                window.returnValue=textoADevolver;
+                window.close();
+            }
+            function rellenarTexto() {
+                var arrayDatos=new Array();
+                arrayDatos=dialogArguments;
+                document.f.texto.value=arrayDatos[0];
+            }
+            //-->
+        </script>
+    </head>
+    <body  onload="rellenarTexto();">
+        <h1>Introduce un comentario</h1>
+        <form name="f">
+            <textarea name="texto" cols="70" rows="18"></textarea>
+            <input type="button" value="Guardar" onclick="guardar();"/>
+        </form>
+    </body>
+</html>

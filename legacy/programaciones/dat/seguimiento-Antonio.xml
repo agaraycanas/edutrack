@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="m2d" nombre="Programación de móviles y dispositivos multimedia">
+        <tema n="1" fini="2025-9-16" ffin="2025-9-18" comentario=""/>
+        <tema n="2" fini="2025-9-23" ffin="2025-10-9" comentario=""/>
+        <tema n="3" fini="2025-10-14" ffin="2025-11-13" comentario=""/>
+        <tema n="4" fini="2025-11-18" ffin="2025-11-27" comentario=""/>
+        <tema n="5" fini="2025-12-2" ffin="2025-12-18" comentario=""/>
+        <tema n="6" fini="2026-1-8" ffin="2026-1-14" comentario=""/>
+        <tema n="7" fini="2026-1-15" ffin="2026-1-21" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2d" nombre="Programación en Pyhton">
+        <tema n="1" fini="2025-9-11" ffin="2025-9-11" comentario=""/>
+        <tema n="2" fini="2025-9-17" ffin="2025-9-17" comentario=""/>
+        <tema n="3" fini="2025-9-17" ffin="2025-9-18" comentario=""/>
+        <tema n="4" fini="2025-9-23" ffin="2025-11-7" comentario=""/>
+        <tema n="5" fini="2025-11-7" ffin="2025-12-3" comentario=""/>
+        <tema n="6" fini="2025-12-4" ffin="2026-1-15" comentario=""/>
+    </asignatura>
+    <asignatura grupo="w2" nombre="Programación en Pyhton">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-12" comentario=""/>
+        <tema n="2" fini="2025-9-12" ffin="2025-9-12" comentario=""/>
+        <tema n="3" fini="2025-9-12" ffin="2025-9-26" comentario=""/>
+        <tema n="4" fini="2025-10-3" ffin="2025-11-7" comentario=""/>
+        <tema n="5" fini="2025-11-14" ffin="2025-12-5" comentario=""/>
+        <tema n="6" fini="2025-12-12" ffin="2026-1-16" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2a" nombre="Programación en Python">
+        <tema n="1" fini="2025-9-15" ffin="2025-9-15" comentario=""/>
+        <tema n="2" fini="2025-9-15" ffin="2025-10-6" comentario=""/>
+        <tema n="3" fini="2025-10-20" ffin="2025-11-17" comentario=""/>
+        <tema n="4" fini="2025-11-24" ffin="2025-12-15" comentario=""/>
+        <tema n="5" fini="2026-1-12" ffin="2026-1-26" comentario=""/>
+        <tema n="6" fini="2026-2-2" ffin="2026-2-16" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Programación en Python">
+        <tema n="1" fini="2025-9-15" ffin="2025-9-17" comentario=""/>
+        <tema n="2" fini="2025-9-22" ffin="2025-10-6" comentario=""/>
+        <tema n="3" fini="2025-10-20" ffin="2025-11-17" comentario=""/>
+        <tema n="4" fini="2025-11-24" ffin="2025-12-17" comentario=""/>
+        <tema n="5" fini="2026-1-12" ffin="2026-1-28" comentario=""/>
+        <tema n="6" fini="2026-2-2" ffin="2026-2-16" comentario=""/>
+    </asignatura>
+</seguimiento>

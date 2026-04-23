@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="m1d" nombre="Bases de datos">
+        <tema n="1" fini="2025-9-15" ffin="2025-9-17" comentario=""/>
+        <tema n="2" fini="2025-9-19" ffin="2025-10-15" comentario=""/>
+        <tema n="3" fini="2025-10-17" ffin="2025-11-5" comentario=""/>
+        <tema n="4" fini="2025-11-7" ffin="2025-12-1" comentario=""/>
+        <tema n="5" fini="2025-12-2" ffin="2026-2-13" comentario=""/>
+        <tema n="6" fini="2026-2-16" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="m2d" nombre="Acceso a datos">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-26" comentario=""/>
+        <tema n="2" fini="" ffin="" comentario=""/>
+        <tema n="3" fini="2025-9-29" ffin="2025-10-10" comentario=""/>
+        <tema n="4" fini="2025-10-16" ffin="2025-11-13" comentario=""/>
+        <tema n="5" fini="2025-11-14" ffin="2025-12-4" comentario=""/>
+        <tema n="6" fini="2025-12-5" ffin="2026-1-23" comentario=""/>
+        <tema n="7" fini="2026-2-2" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="w1" nombre="Bases de datos">
+        <tema n="1" fini="2025-10-15" ffin="2025-10-17" comentario=""/>
+        <tema n="2" fini="2025-9-18" ffin="2025-10-16" comentario=""/>
+        <tema n="3" fini="2025-10-20" ffin="2025-11-5" comentario=""/>
+        <tema n="4" fini="2025-11-6" ffin="2025-12-1" comentario=""/>
+        <tema n="5" fini="2025-12-2" ffin="2026-2-12" comentario=""/>
+        <tema n="6" fini="2026-2-16" ffin="" comentario=""/>
+        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario=""/>
+    </asignatura>
+</seguimiento>

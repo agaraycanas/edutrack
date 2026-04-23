@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE faltas SYSTEM "faltas.dtd">
+<faltas>
+<falta causa="Curso">2025-10-7</falta> 
+                    <falta causa="Curso">2025-10-8</falta> 
+                    <falta causa="Analítica">2025-10-17</falta> 
+                    <falta causa="Médico">2025-9-18</falta> 
+                    <falta causa="hospital">2025-12-5</falta> 
+                    <falta causa="hospital">2025-12-9</falta> 
+                    <falta causa="hospital">2025-12-10</falta> 
+                    <falta causa="hospital">2025-12-11</falta> 
+                    <falta causa="hospital">12-12-2025</falta>
+        </faltas>

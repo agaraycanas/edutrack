@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE seguimiento SYSTEM "seguimiento.dtd">
+<seguimiento>
+    <asignatura grupo="w2" nombre="Digitalización aplicada a los sectores productivos">
+        <tema n="1" fini="2025-9-11" ffin="2025-9-25" comentario=""/>
+        <tema n="2" fini="2025-10-2" ffin="2025-10-16" comentario=""/>
+        <tema n="3" fini="2025-10-23" ffin="2025-11-6" comentario=""/>
+        <tema n="4" fini="2025-11-13" ffin="2025-11-27" comentario=""/>
+        <tema n="5" fini="2025-12-4" ffin="2026-1-8" comentario=""/>
+        <tema n="6" fini="2026-1-15" ffin="2026-2-12" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2a" nombre="Sistemas Operativos en red">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-18" comentario=""/>
+        <tema n="2" fini="2025-9-18" ffin="2025-9-25" comentario=""/>
+        <tema n="3" fini="2025-9-25" ffin="2025-10-10" comentario=""/>
+        <tema n="4" fini="2025-10-14" ffin="2025-10-28" comentario=""/>
+        <tema n="5" fini="2025-10-29" ffin="2025-11-26" comentario=""/>
+        <tema n="6" fini="2025-11-27" ffin="2025-12-10" comentario=""/>
+        <tema n="7" fini="2025-12-10" ffin="2026-1-9" comentario=""/>
+        <tema n="8" fini="2026-1-12" ffin="2026-2-3" comentario=""/>
+        <tema n="9" fini="2026-2-3" ffin="2026-2-12" comentario=""/>
+        <tema n="10" fini="2026-2-12" ffin="2026-2-16" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Digitalización aplicada a los sectores productivos">
+        <tema n="1" fini="2025-9-17" ffin="2025-10-1" comentario=""/>
+        <tema n="2" fini="2025-10-1" ffin="2025-10-22" comentario=""/>
+        <tema n="3" fini="2025-10-29" ffin="2025-11-19" comentario=""/>
+        <tema n="4" fini="2025-11-19" ffin="2025-12-17" comentario=""/>
+        <tema n="5" fini="2025-12-17" ffin="" comentario=""/>
+    </asignatura>
+    <asignatura grupo="s2b" nombre="Sistemas Operativos en red">
+        <tema n="1" fini="2025-9-12" ffin="2025-9-18" comentario=""/>
+        <tema n="2" fini="2025-9-18" ffin="2025-9-25" comentario=""/>
+        <tema n="3" fini="2025-9-25" ffin="2025-10-10" comentario=""/>
+        <tema n="4" fini="2025-10-14" ffin="2025-10-28" comentario=""/>
+        <tema n="5" fini="2025-10-29" ffin="2025-11-26" comentario=""/>
+        <tema n="6" fini="2025-11-27" ffin="2025-12-10" comentario=""/>
+        <tema n="7" fini="2025-12-10" ffin="2026-1-9" comentario=""/>
+        <tema n="8" fini="2026-1-12" ffin="2026-2-3" comentario=""/>
+        <tema n="9" fini="2026-2-3" ffin="2026-2-12" comentario=""/>
+        <tema n="10" fini="2026-2-12" ffin="2026-2-16" comentario=""/>
+    </asignatura>
+</seguimiento>

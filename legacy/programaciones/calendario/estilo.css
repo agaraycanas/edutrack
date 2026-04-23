@@ -1,0 +1,112 @@
+BODY  {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	background-color : #ffffff;
+}
+
+TD  {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+}
+
+INPUT  {
+	font-family : verdana,arial,helvetica;
+	font-size : 8pt;
+}
+
+TEXTAREA  {
+	font-family : verdana,arial,helvetica;
+	font-size : 8pt;
+}
+
+SELECT  {
+	font-family : verdana,arial,helvetica;
+	font-size : 8pt;
+}
+
+.tablacalendario{
+	width: 200px;
+}
+.tablacalendario TD {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	text-align: center;
+}
+.tablacalendario TD A{
+	text-decoration: none;
+}
+.diasemana  {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	color: #ffffff;
+	background-color: #666666;
+	text-align: center;
+}
+.tit, .titmesano  {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	color: #666;
+	background-color: #D1D9EF;
+	font-weight: bold;
+}
+.titmesano{
+	text-align: center;
+}
+.messiguiente, .mesanterior{
+	font-size:10pt;
+	font-weight:bold;
+	width: 16px;
+	height: 16px;
+}
+.messiguiente{
+	background: transparent url(132.png) no-repeat 2px;
+}
+.mesanterior{
+	background: transparent url(131.png) no-repeat 2px;
+}
+.messiguiente span, .mesanterior span{
+	visibility: hidden;
+}
+.mesanterior{
+	text-align: right;
+}
+.messiguiente a, .mesanterior a{
+	color:white;
+	text-decoration:none;
+}
+.diainvalido{
+	background-color: #ddd;
+}
+.hoy {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	background-color: #060;
+}
+.domingo {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	background-color: #990000;
+	color: #fff;
+}
+.domingo a, .hoy a{
+	color: #fff;
+}
+.diario {
+	font-family : verdana,arial,helvetica;
+	font-size : 10pt;
+	background-color: #ccf;
+	color: #fff;
+}
+.tform {
+	border-width: 1px;
+	border-color: 75263C;
+	border-style: solid;
+}
+.inputfecha{
+	height: 24px;
+	background: transparent url(calendario.png) no-repeat right;
+	padding: 2px;
+	width: 100px;
+	border: 1px solid #8BA0DF;
+	font-size: 12px;
+}
