@@ -1,18 +1,44 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Modal from '../../components/common/Modal';
 import { auth, db } from '../../config/firebase';
-import { collection, getDocs, setDoc, doc, addDoc, deleteDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { collection, getDocs, setDoc, doc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+
+const DEPARTAMENTOS = [
+  'Informática',
+  'Matemáticas',
+  'Lengua Castellana y Literatura',
+  'Geografía e Historia',
+  'Inglés',
+  'Física y Química',
+  'Biología y Geología',
+  'Dibujo',
+  'Música',
+  'Educación Física',
+  'Filosofía',
+  'Orientación',
+  'Tecnología',
+  'Economía',
+  'Latín y Griego',
+  'Francés',
+  'Religión'
+];
 
 export default function Register() {
   const [formData, setFormData] = useState({
     nombre: '',
     apellidos: '',
     iesId: '',
-    rolSolicitado: 'profesor'
+    rolSolicitado: 'profesor',
+    departamento: ''
   });
   const [iesList, setIesList] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [checkingRequest, setCheckingRequest] = useState(true);
+  const [pendingRequest, setPendingRequest] = useState(null);
+  const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,7 +68,24 @@ export default function Register() {
       const updatedSnapshot = await getDocs(collection(db, 'ies'));
       setIesList(updatedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     };
+
+    const checkExistingRequest = async () => {
+      if (auth.currentUser) {
+        const q = query(
+          collection(db, 'solicitudes'), 
+          where('userId', '==', auth.currentUser.uid),
+          where('estado', '==', 'pendiente')
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          setPendingRequest(querySnapshot.docs[0].data());
+        }
+      }
+      setCheckingRequest(false);
+    };
+
     fetchIES();
+    checkExistingRequest();
   }, []);
 
   const handleRegister = async (e) => {
@@ -51,11 +94,10 @@ export default function Register() {
     setLoading(true);
 
     const email = auth.currentUser?.email;
-    const isEducaMadrid = email?.endsWith('@educa.madrid.org');
-    const isDevBypass = email === 'alberto.garay.canas@gmail.com';
 
-    if (!isEducaMadrid && !isDevBypass) {
-      setError('Solo se permiten correos @educa.madrid.org');
+    // Validación de departamento si el rol lo requiere
+    if (['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) && !formData.departamento) {
+      setError('Debes seleccionar un departamento');
       setLoading(false);
       return;
     }
@@ -69,7 +111,7 @@ export default function Register() {
         apellidos: formData.apellidos,
         email: email,
         foto: auth.currentUser.photoURL,
-        roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'admin', estado: 'activo' }] : [], 
+        roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'superadmin', estado: 'activo' }] : [], 
         createdAt: new Date()
       });
 
@@ -82,12 +124,23 @@ export default function Register() {
           iesId: formData.iesId,
           iesNombre: iesList.find(i => i.id === formData.iesId)?.nombre,
           rol: formData.rolSolicitado,
+          departamento: ['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) ? formData.departamento : null,
           estado: 'pendiente',
           createdAt: new Date()
         });
-        alert('Solicitud enviada. Un responsable debe aprobar tu acceso.');
+        setModal({
+          isOpen: true,
+          title: 'Solicitud Enviada',
+          message: 'Tu solicitud de acceso ha sido enviada correctamente. Un responsable de tu centro debe aprobar tu perfil. Una vez aprobado, recibirás un correo electrónico de confirmación con un enlace directo para acceder a la plataforma.',
+          type: 'success'
+        });
       } else {
-        alert('¡Bienvenido, Admin Supremo! Tu cuenta ha sido activada automáticamente.');
+        setModal({
+          isOpen: true,
+          title: '¡Bienvenido!',
+          message: 'Tu cuenta de Administrador Supremo ha sido activada automáticamente. Ya puedes empezar a gestionar la plataforma.',
+          type: 'success'
+        });
       }
 
       navigate('/home');
@@ -98,6 +151,36 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  if (checkingRequest) {
+    return <div style={styles.container}><h2>Verificando solicitudes...</h2></div>;
+  }
+
+  if (pendingRequest) {
+    return (
+      <div style={styles.container}>
+        <div className="glass-panel animate-fade-in" style={styles.card}>
+          <h1 style={styles.title}>Solicitud en Curso</h1>
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <p>Hola <b>{auth.currentUser?.email}</b>,</p>
+            <p>Ya tienes una solicitud pendiente para el rol de <b>{pendingRequest.rol.replace('_', ' ').toUpperCase()}</b> {pendingRequest.departamento ? `en el departamento de ${pendingRequest.departamento}` : ''} en <b>{pendingRequest.iesNombre}</b>.</p>
+            <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                Tu solicitud está siendo revisada por los responsables del centro. Te enviaremos un correo electrónico en cuanto sea aprobada.
+              </p>
+            </div>
+            <button className="btn-primary" onClick={() => navigate('/home')}>Ir al Inicio</button>
+            <button 
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+              onClick={() => signOut(auth).then(() => navigate('/login'))}
+            >
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -155,14 +238,42 @@ export default function Register() {
             <option value="profesor">Profesor</option>
             <option value="jefe_departamento">Jefe de Departamento</option>
             <option value="jefe_estudios">Jefe de Estudios</option>
-            <option value="admin">Administrador (Supremo)</option>
+            <option value="admin">Administrador (del Centro)</option>
           </select>
         </div>
+
+        {['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) && (
+          <div className="animate-fade-in" style={styles.field}>
+            <label>Departamento</label>
+            <select 
+              className="input-field" 
+              required 
+              value={formData.departamento}
+              onChange={e => setFormData({...formData, departamento: e.target.value})}
+            >
+              <option value="">Selecciona un departamento...</option>
+              {DEPARTAMENTOS.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
           {loading ? 'Procesando...' : 'Enviar Solicitud'}
         </button>
       </form>
+
+      <Modal 
+        isOpen={modal.isOpen} 
+        onClose={() => {
+          setModal({ ...modal, isOpen: false });
+          navigate('/home');
+        }}
+        title={modal.title}
+      >
+        <p>{modal.message}</p>
+      </Modal>
     </div>
   );
 }

@@ -35,8 +35,29 @@ export function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--bg-color)' }}>
-        <h2 style={{ color: 'var(--text-primary)' }}>Cargando...</h2>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh', 
+        backgroundColor: 'var(--bg-color)',
+        gap: '1rem'
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '3px solid rgba(255,255,255,0.1)',
+          borderTopColor: 'var(--accent-primary)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <h2 style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: '400' }}>Cargando EduTrack...</h2>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -52,6 +73,15 @@ export function ProtectedRoute({ children }) {
 
   // Si no tiene perfil, le mandamos a registrarse
   if (!userProfile) {
+    return <Navigate to="/register" replace />;
+  }
+
+  // Verificar si tiene al menos un rol ACTIVO
+  const hasActiveRole = userProfile.roles?.some(role => role.estado === 'activo');
+  
+  // Si no tiene ningún rol activo y no está en /register, redirigir a /register
+  // donde se le mostrará el estado de "Pendiente" o el formulario
+  if (!hasActiveRole && location.pathname !== '/register') {
     return <Navigate to="/register" replace />;
   }
 
