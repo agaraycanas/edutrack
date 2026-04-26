@@ -3,6 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getDocs, updateDoc } from 'firebase/firestore';
 import { useNavigate, Link, Outlet } from 'react-router-dom';
+import ProfileModal from '../components/common/ProfileModal';
 
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -12,36 +13,38 @@ export default function DashboardLayout({ children }) {
 
   const [pendingCount, setPendingCount] = useState(0);
   const [centerStaff, setCenterStaff] = useState([]);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (auth.currentUser) {
-        const docSnap = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setUserProfile(data);
-          // Si el rol activo no está en sus roles, poner el primero disponible o profesor por defecto
-          if (data.roles && data.roles.length > 0 && !data.roles.some(r => r.rol === activeRole)) {
-            const firstRole = data.roles[0];
-            setActiveRole(firstRole.rol);
-            localStorage.setItem('activeRole', firstRole.rol);
-            localStorage.setItem('activeIesId', firstRole.iesId);
-          } else if (data.roles && data.roles.length > 0) {
-            // Migración: Si no tiene iesIds, lo creamos a partir de sus roles
-            if (!data.iesIds && data.roles) {
-              const ids = [...new Set(data.roles.map(r => r.iesId))].filter(Boolean);
-              await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { iesIds: ids });
-              data.iesIds = ids;
-            }
+  const fetchProfile = async () => {
+    if (auth.currentUser) {
+      const docSnap = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setUserProfile(data);
+        // Si el rol activo no está en sus roles, poner el primero disponible o profesor por defecto
+        if (data.roles && data.roles.length > 0 && !data.roles.some(r => r.rol === activeRole)) {
+          const firstRole = data.roles[0];
+          setActiveRole(firstRole.rol);
+          localStorage.setItem('activeRole', firstRole.rol);
+          localStorage.setItem('activeIesId', firstRole.iesId);
+        } else if (data.roles && data.roles.length > 0) {
+          // Migración: Si no tiene iesIds, lo creamos a partir de sus roles
+          if (!data.iesIds && data.roles) {
+            const ids = [...new Set(data.roles.map(r => r.iesId))].filter(Boolean);
+            await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { iesIds: ids });
+            data.iesIds = ids;
+          }
 
-            const currentRoleData = data.roles.find(r => r.rol === activeRole);
-            if (currentRoleData) {
-              localStorage.setItem('activeIesId', currentRoleData.iesId);
-            }
+          const currentRoleData = data.roles.find(r => r.rol === activeRole);
+          if (currentRoleData) {
+            localStorage.setItem('activeIesId', currentRoleData.iesId);
           }
         }
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchProfile();
   }, [activeRole]);
 
@@ -136,14 +139,16 @@ export default function DashboardLayout({ children }) {
     }
   };
 
-  const getRoleLabel = (roleId) => {
+  const getRoleLabel = (role) => {
+    const roleId = typeof role === 'string' ? role : role.rol;
     const labels = {
       superadmin: 'Súperadmin',
       jefe_estudios: 'Jefe de Estudios',
-      jefe_departamento: 'Jefe de Depto.',
+      jefe_departamento: 'Jefe de Dpto.',
       profesor: 'Profesor',
       alumno: 'Alumno'
     };
+    
     return labels[roleId] || roleId;
   };
 
@@ -195,6 +200,25 @@ export default function DashboardLayout({ children }) {
               </Link>
             </>
           )}
+
+          {(activeRole === 'jefe_departamento' || activeRole === 'jefe_estudios') && (
+            <>
+              <Link to="/groups" style={styles.navItem}>
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                {isSidebarOpen && <span>Grupos</span>}
+              </Link>
+              <Link to="/subjects" style={styles.navItem}>
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                {isSidebarOpen && <span>Asignaturas</span>}
+              </Link>
+              {activeRole === 'jefe_departamento' && (
+                <Link to="/teaching-assignments" style={styles.navItem}>
+                  <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                  {isSidebarOpen && <span>Imparticiones</span>}
+                </Link>
+              )}
+            </>
+          )}
         </nav>
 
       </aside>
@@ -207,35 +231,48 @@ export default function DashboardLayout({ children }) {
             <button style={styles.iconButton} onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
-            <div style={{ borderLeft: '2px solid var(--active-role-color)', paddingLeft: '1rem', fontWeight: '600' }}>
-                {userProfile?.roles?.find(r => r.rol === activeRole)?.iesNombre || 'IES Rey Fernando VI'}
-            </div>
+            <div style={{ borderLeft: '2px solid var(--active-role-color)', height: '24px', marginLeft: '0.5rem' }}></div>
           </div>
           
           <div style={styles.navbarRight}>
-            <div style={styles.userProfile}>
-              <img 
-                src={auth.currentUser?.photoURL || 'https://via.placeholder.com/40'} 
-                alt="Avatar" 
-                style={styles.avatar} 
-              />
-              <div style={styles.userInfo}>
-                <span style={styles.userName}>{userProfile ? `${userProfile.nombre} ${userProfile.apellidos}` : 'Usuario'}</span>
-                <select 
-                  style={styles.roleSelect} 
-                  value={activeRole}
-                  onChange={(e) => {
-                    const selectedOption = e.target.options[e.target.selectedIndex];
-                    handleRoleChange(e.target.value, selectedOption.getAttribute('data-ies'));
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              {activeRole === 'jefe_departamento' && userProfile?.roles?.find(r => r.rol === 'jefe_departamento' && r.iesId === localStorage.getItem('activeIesId'))?.departamento && (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '500', marginRight: '0.5rem' }}>
+                  {userProfile.roles.find(r => r.rol === 'jefe_departamento' && r.iesId === localStorage.getItem('activeIesId')).departamento}
+                </div>
+              )}
+              <div 
+                className="user-profile-clickable"
+                style={{ ...styles.userProfile, cursor: 'pointer' }}
+                onClick={() => setIsProfileModalOpen(true)}
+                title="Editar mi perfil"
+              >
+                <img 
+                  src={userProfile?.foto || `https://ui-avatars.com/api/?name=${userProfile?.nombre}+${userProfile?.apellidos?.split(' ')[0]}&background=random&color=fff`} 
+                  alt="Avatar" 
+                  style={styles.avatar}
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${userProfile?.nombre}+${userProfile?.apellidos?.split(' ')[0]}&background=random&color=fff`;
                   }}
-                >
-                  {/* Si el usuario tiene roles reales, los mostramos. Si no (o es dev bypass), mostramos todos para pruebas */}
-                  {userProfile?.roles?.filter(r => r.estado === 'activo').map(r => (
-                    <option key={(r.rol || 'rol') + (r.iesId || 'ies')} value={r.rol} data-ies={r.iesId}>
-                      {getRoleLabel(r.rol)} ({r.iesId})
-                    </option>
-                  ))}
-                </select>
+                />
+                <div style={styles.userInfo}>
+                  <span style={styles.userName}>{userProfile ? `${userProfile.nombre} ${userProfile.apellidos}` : 'Usuario'}</span>
+                  <select 
+                    style={styles.roleSelect} 
+                    value={activeRole}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const selectedOption = e.target.options[e.target.selectedIndex];
+                      handleRoleChange(e.target.value, selectedOption.getAttribute('data-ies'));
+                    }}
+                  >
+                    {userProfile?.roles?.filter(r => r.estado === 'activo').map(r => (
+                      <option key={(r.rol || 'rol') + (r.iesId || 'ies')} value={r.rol} data-ies={r.iesId}>
+                        {getRoleLabel(r)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <button className="btn-primary" style={styles.logoutButton} onClick={handleLogout}>
@@ -249,6 +286,13 @@ export default function DashboardLayout({ children }) {
           {children || <Outlet />}
         </main>
       </div>
+
+      <ProfileModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+        userProfile={userProfile}
+        onUpdate={fetchProfile}
+      />
     </div>
   );
 }
@@ -295,7 +339,7 @@ const styles = {
     position: 'absolute', top: '-5px', right: '-8px', backgroundColor: '#ef4444', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px', border: '2px solid var(--surface-color)', minWidth: '18px', textAlign: 'center'
   },
   mainContent: {
-    flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'
+    flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0
   },
   navbar: {
     height: '64px', 

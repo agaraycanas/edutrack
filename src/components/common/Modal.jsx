@@ -1,12 +1,13 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = '500px' }) {
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="modal-overlay" onClick={onClose}>
       <div 
-        className="modal-content glass-panel animate-fade-in" 
+        className="modal-content glass-panel animate-modal" 
         onClick={e => e.stopPropagation()}
         style={{ maxWidth }}
       >
@@ -24,16 +25,14 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           {children}
         </div>
-        {footer !== null && (
+        {footer && (
           <div className="modal-footer">
-            {footer || (
-              <button className="btn-primary" onClick={onClose}>
-                Entendido
-              </button>
-            )}
+            {footer}
           </div>
         )}
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

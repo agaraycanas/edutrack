@@ -7,6 +7,9 @@ import Users from '../views/management/Users'
 import AcademicYears from '../views/management/AcademicYears'
 import Departments from '../views/management/Departments'
 import Studies from '../views/management/Studies'
+import Groups from '../views/management/Groups'
+import Subjects from '../views/management/Subjects'
+import TeachingAssignments from '../views/management/TeachingAssignments'
 import DashboardLayout from '../layouts/DashboardLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 
@@ -28,6 +31,9 @@ export function GlobalRouter() {
           <Route path="/academic-years" element={<AcademicYears />} />
           <Route path="/departments" element={<Departments />} />
           <Route path="/studies" element={<Studies />} />
+          <Route path="/groups" element={<Groups />} />
+          <Route path="/subjects" element={<Subjects />} />
+          <Route path="/teaching-assignments" element={<TeachingAssignments />} />
         </Route>
 
         <Route path="/register" element={

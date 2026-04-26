@@ -8,8 +8,10 @@ import {
   addDoc, 
   deleteDoc, 
   doc, 
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
+import { auth } from '../../config/firebase';
 import Modal from '../../components/common/Modal';
 
 export default function Studies() {
@@ -21,8 +23,13 @@ export default function Studies() {
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, study: null });
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
+  const [userDept, setUserDept] = useState(null);
   
   const activeIesId = localStorage.getItem('activeIesId');
+  const activeRole = localStorage.getItem('activeRole');
   
   // Helper to normalize text (remove accents/diacritics)
   const normalizeText = (text) => {
@@ -35,12 +42,23 @@ export default function Studies() {
 
   useEffect(() => {
     fetchData();
-  }, [activeIesId]);
+  }, [activeIesId, activeRole]);
 
   const fetchData = async () => {
     if (!activeIesId) return;
     setLoading(true);
     try {
+      // Get User Profile
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const profile = userDoc.data();
+          setUserProfile(profile);
+          const myRoleData = profile.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
+          setUserDept(myRoleData?.departamento);
+        }
+      }
+
       const qIes = query(
         collection(db, 'ies_estudios'),
         where('iesId', '==', activeIesId)
@@ -55,6 +73,16 @@ export default function Studies() {
       const globalData = snapshotGlobal.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       globalData.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setGlobalEstudios(globalData);
+
+      // Fetch Departments
+      const qDepts = query(
+        collection(db, 'departamentos'),
+        where('iesId', '==', activeIesId)
+      );
+      const snapshotDepts = await getDocs(qDepts);
+      const deptsData = snapshotDepts.docs.map(doc => doc.data().nombre);
+      deptsData.sort();
+      setDepartments(deptsData);
 
     } catch (error) {
       console.error("Error fetching studies data:", error);
@@ -73,19 +101,32 @@ export default function Studies() {
       return;
     }
 
+    if (selectedDepartments.length === 0) {
+      setModal({
+        isOpen: true,
+        title: 'Departamento Requerido',
+        message: 'Debes asignar al menos un departamento a esta titulación.'
+      });
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      await addDoc(collection(db, 'ies_estudios'), {
+      const studyData = {
         iesId: activeIesId,
         titulacionId: study.id,
         nombre: study.nombre,
-        cursos: study.cursos,
-        tipo: study.tipo,
+        cursos: study.cursos || study.niveles || [],
+        tipo: study.tipo || 'General',
+        departamentos: selectedDepartments,
         createdAt: serverTimestamp()
-      });
+      };
+
+      await addDoc(collection(db, 'ies_estudios'), studyData);
       
       setAddModalOpen(false);
       setSearchTerm('');
+      setSelectedDepartments([]);
       fetchData();
       setModal({
         isOpen: true,
@@ -113,7 +154,7 @@ export default function Studies() {
     );
   });
 
-  const confirmDelete = async (study) => {
+  const requestDelete = async (study) => {
     // Check for dependent groups
     try {
       const qGroups = query(
@@ -168,6 +209,7 @@ export default function Studies() {
           </p>
         </div>
         <button 
+          id="btn-link-study"
           className="btn-primary" 
           onClick={() => setAddModalOpen(true)}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -182,7 +224,7 @@ export default function Studies() {
           <div style={{ padding: '3rem', textAlign: 'center' }}>
             <p>Cargando oferta educativa...</p>
           </div>
-        ) : iesEstudios.length === 0 ? (
+                ) : iesEstudios.length === 0 ? (
           <div style={{ padding: '4rem', textAlign: 'center' }}>
             <div style={{ 
               width: '64px', 
@@ -206,69 +248,90 @@ export default function Studies() {
             </button>
           </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Titulación</th>
-                <th>Tipo</th>
-                <th>Cursos</th>
-                <th style={{ textAlign: 'right' }}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {iesEstudios.map(study => (
-                <tr key={study.id}>
-                  <td>
-                    <div style={{ fontWeight: '600' }}>{study.nombre}</div>
-                  </td>
-                  <td>
-                    <span style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
-                      background: 'rgba(255,255,255,0.05)', 
-                      fontSize: '0.75rem',
-                      border: '1px solid var(--border-color)'
-                    }}>
-                      {study.tipo}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                      {study.cursos?.map(curso => (
-                        <span key={curso} className="badge badge-accent">
-                          {curso}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button 
-                      className="btn-icon btn-danger" 
-                      onClick={() => confirmDelete(study)}
-                      title="Desvincular titulación"
-                    >
-                      <svg 
-                        viewBox="0 0 24 24" 
-                        width="20" 
-                        height="20" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <path d="M3 6h18"></path>
-                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                      </svg>
-                    </button>
-                  </td>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Titulación</th>
+                  <th style={{ textAlign: 'left' }}>Tipo</th>
+                  <th style={{ textAlign: 'left' }}>Departamentos</th>
+                  <th style={{ textAlign: 'left' }}>Cursos</th>
+                  <th style={{ textAlign: 'right', width: '80px' }}>ACCIONES</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {iesEstudios.map(study => (
+                  <tr key={study.id}>
+                    <td>
+                      <div style={{ fontWeight: '600' }}>{study.nombre}</div>
+                    </td>
+                    <td>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        background: 'rgba(255,255,255,0.05)', 
+                        fontSize: '0.75rem',
+                        border: '1px solid var(--border-color)'
+                      }}>
+                        {study.tipo}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {study.departamentos?.map(dept => (
+                          <span key={dept} style={{ 
+                            fontSize: '0.7rem', 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            background: 'rgba(16, 185, 129, 0.1)', 
+                            color: '#10b981',
+                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                          }}>
+                            {dept}
+                          </span>
+                        )) || <em style={{ fontSize: '0.75rem', opacity: 0.5 }}>Sin asignar</em>}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        {study.cursos?.map(curso => (
+                          <span key={curso} className="badge badge-accent">
+                            {curso}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        {(activeRole === 'jefe_estudios' || (activeRole === 'jefe_departamento' && study.departamentos?.includes(userDept))) && (
+                          <button 
+                            className="btn-delete" 
+                            onClick={() => requestDelete(study)}
+                            title="Desvincular titulación"
+                          >
+                            <svg 
+                              viewBox="0 0 24 24" 
+                              width="18" 
+                              height="18" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -277,19 +340,27 @@ export default function Studies() {
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         title="Vincular Nueva Titulación"
-        maxWidth="700px"
+        maxWidth="800px"
         footer={
-          <button 
-            className="btn-primary" 
-            style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
-            onClick={() => setAddModalOpen(false)}
-          >
-            Cerrar
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {selectedDepartments.length} departamentos seleccionados
+            </p>
+            <button 
+              className="btn-primary" 
+              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+              onClick={() => {
+                setAddModalOpen(false);
+                setSelectedDepartments([]);
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ padding: '0 0.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 250px', gap: '1.5rem', alignItems: 'start' }}>
+          <div style={{ padding: '0' }}>
             <div className="search-box" style={{ position: 'relative' }}>
               <svg 
                 viewBox="0 0 24 24" 
@@ -337,66 +408,108 @@ export default function Studies() {
             </div>
           </div>
 
+          {/* Department Selection Sidebar */}
           <div style={{ 
-            maxHeight: '400px', 
-            overflowY: 'auto', 
-            border: '1px solid var(--border-color)',
+            background: 'rgba(255,255,255,0.02)', 
+            border: '1px solid var(--border-color)', 
             borderRadius: 'var(--radius-md)',
-            background: 'rgba(0, 0, 0, 0.1)'
+            padding: '1rem',
+            height: '100%'
           }}>
-            {filteredGlobal.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                No se encontraron titulaciones.
-              </div>
-            ) : (
-              <table className="data-table" style={{ fontSize: '0.85rem' }}>
-                <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface-color)' }}>
-                  <tr>
-                    <th>Nombre / Familia</th>
-                    <th>Tipo</th>
-                    <th style={{ textAlign: 'right' }}>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredGlobal.map(s => (
-                    <tr key={s.id}>
-                      <td>
-                        <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{s.nombre}</div>
-                        {s.familia && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{s.familia}</div>}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>{s.tipo}</span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button 
-                          className="btn-primary" 
-                          style={{ padding: '6px 16px', fontSize: '0.8rem' }}
-                          onClick={() => handleAddStudyById(s)}
-                          disabled={isProcessing}
-                        >
-                          Vincular
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <h3 style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>Asignar Departamentos</h3>
+            <div style={{ maxHeight: '430px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {departments.map(dept => (
+                <label key={dept} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  fontSize: '0.8rem', 
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  background: selectedDepartments.includes(dept) ? 'rgba(99, 102, 241, 0.1)' : 'transparent'
+                }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedDepartments.includes(dept)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedDepartments([...selectedDepartments, dept]);
+                      } else {
+                        setSelectedDepartments(selectedDepartments.filter(d => d !== dept));
+                      }
+                    }}
+                  />
+                  {dept}
+                </label>
+              ))}
+            </div>
           </div>
 
-          <div style={{ 
-            padding: '1rem', 
-            borderRadius: 'var(--radius-md)', 
-            background: 'rgba(99, 102, 241, 0.05)',
-            border: '1px solid rgba(99, 102, 241, 0.1)',
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem'
-          }}>
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <p>Selecciona una titulación de la oferta oficial para incorporarla a tu centro.</p>
+          <div style={{ gridColumn: '1 / span 2' }}>
+            <div style={{ 
+              maxHeight: '350px', 
+              overflowY: 'auto', 
+              overflowX: 'auto',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(0, 0, 0, 0.1)'
+            }}>
+              {filteredGlobal.length === 0 ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  No se encontraron titulaciones.
+                </div>
+              ) : (
+                <table className="data-table" style={{ fontSize: '0.85rem' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface-color)' }}>
+                    <tr>
+                      <th>Nombre / Familia</th>
+                      <th>Tipo</th>
+                      <th style={{ textAlign: 'right' }}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredGlobal.map(s => (
+                      <tr key={s.id}>
+                        <td>
+                          <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{s.nombre}</div>
+                          {s.familia && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{s.familia}</div>}
+                        </td>
+                        <td>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>{s.tipo}</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <button 
+                            className="btn-primary" 
+                            style={{ padding: '6px 16px', fontSize: '0.8rem' }}
+                            onClick={() => handleAddStudyById(s)}
+                            disabled={isProcessing}
+                          >
+                            Vincular
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div style={{ 
+              padding: '1rem', 
+              borderRadius: 'var(--radius-md)', 
+              background: 'rgba(99, 102, 241, 0.05)',
+              border: '1px solid rgba(99, 102, 241, 0.1)',
+              fontSize: '0.85rem',
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginTop: '1.25rem'
+            }}>
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <p>Selecciona una titulación de la oferta oficial para incorporarla a tu centro.</p>
+            </div>
           </div>
         </div>
       </Modal>
@@ -453,13 +566,8 @@ export default function Studies() {
         isOpen={modal.isOpen} 
         onClose={() => setModal({ ...modal, isOpen: false })}
         title={modal.title}
-        footer={
-          <button className="btn-primary" onClick={() => setModal({ ...modal, isOpen: false })}>
-            Entendido
-          </button>
-        }
       >
-        <p>{modal.message}</p>
+        <p style={{ lineHeight: '1.6' }}>{modal.message}</p>
       </Modal>
     </div>
   );

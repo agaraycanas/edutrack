@@ -18,6 +18,7 @@ export default function Departments() {
   const [loading, setLoading] = useState(true);
   const [newDeptName, setNewDeptName] = useState('');
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, dept: null });
   
   const activeIesId = localStorage.getItem('activeIesId');
@@ -200,38 +201,20 @@ export default function Departments() {
     <div className="animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1>Gestión de Departamentos</h1>
-        {!loading && (
-          <button className="btn-primary" onClick={initDefaultDepts} style={{ background: 'var(--accent-secondary)' }}>
-            Sincronizar departamentos por defecto
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="btn-primary" onClick={() => setIsFormOpen(true)}>
+            Nuevo Departamento
           </button>
-        )}
+          {!loading && (
+            <button className="btn-primary" onClick={initDefaultDepts} style={{ background: 'var(--accent-secondary)' }}>
+              Sincronizar departamentos por defecto
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={styles.grid}>
-        {/* Formulario de creación */}
-        <div className="glass-panel" style={styles.card}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Nuevo Departamento</h2>
-          <form onSubmit={handleCreate} style={styles.form}>
-            <div style={styles.field}>
-              <label style={styles.label}>Nombre del Departamento</label>
-              <input 
-                type="text" 
-                className="input-field"
-                placeholder="Ej: Latín"
-                value={newDeptName}
-                onChange={e => setNewDeptName(e.target.value)}
-                required
-              />
-            </div>
-            <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-              Añadir Departamento
-            </button>
-          </form>
-        </div>
-
-        {/* Lista de departamentos */}
-        <div className="glass-panel" style={{ ...styles.card, flex: 2 }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Departamentos del Centro</h2>
+      <div className="glass-panel" style={{ padding: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>Departamentos del Centro</h2>
           {loading ? (
             <p>Cargando departamentos...</p>
           ) : departments.length === 0 ? (
@@ -239,41 +222,82 @@ export default function Departments() {
               No hay departamentos registrados.
             </p>
           ) : (
-            <div style={styles.list}>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: '60px' }}></th>
+                <th>Nombre del Departamento</th>
+                <th>Responsable / Jefe</th>
+                <th style={{ textAlign: 'center', width: '100px' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
               {departments.map(dept => {
                 const head = getDeptHead(dept.nombre);
                 return (
-                  <div key={dept.id} style={styles.deptItem}>
-                    <div style={styles.deptInfo}>
+                  <tr key={dept.id}>
+                    <td>
                       <div style={styles.deptIcon}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                       </div>
-                      <div>
-                        <h3 style={{ fontSize: '1rem', margin: 0 }}>{dept.nombre}</h3>
-                        {head ? (
-                          <div style={styles.headInfo}>
-                            <img src={head.foto || 'https://via.placeholder.com/24'} style={styles.headAvatar} alt="" />
-                            <span style={styles.headName}>Jefe: {head.nombre} {head.apellidos}</span>
-                          </div>
-                        ) : (
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Sin jefe asignado</p>
-                        )}
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => requestDelete(dept)}
-                      style={styles.deleteBtn}
-                      title="Eliminar departamento"
-                    >
-                      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    </button>
-                  </div>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: '600' }}>{dept.nombre}</span>
+                    </td>
+                    <td>
+                      {head ? (
+                        <div style={styles.headInfo}>
+                          <img src={head.foto || 'https://via.placeholder.com/24'} style={styles.headAvatar} alt="" />
+                          <span style={styles.headName}>{head.nombre} {head.apellidos}</span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sin asignar</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button 
+                        onClick={() => requestDelete(dept)}
+                        className="btn-delete"
+                        title="Eliminar departamento"
+                      >
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
+            </tbody>
+          </table>
+          </div>
           )}
         </div>
-      </div>
+
+      <Modal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title="Nuevo Departamento"
+      >
+        <form onSubmit={(e) => {
+          handleCreate(e);
+          setIsFormOpen(false);
+        }} style={styles.form}>
+          <div style={styles.field}>
+            <label style={styles.label}>Nombre del Departamento</label>
+            <input 
+              type="text" 
+              className="input-field"
+              placeholder="Ej: Latín"
+              value={newDeptName}
+              onChange={e => setNewDeptName(e.target.value)}
+              required
+            />
+          </div>
+          <button type="submit" className="btn-primary" style={{ width: '100%' }}>
+            Crear Departamento
+          </button>
+        </form>
+      </Modal>
 
       <Modal 
         isOpen={modal.isOpen} 
@@ -330,7 +354,10 @@ const styles = {
     fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)'
   },
   list: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem'
+    display: 'grid', 
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+    gap: '1rem',
+    paddingBottom: '2rem'
   },
   deptItem: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)'
@@ -349,8 +376,5 @@ const styles = {
   },
   headName: {
     fontSize: '0.75rem', color: 'var(--text-secondary)'
-  },
-  deleteBtn: {
-    background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '4px', transition: 'background 0.2s', flexShrink: 0
   }
 };
