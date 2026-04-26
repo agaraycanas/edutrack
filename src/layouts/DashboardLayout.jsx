@@ -255,10 +255,26 @@ export default function DashboardLayout({ children }) {
 
 const styles = {
   layout: {
-    display: 'flex', minHeight: '100vh', width: '100%', backgroundColor: 'var(--bg-color)', color: 'var(--text-primary)', fontFamily: 'var(--font-family)', textAlign: 'left'
+    display: 'flex', 
+    height: '100vh', 
+    width: '100%', 
+    backgroundColor: 'var(--bg-color)', 
+    color: 'var(--text-primary)', 
+    fontFamily: 'var(--font-family)', 
+    textAlign: 'left',
+    overflow: 'hidden'
   },
   sidebar: {
-    backgroundColor: 'var(--surface-color)', borderRight: '1px solid var(--border-color)', transition: 'width 0.3s ease', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+    backgroundColor: 'var(--surface-color)', 
+    borderRight: '1px solid var(--border-color)', 
+    transition: 'width 0.3s ease', 
+    display: 'flex', 
+    flexDirection: 'column', 
+    height: '100vh',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+    overflowY: 'auto'
   },
   sidebarHeader: {
     height: '64px', display: 'flex', alignItems: 'center', padding: '0 20px', borderBottom: '1px solid var(--border-color)',
@@ -282,7 +298,17 @@ const styles = {
     flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden'
   },
   navbar: {
-    height: '64px', backgroundColor: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
+    height: '64px', 
+    backgroundColor: 'var(--surface-color)', 
+    borderBottom: '1px solid var(--border-color)', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    padding: '0 20px',
+    position: 'sticky',
+    top: 0,
+    zIndex: 50,
+    flexShrink: 0
   },
   navbarRight: {
     display: 'flex', alignItems: 'center', gap: '1.5rem'

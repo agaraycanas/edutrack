@@ -23,6 +23,15 @@ export default function Studies() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const activeIesId = localStorage.getItem('activeIesId');
+  
+  // Helper to normalize text (remove accents/diacritics)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
 
   useEffect(() => {
     fetchData();
@@ -95,11 +104,14 @@ export default function Studies() {
     }
   };
 
-  const filteredGlobal = globalEstudios.filter(s => 
-    s.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.tipo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.familia && s.familia.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredGlobal = globalEstudios.filter(s => {
+    const term = normalizeText(searchTerm);
+    return (
+      normalizeText(s.nombre).includes(term) ||
+      normalizeText(s.tipo).includes(term) ||
+      (s.familia && normalizeText(s.familia).includes(term))
+    );
+  });
 
   const confirmDelete = async (study) => {
     // Check for dependent groups
@@ -279,7 +291,20 @@ export default function Studies() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{ padding: '0 0.5rem' }}>
             <div className="search-box" style={{ position: 'relative' }}>
-              <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <svg 
+                viewBox="0 0 24 24" 
+                width="18" 
+                height="18" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
               <input 
                 type="text" 
                 className="input-field" 
@@ -288,6 +313,27 @@ export default function Studies() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 autoFocus
               />
+              {searchTerm && (
+                <button 
+                  className="btn-clear" 
+                  onClick={() => setSearchTerm('')}
+                  title="Borrar búsqueda"
+                >
+                  <svg 
+                    viewBox="0 0 24 24" 
+                    width="16" 
+                    height="16" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
