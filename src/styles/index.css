@@ -29,18 +29,20 @@
   --radius-lg: 1rem;
 
   /* Role Specific Colors */
-  --role-admin: #ef4444;       /* Rojo */
+  --role-superadmin: #f59e0b;  /* Oro */
   --role-estudios: #3b82f6;    /* Azul */
   --role-depto: #10b981;       /* Verde */
-  --role-profesor: #6366f1;    /* Indigo (Default) */
+  --role-profesor: #6366f1;    /* Indigo */
+  --role-alumno: #f97316;      /* Naranja */
   
   --active-role-color: var(--role-profesor);
 }
 
-.role-theme-admin { --active-role-color: var(--role-admin); --accent-primary: var(--role-admin); }
-.role-theme-estudios { --active-role-color: var(--role-estudios); --accent-primary: var(--role-estudios); }
-.role-theme-depto { --active-role-color: var(--role-depto); --accent-primary: var(--role-depto); }
+.role-theme-superadmin { --active-role-color: var(--role-superadmin); --accent-primary: var(--role-superadmin); }
+.role-theme-jefe_estudios { --active-role-color: var(--role-estudios); --accent-primary: var(--role-estudios); }
+.role-theme-jefe_departamento { --active-role-color: var(--role-depto); --accent-primary: var(--role-depto); }
 .role-theme-profesor { --active-role-color: var(--role-profesor); --accent-primary: var(--role-profesor); }
+.role-theme-alumno { --active-role-color: var(--role-alumno); --accent-primary: var(--role-alumno); }
 
 
 body {
@@ -139,6 +141,38 @@ a:hover {
 select option {
   background-color: #1a1f2e; /* --surface-color */
   color: white;
+}
+
+/* Table & Grid Polishes */
+tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.approvals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.approval-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .approval-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .approval-card .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 

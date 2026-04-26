@@ -5,25 +5,6 @@ import { auth, db } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, getDocs, setDoc, doc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 
-const DEPARTAMENTOS = [
-  'Informática',
-  'Matemáticas',
-  'Lengua Castellana y Literatura',
-  'Geografía e Historia',
-  'Inglés',
-  'Física y Química',
-  'Biología y Geología',
-  'Dibujo',
-  'Música',
-  'Educación Física',
-  'Filosofía',
-  'Orientación',
-  'Tecnología',
-  'Economía',
-  'Latín y Griego',
-  'Francés',
-  'Religión'
-];
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -34,6 +15,7 @@ export default function Register() {
     departamento: ''
   });
   const [iesList, setIesList] = useState([]);
+  const [deptList, setDeptList] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [checkingRequest, setCheckingRequest] = useState(true);
@@ -45,28 +27,8 @@ export default function Register() {
     const fetchIES = async () => {
       const querySnapshot = await getDocs(collection(db, 'ies'));
       const list = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      const validIds = ['ies_rey_fernando', 'ies_prueba'];
-      
-      // 1. Borrar duplicados antiguos
-      for (const item of list) {
-        if (!validIds.includes(item.id)) {
-          await deleteDoc(doc(db, 'ies', item.id));
-        }
-      }
-
-      // 2. Asegurar que los básicos existen
-      const defaultIES = [
-        { id: 'ies_rey_fernando', nombre: 'IES Rey Fernando VI' },
-        { id: 'ies_prueba', nombre: 'IES PRUEBA' }
-      ];
-      for (const ies of defaultIES) {
-        await setDoc(doc(db, 'ies', ies.id), { nombre: ies.nombre });
-      }
-
-      // 3. Volver a cargar la lista limpia
-      const updatedSnapshot = await getDocs(collection(db, 'ies'));
-      setIesList(updatedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      list.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      setIesList(list);
     };
 
     const checkExistingRequest = async () => {
@@ -87,6 +49,30 @@ export default function Register() {
     fetchIES();
     checkExistingRequest();
   }, []);
+
+  // Fetch departments when IES changes
+  useEffect(() => {
+    const fetchDepts = async () => {
+      if (!formData.iesId) {
+        setDeptList([]);
+        return;
+      }
+      try {
+        const q = query(
+          collection(db, 'departamentos'),
+          where('iesId', '==', formData.iesId)
+        );
+        const snapshot = await getDocs(q);
+        const depts = snapshot.docs.map(doc => doc.data().nombre);
+        // Ordenar alfabéticamente
+        depts.sort((a, b) => a.localeCompare(b));
+        setDeptList(depts);
+      } catch (err) {
+        console.error("Error fetching departments:", err);
+      }
+    };
+    fetchDepts();
+  }, [formData.iesId]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -112,10 +98,11 @@ export default function Register() {
         email: email,
         foto: auth.currentUser.photoURL,
         roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'superadmin', estado: 'activo' }] : [], 
+        iesIds: [formData.iesId],
         createdAt: new Date()
       });
 
-      // 2. Crear solicitud de rol (Solo si NO es admin supremo)
+      // 2. Crear solicitud de rol (Solo si NO es superadmin)
       if (!isAdminSupremo) {
         await addDoc(collection(db, 'solicitudes'), {
           userId: auth.currentUser.uid,
@@ -138,7 +125,7 @@ export default function Register() {
         setModal({
           isOpen: true,
           title: '¡Bienvenido!',
-          message: 'Tu cuenta de Administrador Supremo ha sido activada automáticamente. Ya puedes empezar a gestionar la plataforma.',
+          message: 'Tu cuenta de Súperadmin ha sido activada automáticamente. Ya puedes empezar a gestionar la plataforma.',
           type: 'success'
         });
       }
@@ -164,17 +151,19 @@ export default function Register() {
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <p>Hola <b>{auth.currentUser?.email}</b>,</p>
             <p>Ya tienes una solicitud pendiente para el rol de <b>{pendingRequest.rol.replace('_', ' ').toUpperCase()}</b> {pendingRequest.departamento ? `en el departamento de ${pendingRequest.departamento}` : ''} en <b>{pendingRequest.iesNombre}</b>.</p>
-            <div style={{ padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)' }}>
-              <p style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                Tu solicitud está siendo revisada por los responsables del centro. Te enviaremos un correo electrónico en cuanto sea aprobada.
+            
+            <div style={{ padding: '1.5rem', background: 'rgba(99, 102, 241, 0.1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)', margin: '0.5rem 0' }}>
+              <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                Tu solicitud está siendo revisada por los responsables del centro. Recibirás un correo electrónico de confirmación en cuanto tu cuenta sea activada.
               </p>
             </div>
-            <button className="btn-primary" onClick={() => navigate('/home')}>Ir al Inicio</button>
+
             <button 
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}
+              className="btn-primary" 
+              style={{ width: '100%', marginTop: '0.5rem' }}
               onClick={() => signOut(auth).then(() => navigate('/login'))}
             >
-              Cerrar Sesión
+              Volver al Inicio
             </button>
           </div>
         </div>
@@ -238,7 +227,7 @@ export default function Register() {
             <option value="profesor">Profesor</option>
             <option value="jefe_departamento">Jefe de Departamento</option>
             <option value="jefe_estudios">Jefe de Estudios</option>
-            <option value="admin">Administrador (del Centro)</option>
+            <option value="alumno">Alumno</option>
           </select>
         </div>
 
@@ -252,7 +241,7 @@ export default function Register() {
               onChange={e => setFormData({...formData, departamento: e.target.value})}
             >
               <option value="">Selecciona un departamento...</option>
-              {DEPARTAMENTOS.map(dept => (
+              {deptList.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>

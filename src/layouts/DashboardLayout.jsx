@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../config/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { doc, getDoc, collection, query, where, onSnapshot, getDocs, updateDoc } from 'firebase/firestore';
+import { useNavigate, Link, Outlet } from 'react-router-dom';
 
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -11,6 +11,7 @@ export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
 
   const [pendingCount, setPendingCount] = useState(0);
+  const [centerStaff, setCenterStaff] = useState([]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -26,7 +27,13 @@ export default function DashboardLayout({ children }) {
             localStorage.setItem('activeRole', firstRole.rol);
             localStorage.setItem('activeIesId', firstRole.iesId);
           } else if (data.roles && data.roles.length > 0) {
-            // Si el rol ya es correcto, aseguramos que el IES ID esté en localStorage
+            // Migración: Si no tiene iesIds, lo creamos a partir de sus roles
+            if (!data.iesIds && data.roles) {
+              const ids = [...new Set(data.roles.map(r => r.iesId))].filter(Boolean);
+              await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { iesIds: ids });
+              data.iesIds = ids;
+            }
+
             const currentRoleData = data.roles.find(r => r.rol === activeRole);
             if (currentRoleData) {
               localStorage.setItem('activeIesId', currentRoleData.iesId);
@@ -38,39 +45,61 @@ export default function DashboardLayout({ children }) {
     fetchProfile();
   }, [activeRole]);
 
+  // Listener para el staff del centro (necesario para la jerarquía de la badge)
+  useEffect(() => {
+    if (!auth.currentUser || activeRole === 'profesor' || activeRole === 'superadmin') {
+      setCenterStaff([]);
+      return;
+    }
+
+    const activeIesId = localStorage.getItem('activeIesId');
+    const q = query(
+      collection(db, 'usuarios'),
+      where('iesIds', 'array-contains', activeIesId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const staff = snapshot.docs
+        .map(doc => doc.data())
+        .filter(u => u.roles?.some(r => r.iesId === activeIesId && r.estado === 'activo'));
+      setCenterStaff(staff);
+    });
+
+    return () => unsubscribe();
+  }, [activeRole]);
+
+  // Listener para solicitudes
   useEffect(() => {
     if (!auth.currentUser || activeRole === 'profesor') {
       setPendingCount(0);
       return;
     }
 
-    const q = query(
-      collection(db, 'solicitudes'),
-      where('estado', '==', 'pendiente')
-    );
+    const activeIesId = localStorage.getItem('activeIesId');
+    let q;
+    if (activeRole === 'superadmin') {
+      q = query(collection(db, 'solicitudes'), where('estado', '==', 'pendiente'));
+    } else {
+      q = query(
+        collection(db, 'solicitudes'),
+        where('estado', '==', 'pendiente'),
+        where('iesId', '==', activeIesId)
+      );
+    }
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const activeIesId = localStorage.getItem('activeIesId');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const allSols = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Para la badge necesitamos la jerarquía exacta
-      let centerStaff = [];
-      if (activeRole !== 'superadmin') {
-        const usersSnapshot = await getDocs(collection(db, 'usuarios'));
-        centerStaff = usersSnapshot.docs
-          .map(doc => doc.data())
-          .filter(u => u.roles?.some(r => r.iesId === activeIesId && r.estado === 'activo'));
-      }
-
       const filtered = allSols.filter(sol => {
         if (activeRole === 'superadmin') return true;
-        if (sol.iesId !== activeIesId) return false;
-
+        
+        // Jefe de Departamento: Solo ve a sus profesores
         if (activeRole === 'jefe_departamento') {
           const myDept = userProfile?.roles?.find(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId)?.departamento;
           return sol.rol === 'profesor' && sol.departamento === myDept;
         }
 
+        // Jefe de Estudios:
         if (activeRole === 'jefe_estudios') {
           if (sol.rol === 'jefe_departamento') return true;
           if (sol.rol === 'profesor') {
@@ -80,19 +109,6 @@ export default function DashboardLayout({ children }) {
             return !hasJefeDept;
           }
         }
-
-        if (activeRole === 'admin') {
-          if (sol.rol === 'jefe_estudios') return true;
-          if (sol.rol === 'jefe_departamento') {
-            const hasJefeEstudios = centerStaff.some(u => u.roles?.some(r => r.rol === 'jefe_estudios' && r.iesId === activeIesId && r.estado === 'activo'));
-            return !hasJefeEstudios;
-          }
-          if (sol.rol === 'profesor') {
-            const hasJefeEstudios = centerStaff.some(u => u.roles?.some(r => r.rol === 'jefe_estudios' && r.iesId === activeIesId && r.estado === 'activo'));
-            const hasJefeDept = centerStaff.some(u => u.roles?.some(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId && r.departamento === sol.departamento && r.estado === 'activo'));
-            return !hasJefeEstudios && !hasJefeDept;
-          }
-        }
         return false;
       });
 
@@ -100,7 +116,7 @@ export default function DashboardLayout({ children }) {
     });
 
     return () => unsubscribe();
-  }, [auth.currentUser, activeRole, userProfile]);
+  }, [auth.currentUser, activeRole, userProfile, centerStaff]);
 
   const handleRoleChange = (newRole, newIesId) => {
     setActiveRole(newRole);
@@ -122,11 +138,11 @@ export default function DashboardLayout({ children }) {
 
   const getRoleLabel = (roleId) => {
     const labels = {
-      superadmin: 'Super Administrador',
-      admin: 'Administrador',
+      superadmin: 'Súperadmin',
       jefe_estudios: 'Jefe de Estudios',
       jefe_departamento: 'Jefe de Depto.',
-      profesor: 'Profesor'
+      profesor: 'Profesor',
+      alumno: 'Alumno'
     };
     return labels[roleId] || roleId;
   };
@@ -143,19 +159,41 @@ export default function DashboardLayout({ children }) {
         </div>
         
         <nav style={styles.nav}>
-          <a href="/home" style={styles.navItem}>
+          <Link to="/home" style={styles.navItem}>
              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
              {isSidebarOpen && <span>Inicio</span>}
-          </a>
+          </Link>
+
+          <Link to="/users" style={styles.navItem}>
+             <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+             {isSidebarOpen && <span>Usuarios</span>}
+          </Link>
           
           {activeRole !== 'profesor' && (
-            <a href="/approvals" style={styles.navItem}>
+            <Link to="/approvals" style={styles.navItem}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                 {pendingCount > 0 && <span style={styles.badge}>{pendingCount}</span>}
               </div>
               {isSidebarOpen && <span>Solicitudes</span>}
-            </a>
+            </Link>
+          )}
+
+          {activeRole === 'jefe_estudios' && (
+            <>
+              <Link to="/academic-years" style={styles.navItem}>
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                {isSidebarOpen && <span>Curso Académico</span>}
+              </Link>
+              <Link to="/departments" style={styles.navItem}>
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                {isSidebarOpen && <span>Departamentos</span>}
+              </Link>
+              <Link to="/studies" style={styles.navItem}>
+                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                {isSidebarOpen && <span>Estudios</span>}
+              </Link>
+            </>
           )}
         </nav>
 
@@ -192,20 +230,11 @@ export default function DashboardLayout({ children }) {
                   }}
                 >
                   {/* Si el usuario tiene roles reales, los mostramos. Si no (o es dev bypass), mostramos todos para pruebas */}
-                  {userProfile?.roles?.length > 0 ? (
-                    userProfile.roles.filter(r => r.estado === 'activo').map(r => (
-                      <option key={(r.rol || 'rol') + (r.iesId || 'ies')} value={r.rol} data-ies={r.iesId}>
-                        {getRoleLabel(r.rol)} ({r.iesId})
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="profesor">Profesor</option>
-                      <option value="jefe_departamento">Jefe de Depto.</option>
-                      <option value="jefe_estudios">Jefe de Estudios</option>
-                      <option value="admin">Administrador</option>
-                    </>
-                  )}
+                  {userProfile?.roles?.filter(r => r.estado === 'activo').map(r => (
+                    <option key={(r.rol || 'rol') + (r.iesId || 'ies')} value={r.rol} data-ies={r.iesId}>
+                      {getRoleLabel(r.rol)} ({r.iesId})
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -217,7 +246,7 @@ export default function DashboardLayout({ children }) {
 
         {/* Page Content */}
         <main style={styles.pageContent}>
-          {children}
+          {children || <Outlet />}
         </main>
       </div>
     </div>

@@ -26,11 +26,21 @@ export default function Approvals() {
         const activeRole = localStorage.getItem('activeRole') || 'profesor';
         const activeIesId = localStorage.getItem('activeIesId');
         
-        // 1. Traer todas las solicitudes pendientes
-        const q = query(
-          collection(db, 'solicitudes'), 
-          where('estado', '==', 'pendiente')
-        );
+        // 1. Traer solicitudes según permisos
+        let q;
+        if (activeRole === 'superadmin') {
+          q = query(
+            collection(db, 'solicitudes'), 
+            where('estado', '==', 'pendiente')
+          );
+        } else {
+          q = query(
+            collection(db, 'solicitudes'), 
+            where('estado', '==', 'pendiente'),
+            where('iesId', '==', activeIesId)
+          );
+        }
+        
         const querySnapshot = await getDocs(q);
         const allSolicitudes = querySnapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -41,15 +51,9 @@ export default function Approvals() {
         if (activeRole !== 'superadmin') {
           const staffQuery = query(
             collection(db, 'usuarios'),
-            where('roles', 'array-contains-any', [
-              { iesId: activeIesId, rol: 'admin', estado: 'activo' },
-              { iesId: activeIesId, rol: 'jefe_estudios', estado: 'activo' },
-              { iesId: activeIesId, rol: 'jefe_departamento', estado: 'activo' }
-            ])
+            where('iesIds', 'array-contains', activeIesId)
           );
-          // Nota: array-contains-any con objetos exactos es difícil en Firestore.
-          // Mejor traemos todos los usuarios que tengan roles y filtramos en memoria.
-          const usersSnapshot = await getDocs(collection(db, 'usuarios'));
+          const usersSnapshot = await getDocs(staffQuery);
           centerStaff = usersSnapshot.docs
             .map(doc => doc.data())
             .filter(u => u.roles?.some(r => r.iesId === activeIesId && r.estado === 'activo'));
@@ -81,31 +85,6 @@ export default function Approvals() {
             }
           }
 
-          // Admin:
-          if (activeRole === 'admin') {
-            // Ve jefes de estudios
-            if (sol.rol === 'jefe_estudios') return true;
-            
-            // Ve jefes de departamento SI no hay jefe de estudios
-            if (sol.rol === 'jefe_departamento') {
-              const hasJefeEstudios = centerStaff.some(u => 
-                u.roles?.some(r => r.rol === 'jefe_estudios' && r.iesId === activeIesId && r.estado === 'activo')
-              );
-              return !hasJefeEstudios;
-            }
-
-            // Ve profesores SI no hay jefe de estudios Y no hay jefe de departamento para ese dept
-            if (sol.rol === 'profesor') {
-              const hasJefeEstudios = centerStaff.some(u => 
-                u.roles?.some(r => r.rol === 'jefe_estudios' && r.iesId === activeIesId && r.estado === 'activo')
-              );
-              const hasJefeDept = centerStaff.some(u => 
-                u.roles?.some(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId && r.departamento === sol.departamento && r.estado === 'activo')
-              );
-              return !hasJefeEstudios && !hasJefeDept;
-            }
-          }
-
           return false;
         });
 
@@ -126,6 +105,16 @@ export default function Approvals() {
       
       if (action === 'accept') {
         const userRef = doc(db, 'usuarios', solicitud.userId);
+        const roleLabels = {
+          superadmin: 'Súperadmin',
+          jefe_estudios: 'Jefe de Estudios',
+          jefe_departamento: 'Jefe de Departamento',
+          profesor: 'Profesor',
+          alumno: 'Alumno'
+        };
+
+        const roleLabel = roleLabels[solicitud.rol] || solicitud.rol;
+
         await updateDoc(userRef, {
           roles: arrayUnion({
             iesId: solicitud.iesId,
@@ -133,7 +122,8 @@ export default function Approvals() {
             rol: solicitud.rol,
             departamento: solicitud.departamento || null,
             estado: 'activo'
-          })
+          }),
+          iesIds: arrayUnion(solicitud.iesId)
         });
         await updateDoc(solRef, { estado: 'aceptada' });
 
@@ -145,7 +135,7 @@ export default function Approvals() {
             html: `
               <div style="font-family: sans-serif; padding: 20px; color: #333;">
                 <h2>Hola ${solicitud.userName},</h2>
-                <p>Nos complace informarte que tu solicitud para el rol de <b>${solicitud.rol.replace('_', ' ')}</b> ${solicitud.departamento ? `en el departamento de <b>${solicitud.departamento}</b>` : ''} en el centro <b>${solicitud.iesNombre}</b> ha sido aprobada.</p>
+                <p>Nos complace informarte que tu solicitud para el rol de <b>${roleLabel}</b> ${solicitud.departamento ? `en el departamento de <b>${solicitud.departamento}</b>` : ''} en el centro <b>${solicitud.iesNombre}</b> ha sido aprobada.</p>
                 <p>Ya puedes acceder a la plataforma y comenzar a utilizar todas las funciones disponibles para tu perfil.</p>
                 <div style="margin: 30px 0;">
                   <a href="${window.location.origin}/login" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a EduTrack</a>
@@ -194,12 +184,16 @@ export default function Approvals() {
         <div style={styles.list}>
           {solicitudes.map(sol => (
             <div key={sol.id} className="glass-panel" style={styles.card}>
-              <div style={styles.info}>
-                <h3 style={{ margin: 0 }}>{sol.userName}</h3>
-                <p style={{ margin: '5px 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{sol.userEmail}</p>
-                <div style={styles.badgeContainer}>
+              <div style={{ ...styles.info, flex: 1, minWidth: 0 }}>
+                <h3 style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {sol.userName}
+                </h3>
+                <p style={{ margin: '5px 0', color: 'var(--text-secondary)', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {sol.userEmail}
+                </p>
+                <div style={{ ...styles.badgeContainer, flexWrap: 'wrap' }}>
                   <span className={`role-theme-${sol.rol}`} style={styles.badge}>
-                    {sol.rol.replace('_', ' ').toUpperCase()}
+                    {(roleLabels[sol.rol] || sol.rol).toUpperCase()}
                   </span>
                   {sol.departamento && (
                     <span style={styles.deptBadge}>
@@ -209,17 +203,27 @@ export default function Approvals() {
                   <span style={styles.iesBadge}>{sol.iesNombre}</span>
                 </div>
               </div>
-              <div style={styles.actions}>
+              <div style={{ ...styles.actions, flexShrink: 0 }}>
                 <button 
                   className="btn-primary" 
-                  style={{ backgroundColor: '#10b981' }} 
+                  style={{ 
+                    background: '#10b981', 
+                    padding: '0.5rem 1rem', 
+                    fontSize: '0.85rem',
+                    minWidth: '90px'
+                  }} 
                   onClick={() => handleAction(sol, 'accept')}
                 >
                   Aceptar
                 </button>
                 <button 
                   className="btn-primary" 
-                  style={{ backgroundColor: '#ef4444' }} 
+                  style={{ 
+                    background: '#ef4444', 
+                    padding: '0.5rem 1rem', 
+                    fontSize: '0.85rem',
+                    minWidth: '90px'
+                  }} 
                   onClick={() => handleAction(sol, 'deny')}
                 >
                   Denegar
@@ -241,21 +245,49 @@ export default function Approvals() {
   );
 }
 
+const roleLabels = {
+  superadmin: 'Súperadmin',
+  jefe_estudios: 'Jefe de Estudios',
+  jefe_departamento: 'Jefe de Depto.',
+  profesor: 'Profesor',
+  alumno: 'Alumno'
+};
+
 const styles = {
   list: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   card: {
-    padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem'
+    padding: '1.5rem', 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    gap: '1.5rem',
+    flexWrap: 'wrap'
   },
-  info: { display: 'flex', flexDirection: 'column', gap: '0.2rem' },
-  badgeContainer: { display: 'flex', gap: '10px', marginTop: '10px' },
+  info: { 
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: '0.2rem',
+    flex: '1 1 300px',
+    minWidth: 0
+  },
+  badgeContainer: { 
+    display: 'flex', 
+    gap: '10px', 
+    marginTop: '10px',
+    flexWrap: 'wrap'
+  },
   badge: {
-    padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', color: 'white', backgroundColor: 'var(--active-role-color)'
+    padding: '4px 12px', borderRadius: '50px', fontSize: '0.7rem', fontWeight: '700', color: 'white', backgroundColor: 'var(--active-role-color)', whiteSpace: 'nowrap'
   },
   iesBadge: {
-    padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)'
+    padding: '4px 12px', borderRadius: '50px', fontSize: '0.7rem', fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', whiteSpace: 'nowrap'
   },
   deptBadge: {
-    padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: '700', color: 'var(--accent-secondary)', backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid var(--accent-secondary)'
+    padding: '4px 12px', borderRadius: '50px', fontSize: '0.7rem', fontWeight: '700', color: 'var(--accent-secondary)', backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid var(--accent-secondary)', whiteSpace: 'nowrap'
   },
-  actions: { display: 'flex', gap: '0.5rem' }
+  actions: { 
+    display: 'flex', 
+    gap: '0.75rem',
+    flex: '0 0 auto'
+  }
 };
