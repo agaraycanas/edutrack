@@ -144,8 +144,30 @@ select option {
 }
 
 /* Table & Grid Polishes */
-tr:hover {
-  background-color: rgba(255, 255, 255, 0.02);
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+tr:hover td {
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .approvals-list {
@@ -208,27 +230,34 @@ tr:hover {
 }
 
 .modal-content {
-  width: 90%;
-  max-width: 500px;
-  padding: 2rem;
+  width: 95%;
+  padding: 0;
   position: relative;
   border: 1px solid var(--glass-border);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-header {
-  margin-bottom: 1.5rem;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .modal-body {
-  margin-bottom: 2rem;
+  padding: 2rem;
   line-height: 1.6;
 }
 
 .modal-footer {
+  padding: 1.5rem 2rem;
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 /* Notifications / Toasts */
@@ -258,3 +287,59 @@ tr:hover {
 .toast-success { border-left: 4px solid #10b981; }
 .toast-error { border-left: 4px solid #ef4444; }
 .toast-info { border-left: 4px solid #3b82f6; }
+
+/* Icon Buttons */
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  alignItems: center;
+  justifyContent: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-icon.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Search Box */
+.search-box {
+  width: 100%;
+  position: relative;
+}
+
+.search-box .input-field {
+  padding-left: 3rem !important;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.badge-accent {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
