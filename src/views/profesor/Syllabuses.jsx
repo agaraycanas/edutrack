@@ -1,61 +1,95 @@
-import { useState, useEffect } from 'react';
-import { db, auth } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { db, auth } from '../../config/firebase';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  doc,
+  setDoc,
+  serverTimestamp
+} from 'firebase/firestore';
+import { calcularHorasReales } from '../../utils/timeCalculations';
+import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 
 export default function Syllabuses() {
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState([]);
   const [programaciones, setProgramaciones] = useState([]);
+  const [horarios, setHorarios] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState('all');
   const navigate = useNavigate();
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState(null);
+  const [tempTemas, setTempTemas] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
-
-  // Form State
-  const [imparticionId, setImparticionId] = useState('');
-  const [temas, setTemas] = useState([{ id: 1, nombre: '', horasEstimadas: '' }]);
+  const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '' });
 
   const activeIesId = localStorage.getItem('activeIesId');
   const uid = auth.currentUser?.uid;
-
+  
+  // Fetch initial data
   useEffect(() => {
-    if (activeIesId && uid) {
-      fetchData();
-    }
-  }, [activeIesId, uid]);
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      if (user && activeIesId) {
+        fetchData(user.uid, activeIesId);
+      } else if (!user) {
+        setLoading(false); // Stop loading if no user
+      }
+    });
+    return () => unsubscribe();
+  }, [activeIesId]);
 
-  const fetchData = async () => {
+  const fetchData = async (uid, iesId) => {
     setLoading(true);
+    console.log("Fetching syllabuses data for:", { uid, iesId });
     try {
       // 1. Fetch Teacher's Assignments
       const qAssignments = query(
         collection(db, 'ies_imparticiones'),
-        where('iesId', '==', activeIesId),
-        where('usuarioId', '==', uid)
+        where('usuarioId', '==', uid),
+        where('iesId', '==', iesId)
       );
       const snapAssignments = await getDocs(qAssignments);
-      let assignmentsData = snapAssignments.docs.map(d => ({ id: d.id, ...d.data() }));
+      const assignmentsData = snapAssignments.docs.map(d => ({ id: d.id, ...d.data() }));
 
       // Order
       assignmentsData.sort((a, b) => {
-        if (a.cursoAcademicoLabel !== b.cursoAcademicoLabel) {
-          return b.cursoAcademicoLabel.localeCompare(a.cursoAcademicoLabel);
-        }
-        return a.asignaturaNombre.localeCompare(b.asignaturaNombre);
+        const labelA = a.cursoAcademicoLabel || '';
+        const labelB = b.cursoAcademicoLabel || '';
+        if (labelA !== labelB) return labelB.localeCompare(labelA);
+        return (a.asignaturaNombre || '').localeCompare(b.asignaturaNombre || '');
       });
       setAssignments(assignmentsData);
 
-      // 2. Fetch Programaciones
-      const qProg = query(
-        collection(db, 'profesor_programaciones'),
-        where('iesId', '==', activeIesId),
+      // 2. Fetch ALL programaciones (without filtering by user to support imported data)
+      // We will match them in memory with the assignments we already have.
+      const qProg = query(collection(db, 'profesor_programaciones'), where('usuarioId', '==', userUid));
+      const snapProg = await getDocs(qProg);
+      const progsData = snapProg.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log("Fetched programaciones:", progsData.length);
+      setProgramaciones(progsData);
+
+      // 3. Fetch Horarios
+      const qHorarios = query(
+        collection(db, 'profesor_horarios'),
         where('usuarioId', '==', uid)
       );
-      const snapProg = await getDocs(qProg);
-      setProgramaciones(snapProg.docs.map(d => ({ id: d.id, ...d.data() })));
+      const snapHorarios = await getDocs(qHorarios);
+      setHorarios(snapHorarios.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      // 4. Fetch Academic Years
+      const qYears = query(
+        collection(db, 'cursos_academicos'),
+        where('iesId', '==', iesId)
+      );
+      const snapYears = await getDocs(qYears);
+      setAcademicYears(snapYears.docs.map(d => ({ id: d.id, ...d.data() })));
+
     } catch (error) {
       console.error("Error fetching syllabuses data:", error);
     } finally {
@@ -63,99 +97,150 @@ export default function Syllabuses() {
     }
   };
 
-  const hasStartedThemes = (progId) => {
-    const prog = programaciones.find(p => p.id === progId);
-    if (!prog || !prog.temas) return false;
-    return prog.temas.some(t => t.fechaInicio || t.fechaFin);
-  };
+  // Process data for the table using useMemo to avoid re-renders
+  const displayRows = useMemo(() => {
+    console.log("Calculating displayRows", { 
+      assigns: assignments.length, 
+      progs: programaciones.length 
+    });
 
-  const openNewForm = () => {
-    setImparticionId('');
-    setTemas([{ id: 1, nombre: '', horasEstimadas: '' }]);
-    setIsFormOpen(true);
-  };
+    // We base the list on assignments (imparticiones), not programaciones, 
+    // so the teacher sees what assignments need a programming.
+    return assignments.map(a => {
+      try {
+        // Support matching by imparticionId field OR by document ID (legacy)
+        const p = programaciones.find(prog => prog.imparticionId === a.id || prog.id === a.id);
+        const h = horarios.find(hor => hor.id === a.id);
+        
+        // Find academic year metadata
+        const ay = academicYears.find(year => year.id === a.cursoAcademicoId || year.nombre === a.cursoAcademicoLabel);
+        
+        const duracionSesion = ay?.duracionSesion || 55;
+        const today = new Date().toISOString().split('T')[0];
 
-  const openEditForm = (prog) => {
-    setImparticionId(prog.imparticionId);
-    setTemas(prog.temas || []);
-    setIsFormOpen(true);
-  };
+        // Calculate Estimated Progress Hours (H. EST)
+        let hEst = 0;
+        if (h && ay?.fechaInicioClases) {
+          try {
+            hEst = calcularHorasReales(ay.fechaInicioClases, today, h, duracionSesion);
+          } catch (e) {
+            console.warn("Error calculating hEst for", a.id, e);
+          }
+        }
 
-  const handleAddTema = () => {
-    const nextId = temas.length > 0 ? Math.max(...temas.map(t => t.id)) + 1 : 1;
-    setTemas([...temas, { id: nextId, nombre: '', horasEstimadas: '' }]);
-  };
+        // Calculate Real Hours (H. REAL) and Total Hours
+        let hReal = 0;
+        let totalHours = 0;
+        
+        if (p) {
+          // Total hours from themes
+          totalHours = p.temas?.reduce((acc, t) => acc + (t.horasEstimadas || 0), 0) || 0;
+          
+          // Real hours: prefer p.sesiones if available, fallback to theme dates calculation
+          if (p.sesiones && p.sesiones.length > 0) {
+            hReal = p.sesiones.reduce((acc, s) => acc + (s.horasReales || 0), 0);
+          } else if (p.temas) {
+            p.temas.forEach(t => {
+              if (t.fechaInicio && t.fechaFin && h) {
+                try {
+                  hReal += calcularHorasReales(t.fechaInicio, t.fechaFin, h, duracionSesion);
+                } catch (err) { /* ignore */ }
+              }
+            });
+          }
+        }
 
-  const handleRemoveTema = (index) => {
-    const newTemas = [...temas];
-    newTemas.splice(index, 1);
-    // Re-index
-    const reindexed = newTemas.map((t, i) => ({ ...t, id: i + 1 }));
-    setTemas(reindexed);
-  };
-
-  const handleTemaChange = (index, field, value) => {
-    const newTemas = [...temas];
-    if (field === 'horasEstimadas') {
-      newTemas[index][field] = value === '' ? '' : parseInt(value, 10);
-    } else {
-      newTemas[index][field] = value;
-    }
-    setTemas(newTemas);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!imparticionId) {
-      setModal({ isOpen: true, title: 'Error', message: 'Selecciona una impartición.' });
-      return;
-    }
-    if (temas.length === 0) {
-      setModal({ isOpen: true, title: 'Error', message: 'Debes añadir al menos un tema.' });
-      return;
-    }
-    for (let t of temas) {
-      if (!t.nombre.trim()) {
-        setModal({ isOpen: true, title: 'Error', message: 'Todos los temas deben tener un nombre.' });
-        return;
+        return { 
+          ...a,
+          id: a.id,
+          assignmentLabel: a.label || 'N/A', 
+          cursoAcademicoLabel: a.cursoAcademicoLabel || 'N/A', 
+          asignaturaSigla: a.asignaturaSigla || 'N/A', 
+          asignaturaNombre: a.asignaturaNombre || 'Sin nombre', 
+          grupoNombre: a.grupoNombre || 'Sin grupo',
+          hEst,
+          hReal,
+          totalHours,
+          progRef: p,
+          hasProgramming: !!p,
+          temas: p?.temas || []
+        };
+      } catch (e) {
+        console.error("Error processing row for assignment:", a.id, e);
+        return { 
+          ...a,
+          id: a.id, 
+          asignaturaNombre: a.asignaturaNombre || 'Error', 
+          hasProgramming: false,
+          hEst: 0, hReal: 0, totalHours: 0 
+        };
       }
-      if (t.horasEstimadas === '' || isNaN(t.horasEstimadas) || t.horasEstimadas < 1) {
-        setModal({ isOpen: true, title: 'Error', message: `El tema ${t.id} no tiene un número de horas válido (mínimo 1).` });
-        return;
-      }
-    }
+    });
+  }, [assignments, programaciones, horarios, academicYears]);
 
+  const handleEdit = (row) => {
+    setEditingRow(row);
+    setTempTemas(row.progRef?.temas ? [...row.progRef.temas] : []);
+    setIsEditModalOpen(true);
+  };
+
+  const handleAddTheme = () => {
+    const nextId = tempTemas.length + 1;
+    setTempTemas([...tempTemas, { id: nextId.toString(), nombre: '', horasEstimadas: 1 }]);
+  };
+
+  const handleRemoveTheme = (index) => {
+    setTempTemas(tempTemas.filter((_, i) => i !== index));
+  };
+
+  const handleMoveTheme = (index, direction) => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === tempTemas.length - 1) return;
+    
+    const newTemas = [...tempTemas];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newTemas[index], newTemas[targetIndex]] = [newTemas[targetIndex], newTemas[index]];
+    setTempTemas(newTemas);
+  };
+
+  const handleThemeChange = (index, field, value) => {
+    const newTemas = [...tempTemas];
+    newTemas[index] = { ...newTemas[index], [field]: value };
+    setTempTemas(newTemas);
+  };
+
+  const handleSaveProgramming = async () => {
+    if (!editingRow) return;
     setIsProcessing(true);
     try {
-      // Use imparticionId as the document ID for programaciones (1 to 1 relation)
-      const progRef = doc(db, 'profesor_programaciones', imparticionId);
+      const progRef = doc(db, 'profesor_programaciones', editingRow.id);
       await setDoc(progRef, {
-        imparticionId: imparticionId,
+        imparticionId: editingRow.id,
         iesId: activeIesId,
         usuarioId: uid,
-        temas: temas,
+        temas: tempTemas,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      setModal({ isOpen: true, title: 'Éxito', message: 'Programación guardada correctamente.' });
-      setIsFormOpen(false);
-      fetchData();
+      setMessageModal({ isOpen: true, title: 'Éxito', message: 'Programación guardada correctamente.' });
+      setIsEditModalOpen(false);
+      fetchData(uid, activeIesId);
     } catch (error) {
-      console.error("Error saving syllabus:", error);
-      setModal({ isOpen: true, title: 'Error', message: 'No se pudo guardar la programación.' });
+      console.error("Error saving programming:", error);
+      setMessageModal({ isOpen: true, title: 'Error', message: 'No se pudo guardar la programación.' });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const unassignedAssignments = assignments.filter(a => !programaciones.some(p => p.imparticionId === a.id));
+  const filteredDisplayRows = useMemo(() => {
+    return displayRows.filter(row => {
+      if (selectedYear !== 'all' && row.cursoAcademicoLabel !== selectedYear) return false;
+      return true;
+    });
+  }, [displayRows, selectedYear]);
 
-  const displayRows = programaciones.map(p => {
-    const a = assignments.find(assign => assign.id === p.imparticionId) || {};
-    return { ...p, assignmentLabel: a.label, cursoAcademicoLabel: a.cursoAcademicoLabel, asignaturaSigla: a.asignaturaSigla, asignaturaNombre: a.asignaturaNombre, grupoNombre: a.grupoNombre };
-  }).filter(p => p.assignmentLabel); // Ensure we only show ones that belong to current assignments
-
-  const horasTotales = temas.reduce((acc, t) => acc + (parseInt(t.horasEstimadas, 10) || 0), 0);
+  const uniqueYears = [...new Set(assignments.map(a => a.cursoAcademicoLabel).filter(Boolean))].sort().reverse();
 
   if (loading) return <div style={styles.loading}>Cargando programaciones...</div>;
 
@@ -163,14 +248,26 @@ export default function Syllabuses() {
     <div className="animate-fade-in" style={styles.container}>
       <header style={styles.header}>
         <div style={styles.headerContent}>
-          <div>
-            <h1 style={styles.title}>Mis Programaciones</h1>
-            <p style={styles.subtitle}>Gestión de temas y estimación de horas</p>
+          <div style={styles.titleSection}>
+            <div>
+              <h1 style={styles.title}>Mis Programaciones</h1>
+              <p style={styles.subtitle}>Gestión de contenidos y seguimiento temporal</p>
+            </div>
           </div>
-          <button className="btn-primary" onClick={openNewForm} style={styles.newButton}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Nueva programación
-          </button>
+          
+          <div style={styles.filterBar}>
+             <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>Filtrar por Año</label>
+                <select 
+                  style={styles.filterSelect}
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(e.target.value)}
+                >
+                  <option value="all">Todos los años</option>
+                  {uniqueYears.map(year => <option key={year} value={year}>{year}</option>)}
+                </select>
+             </div>
+          </div>
         </div>
       </header>
 
@@ -178,50 +275,71 @@ export default function Syllabuses() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Año Académico</th>
-              <th style={styles.th}>Grupo</th>
               <th style={styles.th}>Asignatura</th>
-              <th style={styles.th}>Temas</th>
-              <th style={styles.th}>Total Horas Estimadas</th>
-              <th style={{...styles.th, textAlign: 'center'}}>Acciones</th>
+              <th style={{...styles.th, textAlign: 'center'}}>H. Est. vs Real</th>
+              <th style={{...styles.th, textAlign: 'center'}}>Progreso</th>
+              <th style={{...styles.th, textAlign: 'right'}}>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {displayRows.length === 0 ? (
+            {filteredDisplayRows.length === 0 ? (
               <tr>
-                <td colSpan="6" style={styles.emptyState}>No tienes programaciones definidas.</td>
+                <td colSpan="4" style={styles.emptyState}>No se han encontrado imparticiones para los filtros seleccionados.</td>
               </tr>
             ) : (
-              displayRows.map((row) => {
-                const isLocked = hasStartedThemes(row.id);
-                const totalHours = (row.temas || []).reduce((acc, t) => acc + (t.horasEstimadas || 0), 0);
+              filteredDisplayRows.map((row) => {
+                const progressReal = row.totalHours > 0 ? (row.hReal / row.totalHours) * 100 : 0;
+                const progressEst = row.totalHours > 0 ? (row.hEst / row.totalHours) * 100 : 0;
+                
                 return (
                   <tr key={row.id} style={styles.tr}>
-                    <td style={styles.td}><span style={styles.badge}>{row.cursoAcademicoLabel}</span></td>
-                    <td style={styles.td}>{row.grupoNombre}</td>
                     <td style={styles.td}>
-                      <div style={{ fontWeight: '600' }}>{row.asignaturaSigla}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{row.asignaturaNombre}</div>
-                    </td>
-                    <td style={styles.td}>{row.temas?.length || 0}</td>
-                    <td style={styles.td}>{totalHours}h</td>
-                    <td style={{...styles.td, textAlign: 'center', whiteSpace: 'nowrap'}}>
-                      <button 
-                        className="btn-secondary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', marginRight: '0.5rem', opacity: isLocked ? 0.5 : 1 }}
-                        onClick={() => openEditForm(row)}
-                        disabled={isLocked}
-                        title={isLocked ? "No se puede editar: ya hay temas iniciados en el seguimiento." : "Editar programación"}
+                      <div 
+                        style={styles.subjectCell} 
+                        title={`${row.asignaturaNombre} | Grupo: ${row.grupoNombre} | Curso: ${row.cursoAcademicoLabel}`}
                       >
-                        Editar
+                        <div style={styles.subjectIcon}>
+                          <span style={styles.siglaBadge}>{row.asignaturaSigla}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{...styles.td, textAlign: 'center'}}>
+                      <div style={styles.hoursComparison}>
+                        <span style={styles.hourEst}>{row.hEst}h</span>
+                        <span style={styles.hourSeparator}>/</span>
+                        <span style={styles.hourReal}>{row.hReal}h</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>de {row.totalHours}h totales</div>
+                    </td>
+                    <td style={{...styles.td, textAlign: 'center', minWidth: '160px'}}>
+                      <div style={styles.progressWrapper}>
+                        <div style={styles.progressBarBg}>
+                          <div style={{...styles.progressBarFill, width: `${Math.min(100, progressReal)}%`}} />
+                          <div style={{...styles.progressBarTarget, left: `${Math.min(100, progressEst)}%`}} />
+                        </div>
+                        <div style={styles.progressLabels}>
+                          <span>Real: {Math.round(progressReal)}%</span>
+                          <span>Est: {Math.round(progressEst)}%</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{...styles.td, textAlign: 'right', whiteSpace: 'nowrap'}}>
+                      <button 
+                        className="btn-icon" 
+                        style={{ color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)', marginRight: '0.5rem' }}
+                        onClick={() => handleEdit(row)}
+                        title="Editar Temas"
+                      >
+                        <Edit2 size={16} />
                       </button>
                       <button 
-                        className="btn-primary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: '#10b981', color: 'white', border: 'none' }}
+                        className="btn-icon" 
+                        style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}
                         onClick={() => navigate(`/profesor/programaciones/${row.id}/seguimiento`)}
-                        title="Ir al seguimiento"
+                        disabled={!row.hasProgramming}
+                        title={row.hasProgramming ? "Seguimiento de Programación" : "Define los temas primero"}
                       >
-                        Seguimiento
+                        <Activity size={16} />
                       </button>
                     </td>
                   </tr>
@@ -232,110 +350,105 @@ export default function Syllabuses() {
         </table>
       </div>
 
-      {isFormOpen && (
+      {isEditModalOpen && (
         <Modal 
-          isOpen={isFormOpen} 
-          onClose={() => setIsFormOpen(false)}
-          title={imparticionId && programaciones.some(p => p.imparticionId === imparticionId) ? "Editar Programación" : "Nueva Programación"}
-          maxWidth="800px"
+          isOpen={isEditModalOpen} 
+          onClose={() => setIsEditModalOpen(false)}
+          title={`Editar Programación: ${editingRow?.asignaturaSigla} - ${editingRow?.grupoNombre}`}
+          width="800px"
           footer={
-            <div style={{ display: 'flex', gap: '1rem', width: '100%', alignItems: 'center' }}>
-              <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => setIsFormOpen(false)}>Cancelar</button>
-              <button type="submit" form="progForm" className="btn-primary" style={{ flex: 1 }} disabled={isProcessing}>
-                {isProcessing ? 'Guardando...' : 'Guardar Programación'}
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button type="button" className="btn-secondary" style={{ flex: 1 }} onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
+              <button type="button" className="btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={handleSaveProgramming} disabled={isProcessing}>
+                <Save size={18} /> {isProcessing ? 'Guardando...' : 'Guardar Programación'}
               </button>
             </div>
           }
         >
-          <form id="progForm" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group">
-              <label>Impartición</label>
-              {programaciones.some(p => p.imparticionId === imparticionId) ? (
-                <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  {assignments.find(a => a.id === imparticionId)?.label}
-                </div>
-              ) : (
-                <select 
-                  className="input-field" 
-                  value={imparticionId} 
-                  onChange={e => setImparticionId(e.target.value)}
-                  required
-                >
-                  <option value="">Selecciona una impartición...</option>
-                  {unassignedAssignments.map(a => (
-                    <option key={a.id} value={a.id}>{a.label} ({a.asignaturaNombre})</option>
-                  ))}
-                </select>
-              )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#94a3b8' }}>Listado de Temas</h3>
+              <button className="btn-primary" onClick={handleAddTheme} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}>
+                <Plus size={14} style={{ marginRight: '4px' }} /> Añadir Tema
+              </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.75rem 1rem', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', margin: 0 }}>Temas</h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                     <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Total Estimado:</span>
-                     <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--active-role-color)' }}>{horasTotales}h</span>
-                  </div>
-                </div>
-                <button type="button" onClick={handleAddTema} className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                  + Añadir Tema
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '55vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                {temas.map((tema, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px' }}>
-                    <div style={{ width: '40px', textAlign: 'center', fontWeight: 'bold', color: '#94a3b8' }}>
-                      {tema.id}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <input 
-                        type="text" 
-                        className="input-field" 
-                        placeholder="Nombre del tema" 
-                        value={tema.nombre}
-                        onChange={e => handleTemaChange(index, 'nombre', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div style={{ width: '100px' }}>
-                      <input 
-                        type="number" 
-                        className="input-field" 
-                        min="1"
-                        step="1"
-                        value={tema.horasEstimadas === '' ? '' : tema.horasEstimadas}
-                        onChange={e => handleTemaChange(index, 'horasEstimadas', e.target.value)}
-                        required
-                        placeholder="h"
-                      />
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={() => handleRemoveTema(index)} 
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.5rem' }}
-                      title="Eliminar tema"
-                    >
-                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                  </div>
-                ))}
-                {temas.length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1rem', fontStyle: 'italic' }}>
-                    Añade el primer tema de tu programación.
-                  </div>
-                )}
-              </div>
+            <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{...styles.th, padding: '0.5rem'}}>ID</th>
+                    <th style={{...styles.th, padding: '0.5rem'}}>Nombre del Tema</th>
+                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'center'}}>Horas</th>
+                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'right'}}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tempTemas.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{...styles.emptyState, padding: '2rem'}}>No hay temas definidos. Añade el primero.</td>
+                    </tr>
+                  ) : (
+                    tempTemas.map((tema, index) => (
+                      <tr key={index} style={styles.tr}>
+                        <td style={{...styles.td, padding: '0.5rem'}}>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            style={{ padding: '0.4rem', fontSize: '0.85rem', width: '40px', textAlign: 'center' }}
+                            value={tema.id}
+                            onChange={(e) => handleThemeChange(index, 'id', e.target.value)}
+                          />
+                        </td>
+                        <td style={{...styles.td, padding: '0.5rem'}}>
+                          <input 
+                            type="text" 
+                            className="input-field" 
+                            style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                            placeholder="Ej: Introducción a la materia"
+                            value={tema.nombre}
+                            onChange={(e) => handleThemeChange(index, 'nombre', e.target.value)}
+                          />
+                        </td>
+                        <td style={{...styles.td, padding: '0.5rem', textAlign: 'center'}}>
+                          <input 
+                            type="number" 
+                            className="input-field" 
+                            style={{ padding: '0.4rem', fontSize: '0.85rem', width: '60px', textAlign: 'center' }}
+                            value={tema.horasEstimadas}
+                            min="1"
+                            onChange={(e) => handleThemeChange(index, 'horasEstimadas', Number(e.target.value))}
+                          />
+                        </td>
+                        <td style={{...styles.td, padding: '0.5rem', textAlign: 'right'}}>
+                          <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
+                            <button className="btn-icon" style={{ padding: '0.3rem' }} onClick={() => handleMoveTheme(index, 'up')} disabled={index === 0}>
+                              <MoveUp size={14} />
+                            </button>
+                            <button className="btn-icon" style={{ padding: '0.3rem' }} onClick={() => handleMoveTheme(index, 'down')} disabled={index === tempTemas.length - 1}>
+                              <MoveDown size={14} />
+                            </button>
+                            <button className="btn-icon" style={{ padding: '0.3rem', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }} onClick={() => handleRemoveTheme(index)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-            
-          </form>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', margin: 0 }}>
+              * Los temas se guardarán en el orden que aparecen en la tabla.
+            </p>
+          </div>
         </Modal>
       )}
 
-      {modal.isOpen && (
-        <Modal isOpen={modal.isOpen} onClose={() => setModal({ ...modal, isOpen: false })} title={modal.title}>
-          <p>{modal.message}</p>
+      {messageModal.isOpen && (
+        <Modal isOpen={messageModal.isOpen} onClose={() => setMessageModal({ ...messageModal, isOpen: false })} title={messageModal.title}>
+          <p>{messageModal.message}</p>
         </Modal>
       )}
     </div>
@@ -343,17 +456,32 @@ export default function Syllabuses() {
 }
 
 const styles = {
-  container: { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
-  header: { marginBottom: '2.5rem' },
-  headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  subtitle: { color: '#94a3b8', fontSize: '1.1rem' },
-  newButton: { padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '12px' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  th: { padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  container: { padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' },
+  header: { marginBottom: '1.5rem' },
+  headerContent: { display: 'flex', flexDirection: 'column', gap: '1rem' },
+  titleSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontSize: '1.5rem', fontWeight: '800', margin: 0, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subtitle: { color: '#94a3b8', fontSize: '0.95rem', marginTop: '0.25rem' },
+  actionBtn: { padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', borderRadius: '10px' },
+  filterBar: { background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' },
+  filterGroup: { display: 'flex', alignItems: 'center', gap: '1rem' },
+  filterLabel: { fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' },
+  filterSelect: { background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.35rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' },
+  th: { padding: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
   tr: { borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' },
-  td: { padding: '1rem', verticalAlign: 'middle', color: '#e2e8f0' },
-  badge: { padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace' },
-  emptyState: { padding: '3rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' },
-  loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.2rem' }
+  td: { padding: '1rem 0.75rem' },
+  subjectCell: { display: 'flex', gap: '0.75rem', alignItems: 'center' },
+  subjectIcon: { minWidth: '48px', height: '32px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a5b4fc', padding: '0 8px' },
+  siglaBadge: { fontWeight: '800', fontSize: '0.85rem', color: '#a5b4fc', letterSpacing: '0.05em' },
+  hoursComparison: { display: 'flex', gap: '0.3rem', justifyContent: 'center', alignItems: 'center', fontWeight: '700' },
+  hourEst: { color: '#94a3b8' },
+  hourReal: { color: '#10b981' },
+  hourSeparator: { color: '#475569' },
+  progressWrapper: { width: '100%', maxWidth: '160px', margin: '0 auto' },
+  progressBarBg: { height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', position: 'relative', overflow: 'hidden', marginBottom: '4px' },
+  progressBarFill: { height: '100%', background: 'linear-gradient(90deg, #3b82f6, #2563eb)', borderRadius: '10px' },
+  progressBarTarget: { position: 'absolute', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.4)', zIndex: 1 },
+  progressLabels: { display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: '700', color: '#64748b' },
+  loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8' }
 };

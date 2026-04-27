@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate } from 'react-router-dom';
 import { calcularHorasReales, calcularDesviacion } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
@@ -13,6 +13,7 @@ export default function SyllabusTracking() {
   const [programacion, setProgramacion] = useState(null);
   const [horario, setHorario] = useState(null);
   const [assignment, setAssignment] = useState(null);
+  const [academicYear, setAcademicYear] = useState(null);
   
   // Array of temas
   const [temas, setTemas] = useState([]);
@@ -29,7 +30,24 @@ export default function SyllabusTracking() {
     try {
       // 1. Fetch Impartición (for labels)
       const aSnap = await getDoc(doc(db, 'ies_imparticiones', id));
-      if (aSnap.exists()) setAssignment(aSnap.data());
+      let assignmentData = null;
+      if (aSnap.exists()) {
+        assignmentData = aSnap.data();
+        setAssignment(assignmentData);
+        
+        if (assignmentData.cursoAcademicoLabel) {
+          // 1.1 Fetch Academic Year details
+          const qYear = query(
+            collection(db, 'cursos_academicos'),
+            where('iesId', '==', assignmentData.iesId || activeIesId),
+            where('nombre', '==', assignmentData.cursoAcademicoLabel)
+          );
+          const snapYear = await getDocs(qYear);
+          if (!snapYear.empty) {
+            setAcademicYear(snapYear.docs[0].data());
+          }
+        }
+      }
 
       // 2. Fetch Programación
       const pSnap = await getDoc(doc(db, 'profesor_programaciones', id));
@@ -58,8 +76,9 @@ export default function SyllabusTracking() {
   };
 
   const handleDateChange = (index, field, value) => {
+    if (!temas[index]) return;
     const newTemas = [...temas];
-    newTemas[index][field] = value;
+    newTemas[index] = { ...newTemas[index], [field]: value };
     setTemas(newTemas);
   };
 
@@ -128,8 +147,11 @@ export default function SyllabusTracking() {
               </tr>
             ) : (
               temas.map((tema, index) => {
+                if (!tema) return null;
+                
+                const duracionSesion = academicYear?.duracionSesion || 55;
                 const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario) 
+                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion) 
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
@@ -198,17 +220,17 @@ export default function SyllabusTracking() {
 }
 
 const styles = {
-  container: { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
-  header: { marginBottom: '2.5rem' },
+  container: { padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' },
+  header: { marginBottom: '1.5rem' },
   headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontSize: '2rem', fontWeight: '800', margin: 0, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  subtitle: { color: '#94a3b8', fontSize: '1.1rem', marginTop: '0.5rem', marginLeft: '3.2rem' },
-  saveButton: { padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '12px' },
+  title: { fontSize: '1.5rem', fontWeight: '800', margin: 0, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subtitle: { color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.25rem', marginLeft: '2.8rem' },
+  saveButton: { padding: '0.5rem 1.25rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '10px', fontSize: '0.9rem' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  th: { padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  th: { padding: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '600', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
   tr: { borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' },
-  td: { padding: '1rem', verticalAlign: 'middle', color: '#e2e8f0' },
-  badgeEstimadas: { padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.9rem', fontFamily: 'monospace', fontWeight: 'bold' },
+  td: { padding: '0.75rem', verticalAlign: 'middle', color: '#e2e8f0' },
+  badgeEstimadas: { padding: '0.2rem 0.4rem', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', fontWeight: 'bold' },
   emptyState: { padding: '3rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' },
   loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.2rem' }
 };

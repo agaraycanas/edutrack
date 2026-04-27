@@ -155,33 +155,39 @@ export default function DashboardLayout({ children }) {
   return (
     <div className={`role-theme-${activeRole}`} style={styles.layout}>
       {/* Sidebar */}
-      <aside style={{...styles.sidebar, width: isSidebarOpen ? '250px' : '70px'}}>
+      <aside style={{...styles.sidebar, width: isSidebarOpen ? '14rem' : '4.5rem'}}>
         <div style={styles.sidebarHeader}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-            <div style={styles.logoIcon}>ET</div>
+            <button 
+              style={{...styles.iconButton, padding: '4px', color: 'var(--text-primary)'}} 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? "Contraer menú" : "Expandir menú"}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            </button>
             {isSidebarOpen && <span style={styles.logoText}>EduTrack</span>}
           </div>
         </div>
         
         <nav style={styles.nav}>
           <Link to="/home" style={styles.navItem}>
-             <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
              {isSidebarOpen && <span>Inicio</span>}
           </Link>
 
           <Link to="/users" style={styles.navItem}>
-             <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
              {isSidebarOpen && <span>Usuarios</span>}
           </Link>
 
           {activeRole === 'profesor' && (
             <>
               <Link to="/profesor/horarios" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                 {isSidebarOpen && <span>Horarios</span>}
               </Link>
               <Link to="/profesor/programaciones" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 {isSidebarOpen && <span>Programaciones</span>}
               </Link>
             </>
@@ -191,7 +197,7 @@ export default function DashboardLayout({ children }) {
           {activeRole !== 'profesor' && (
             <Link to="/approvals" style={styles.navItem}>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                 {pendingCount > 0 && <span style={styles.badge}>{pendingCount}</span>}
               </div>
               {isSidebarOpen && <span>Solicitudes</span>}
@@ -201,15 +207,15 @@ export default function DashboardLayout({ children }) {
           {activeRole === 'jefe_estudios' && (
             <>
               <Link to="/academic-years" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                 {isSidebarOpen && <span>Curso Académico</span>}
               </Link>
               <Link to="/departments" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 {isSidebarOpen && <span>Departamentos</span>}
               </Link>
               <Link to="/studies" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
                 {isSidebarOpen && <span>Estudios</span>}
               </Link>
             </>
@@ -218,16 +224,16 @@ export default function DashboardLayout({ children }) {
           {(activeRole === 'jefe_departamento' || activeRole === 'jefe_estudios') && (
             <>
               <Link to="/groups" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 {isSidebarOpen && <span>Grupos</span>}
               </Link>
               <Link to="/subjects" style={styles.navItem}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                 {isSidebarOpen && <span>Asignaturas</span>}
               </Link>
               {activeRole === 'jefe_departamento' && (
                 <Link to="/teaching-assignments" style={styles.navItem}>
-                  <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
                   {isSidebarOpen && <span>Imparticiones</span>}
                 </Link>
               )}
@@ -242,10 +248,10 @@ export default function DashboardLayout({ children }) {
         {/* Navbar */}
         <header style={styles.navbar}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button style={styles.iconButton} onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            </button>
-            <div style={{ borderLeft: '2px solid var(--active-role-color)', height: '24px', marginLeft: '0.5rem' }}></div>
+            {!isSidebarOpen && (
+              <div style={{ fontWeight: '700', fontSize: '1.25rem', color: 'var(--text-primary)', marginRight: '0.5rem' }}>EduTrack</div>
+            )}
+            <div style={{ borderLeft: '2px solid var(--active-role-color)', height: '24px' }}></div>
           </div>
           
           <div style={styles.navbarRight}>
@@ -335,19 +341,16 @@ const styles = {
     overflowY: 'auto'
   },
   sidebarHeader: {
-    height: '64px', display: 'flex', alignItems: 'center', padding: '0 20px', borderBottom: '1px solid var(--border-color)',
-  },
-  logoIcon: {
-    width: '32px', height: '32px', background: 'linear-gradient(135deg, var(--active-role-color), var(--accent-secondary))', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white', flexShrink: 0
+    height: '3.5rem', display: 'flex', alignItems: 'center', padding: '0 1.25rem', borderBottom: '1px solid var(--border-color)',
   },
   logoText: {
-    fontWeight: '700', fontSize: '1.25rem', whiteSpace: 'nowrap'
+    fontWeight: '700', fontSize: '1.1rem', whiteSpace: 'nowrap'
   },
   nav: {
-    padding: '20px 10px', display: 'flex', flexDirection: 'column', gap: '10px'
+    padding: '1.25rem 0.6rem', display: 'flex', flexDirection: 'column', gap: '0.6rem'
   },
   navItem: {
-    display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 10px', color: 'var(--text-primary)', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', whiteSpace: 'nowrap', overflow: 'hidden'
+    display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.75rem 0.6rem', color: 'var(--text-primary)', borderRadius: '8px', textDecoration: 'none', transition: 'background 0.2s', whiteSpace: 'nowrap', overflow: 'hidden'
   },
   badge: {
     position: 'absolute', top: '-5px', right: '-8px', backgroundColor: '#ef4444', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px', border: '2px solid var(--surface-color)', minWidth: '18px', textAlign: 'center'
@@ -356,13 +359,13 @@ const styles = {
     flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0
   },
   navbar: {
-    height: '64px', 
+    height: '3.5rem', 
     backgroundColor: 'var(--surface-color)', 
     borderBottom: '1px solid var(--border-color)', 
     display: 'flex', 
     alignItems: 'center', 
     justifyContent: 'space-between', 
-    padding: '0 20px',
+    padding: '0 1.25rem',
     position: 'sticky',
     top: 0,
     zIndex: 50,
@@ -375,16 +378,16 @@ const styles = {
     display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '5px 12px', borderRadius: '50px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)'
   },
   avatar: {
-    width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--active-role-color)'
+    width: '1.8rem', height: '1.8rem', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--active-role-color)'
   },
   userInfo: {
     display: 'flex', flexDirection: 'column', gap: '2px'
   },
   userName: {
-    fontSize: '0.9rem', fontWeight: '600'
+    fontSize: '0.95rem', fontWeight: '600'
   },
   roleSelect: {
-    background: 'transparent', border: 'none', color: 'var(--active-role-color)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer', padding: 0, outline: 'none'
+    background: 'transparent', border: 'none', color: 'var(--active-role-color)', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', padding: 0, outline: 'none'
   },
   iconButton: {
     background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', padding: '8px', borderRadius: '4px'
@@ -393,6 +396,6 @@ const styles = {
     padding: '6px 12px', fontSize: '0.875rem'
   },
   pageContent: {
-    flex: 1, padding: '2rem', overflowY: 'auto'
+    flex: 1, padding: '1.5rem', overflowY: 'auto'
   }
 };

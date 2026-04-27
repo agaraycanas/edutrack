@@ -46,6 +46,10 @@
 .role-theme-alumno { --active-role-color: var(--role-alumno); --accent-primary: var(--role-alumno); }
 
 
+html {
+  font-size: 14px; /* Increased from 11px to a middle ground between 'too big' and 'too small' */
+}
+
 body {
   margin: 0;
   font-family: var(--font-family);

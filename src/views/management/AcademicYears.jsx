@@ -6,6 +6,7 @@ import {
   where, 
   getDocs, 
   addDoc, 
+  updateDoc,
   deleteDoc, 
   doc, 
   orderBy,
@@ -16,9 +17,12 @@ import Modal from '../../components/common/Modal';
 export default function AcademicYears() {
   const [years, setYears] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newYear, setNewYear] = useState(new Date().getFullYear());
+  const [fechaInicioClases, setFechaInicioClases] = useState(`${new Date().getFullYear()}-09-01`);
+  const [duracionSesion, setDuracionSesion] = useState(55);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, year: null });
   
   const activeIesId = localStorage.getItem('activeIesId');
@@ -47,42 +51,78 @@ export default function AcademicYears() {
     }
   };
 
-  const handleCreate = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!activeIesId) return;
 
-    // Verificar si ya existe
-    if (years.some(y => y.añoInicio === parseInt(newYear))) {
-      setModal({
-        isOpen: true,
-        title: 'Año Duplicado',
-        message: `El curso académico ${newYear}-${parseInt(newYear) + 1} ya existe en este centro.`
-      });
-      return;
-    }
+    if (isEditing) {
+      try {
+        await updateDoc(doc(db, 'cursos_academicos', editingId), {
+          fechaInicioClases,
+          duracionSesion: parseInt(duracionSesion),
+          updatedAt: serverTimestamp()
+        });
+        setModal({
+          isOpen: true,
+          title: 'Curso Actualizado',
+          message: `Se ha actualizado correctamente el curso académico.`
+        });
+        fetchYears();
+        setIsFormOpen(false);
+      } catch (error) {
+        console.error("Error updating academic year:", error);
+        setModal({ isOpen: true, title: 'Error', message: 'No se pudo actualizar el curso académico.' });
+      }
+    } else {
+      const yearFromDate = new Date(fechaInicioClases).getFullYear();
+      // Verificar si ya existe
+      if (years.some(y => y.añoInicio === yearFromDate)) {
+        setModal({
+          isOpen: true,
+          title: 'Año Duplicado',
+          message: `El curso académico ${yearFromDate}-${yearFromDate + 1} ya existe en este centro.`
+        });
+        return;
+      }
 
-    try {
-      await addDoc(collection(db, 'cursos_academicos'), {
-        iesId: activeIesId,
-        añoInicio: parseInt(newYear),
-        añoFin: parseInt(newYear) + 1,
-        nombre: `${newYear}-${parseInt(newYear) + 1}`,
-        createdAt: serverTimestamp()
-      });
-      setModal({
-        isOpen: true,
-        title: 'Curso Creado',
-        message: `Se ha registrado correctamente el curso ${newYear}-${parseInt(newYear) + 1}.`
-      });
-      fetchYears();
-    } catch (error) {
-      console.error("Error creating academic year:", error);
-      setModal({
-        isOpen: true,
-        title: 'Error',
-        message: 'No se pudo crear el curso académico.'
-      });
+      try {
+        await addDoc(collection(db, 'cursos_academicos'), {
+          iesId: activeIesId,
+          añoInicio: yearFromDate,
+          añoFin: yearFromDate + 1,
+          nombre: `${yearFromDate}-${yearFromDate + 1}`,
+          fechaInicioClases,
+          duracionSesion: parseInt(duracionSesion),
+          createdAt: serverTimestamp()
+        });
+        setModal({
+          isOpen: true,
+          title: 'Curso Creado',
+          message: `Se ha registrado correctamente el curso ${yearFromDate}-${yearFromDate + 1}.`
+        });
+        fetchYears();
+        setIsFormOpen(false);
+      } catch (error) {
+        console.error("Error creating academic year:", error);
+        setModal({ isOpen: true, title: 'Error', message: 'No se pudo crear el curso académico.' });
+      }
     }
+  };
+
+  const openCreateModal = () => {
+    setIsEditing(false);
+    setEditingId(null);
+    setFechaInicioClases(`${new Date().getFullYear()}-09-01`);
+    setDuracionSesion(55);
+    setIsFormOpen(true);
+  };
+
+  const openEditModal = (year) => {
+    setIsEditing(true);
+    setEditingId(year.id);
+    setFechaInicioClases(year.fechaInicioClases || '');
+    setDuracionSesion(year.duracionSesion || 55);
+    setIsFormOpen(true);
   };
 
   const requestDelete = (year) => {
@@ -118,7 +158,7 @@ export default function AcademicYears() {
     <div className="animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1>Configuración del Curso Académico</h1>
-        <button className="btn-primary" onClick={() => setIsFormOpen(true)}>
+        <button className="btn-primary" onClick={openCreateModal}>
           Nuevo Curso Académico
         </button>
       </div>
@@ -141,16 +181,27 @@ export default function AcademicYears() {
                     </div>
                     <div>
                       <h3 style={{ fontSize: '1rem' }}>Curso {year.nombre}</h3>
-                      <p style={{ fontSize: '0.8rem' }}>Creado el: {year.createdAt?.toDate().toLocaleDateString()}</p>
+                      <p style={{ fontSize: '0.8rem' }}>Inicio: {year.fechaInicioClases || 'No definida'} | Sesiones: {year.duracionSesion || 55} min</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => requestDelete(year)}
-                    className="btn-delete"
-                    title="Eliminar curso"
-                  >
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => openEditModal(year)}
+                      className="btn-secondary"
+                      style={{ padding: '0.4rem', minWidth: 'auto' }}
+                      title="Editar curso"
+                    >
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button 
+                      onClick={() => requestDelete(year)}
+                      className="btn-delete"
+                      style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
+                      title="Eliminar curso"
+                    >
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -160,29 +211,37 @@ export default function AcademicYears() {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title="Nuevo Curso Académico"
+        title={isEditing ? "Editar Curso Académico" : "Nuevo Curso Académico"}
       >
-        <form onSubmit={(e) => {
-          handleCreate(e);
-          setIsFormOpen(false);
-        }} style={styles.form}>
+        <form onSubmit={handleSave} style={styles.form}>
           <div style={styles.field}>
-            <label style={styles.label}>Año de inicio</label>
+            <label style={styles.label}>Fecha inicio de clases</label>
             <input 
-              type="number" 
+              type="date" 
               className="input-field"
-              min="2020"
-              max="2100"
-              value={newYear}
-              onChange={e => setNewYear(e.target.value)}
+              value={fechaInicioClases}
+              onChange={e => setFechaInicioClases(e.target.value)}
               required
             />
             <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-              Se creará el curso: <b>{newYear}-{parseInt(newYear) + 1}</b>
+              Curso detectado: <b>{new Date(fechaInicioClases).getFullYear()}-{new Date(fechaInicioClases).getFullYear() + 1}</b>
             </p>
           </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Duración sesión (minutos)</label>
+            <input 
+              type="number" 
+              className="input-field"
+              min="10"
+              max="240"
+              value={duracionSesion}
+              onChange={e => setDuracionSesion(e.target.value)}
+              required
+            />
+          </div>
           <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-            Crear Curso Académico
+            {isEditing ? 'Guardar Cambios' : 'Crear Curso Académico'}
           </button>
         </form>
       </Modal>

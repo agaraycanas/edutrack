@@ -24,10 +24,19 @@ const getDayKey = (dayNumber) => {
  * @returns {number} Horas reales (redondeadas)
  */
 export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55) => {
-  if (!fechaInicio || !fechaFin || !horario) return 0;
+  // Normalizar formato de fecha si viene sin ceros (ej. 2026-2-18 -> 2026-02-18)
+  const normalizeDate = (d) => {
+    if (!d) return null;
+    const parts = d.split('-');
+    if (parts.length !== 3) return new Date(d);
+    const [y, m, d_] = parts;
+    return new Date(`${y}-${m.padStart(2, '0')}-${d_.padStart(2, '0')}`);
+  };
 
-  const start = new Date(fechaInicio);
-  const end = new Date(fechaFin);
+  const start = normalizeDate(fechaInicio);
+  const end = normalizeDate(fechaFin);
+
+  if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) return 0;
 
   // Asegurarnos de que no haya horas que interfieran
   start.setHours(0, 0, 0, 0);
@@ -37,8 +46,11 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
 
   let totalSesiones = 0;
   let current = new Date(start);
+  let safetyCounter = 0;
 
-  while (current <= end) {
+  while (current <= end && safetyCounter < 1000) {
+    safetyCounter++;
+
     const dayNumber = current.getDay();
     const dayKey = getDayKey(dayNumber);
 
