@@ -89,7 +89,7 @@ export default function Register() {
     }
 
     try {
-      const isAdminSupremo = email === 'alberto.garay.canas@gmail.com';
+      const isAdminSupremo = email === 'alberto.garay.canas@gmail.com' || email === 'agaraycanas@educa.madrid.org';
       
       // 1. Guardar perfil de usuario
       await setDoc(doc(db, 'usuarios', auth.currentUser.uid), {
@@ -174,8 +174,7 @@ export default function Register() {
   return (
     <div style={styles.container}>
       <form className="glass-panel animate-fade-in" style={styles.card} onSubmit={handleRegister}>
-        <h1 style={styles.title}>Completar Perfil</h1>
-        <p style={{ marginBottom: '2rem', textAlign: 'center' }}>Identificado como: <b>{auth.currentUser?.email}</b></p>
+        <h2 style={styles.title}>Perfil: <span style={{fontSize: '1rem', fontWeight: 'normal'}}>{auth.currentUser?.email}</span></h2>
         
         {error && <div className="error-msg" style={styles.error}>{error}</div>}
 
@@ -248,9 +247,19 @@ export default function Register() {
           </div>
         )}
 
-        <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={loading}>
-          {loading ? 'Procesando...' : 'Enviar Solicitud'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+          <button 
+            type="button" 
+            className="btn-primary" 
+            style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+            onClick={() => { signOut(auth); navigate('/login'); }}
+          >
+            Cancelar
+          </button>
+          <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={loading}>
+            {loading ? 'Procesando...' : 'Registrar'}
+          </button>
+        </div>
       </form>
 
       <Modal 
@@ -272,10 +281,10 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '2rem'
   },
   card: {
-    width: '100%', maxWidth: '500px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem'
+    width: '100%', maxWidth: '500px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem'
   },
   title: {
-    fontSize: '2rem', fontWeight: '700', textAlign: 'center', marginBottom: '1rem'
+    fontSize: '1.4rem', fontWeight: '700', textAlign: 'center', marginBottom: '0.5rem'
   },
   field: {
     display: 'flex', flexDirection: 'column', gap: '0.5rem'

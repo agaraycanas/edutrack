@@ -222,15 +222,14 @@ export default function Users() {
   });
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
       <h1 style={{ marginBottom: '2rem' }}>Gestión de Usuarios</h1>
       
-      <div className="glass-panel" style={{ overflowX: 'auto' }}>
+      <div className="glass-panel" style={{ width: '100%', overflow: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
         <table style={styles.table}>
           <thead>
             <tr>
               <th style={{ ...styles.th, width: '50px' }}>Foto</th>
-              <th style={styles.th}>Apellidos</th>
               <th style={styles.th}>Nombre</th>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Departamento</th>
@@ -251,12 +250,9 @@ export default function Users() {
                     <img src={user.foto || user.avatar || 'https://via.placeholder.com/32'} style={styles.miniAvatar} alt="" />
                   </td>
                   <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
-                    {user.apellidos} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
+                    {user.apellidos}, {user.nombre} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
                   </td>
-                  <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
-                    {user.nombre}
-                  </td>
-                  <td style={{ ...styles.td, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  <td style={{ ...styles.td, color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={user.email}>
                     {user.email}
                   </td>
                   <td style={styles.td}>
@@ -369,9 +365,9 @@ export default function Users() {
 }
 
 const styles = {
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: '1000px' },
-  th: { padding: '1.2rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' },
-  td: { padding: '1.2rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.95rem' },
+  table: { width: '100%', borderCollapse: 'collapse', minWidth: '600px' },
+  th: { padding: '0.8rem 0.5rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', position: 'sticky', top: 0, backgroundColor: 'var(--surface-color)', zIndex: 10, boxShadow: '0 1px 0 var(--border-color)' },
+  td: { padding: '0.8rem 0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' },
   tr: { transition: 'background 0.2s' },
   miniAvatar: { width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' },
   checkbox: { width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--active-role-color)' },
