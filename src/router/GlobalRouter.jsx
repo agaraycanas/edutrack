@@ -10,6 +10,9 @@ import Studies from '../views/management/Studies'
 import Groups from '../views/management/Groups'
 import Subjects from '../views/management/Subjects'
 import TeachingAssignments from '../views/management/TeachingAssignments'
+import Schedules from '../views/profesor/Schedules'
+import Syllabuses from '../views/profesor/Syllabuses'
+import SyllabusTracking from '../views/profesor/SyllabusTracking'
 import DashboardLayout from '../layouts/DashboardLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 
@@ -34,6 +37,11 @@ export function GlobalRouter() {
           <Route path="/groups" element={<Groups />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/teaching-assignments" element={<TeachingAssignments />} />
+          
+          {/* Profesor Routes */}
+          <Route path="/profesor/horarios" element={<Schedules />} />
+          <Route path="/profesor/programaciones" element={<Syllabuses />} />
+          <Route path="/profesor/programaciones/:id/seguimiento" element={<SyllabusTracking />} />
         </Route>
 
         <Route path="/register" element={
