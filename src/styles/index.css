@@ -544,11 +544,21 @@ select.input-field:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   border: 2px solid var(--bg-color);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-color);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Ensure scrollbars are visible in scrollable containers */
+.scrollable {
+  overflow: auto !important;
+}
+
+/* Force scrollbar visibility when content overflows */
+.scrollable::-webkit-scrollbar {
+  display: block;
 }

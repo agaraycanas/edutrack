@@ -10,6 +10,7 @@ import Studies from '../views/management/Studies'
 import Groups from '../views/management/Groups'
 import Subjects from '../views/management/Subjects'
 import TeachingAssignments from '../views/management/TeachingAssignments'
+import Holidays from '../views/management/Holidays'
 import Schedules from '../views/profesor/Schedules'
 import Syllabuses from '../views/profesor/Syllabuses'
 import SyllabusTracking from '../views/profesor/SyllabusTracking'
@@ -37,6 +38,7 @@ export function GlobalRouter() {
           <Route path="/groups" element={<Groups />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/teaching-assignments" element={<TeachingAssignments />} />
+          <Route path="/holidays" element={<Holidays />} />
           
           {/* Profesor Routes */}
           <Route path="/profesor/horarios" element={<Schedules />} />
