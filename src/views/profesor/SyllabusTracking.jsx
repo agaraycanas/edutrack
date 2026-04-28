@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -20,6 +20,18 @@ export default function SyllabusTracking() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
+
+  const totalDesviacion = useMemo(() => {
+    return temas.reduce((acc, tema) => {
+      if (tema && tema.fechaInicio && tema.fechaFin && horario) {
+        const duracionSesion = academicYear?.duracionSesion || 55;
+        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion);
+        const estimadas = Number(tema.horasEstimadas) || 0;
+        return acc + (hReales - estimadas);
+      }
+      return acc;
+    }, 0);
+  }, [temas, horario, academicYear]);
 
   useEffect(() => {
     fetchData();
@@ -115,7 +127,19 @@ export default function SyllabusTracking() {
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               </button>
-              <h1 style={styles.title}>Seguimiento de Programación</h1>
+              <h1 style={styles.title}>
+                Seguimiento de Programación 
+                <span style={{ 
+                  marginLeft: '1rem', 
+                  fontSize: '1.2rem', 
+                  fontWeight: '900',
+                  color: totalDesviacion < 0 ? '#10b981' : (totalDesviacion > 0 ? '#ef4444' : '#94a3b8'),
+                  WebkitTextFillColor: totalDesviacion < 0 ? '#10b981' : (totalDesviacion > 0 ? '#ef4444' : '#94a3b8'),
+                  textShadow: totalDesviacion !== 0 ? `0 0 15px ${totalDesviacion < 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}` : 'none'
+                }}>
+                  ({totalDesviacion > 0 ? `+${totalDesviacion}` : totalDesviacion}h)
+                </span>
+              </h1>
             </div>
             <p style={styles.subtitle}>
               {assignment?.asignaturaSigla} - {assignment?.grupoNombre} ({assignment?.cursoAcademicoLabel})
@@ -127,17 +151,23 @@ export default function SyllabusTracking() {
         </div>
       </header>
 
-      <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '16px' }}>
+      <div className="glass-panel" style={{ 
+        overflowX: 'auto', 
+        overflowY: 'auto', 
+        borderRadius: '16px',
+        maxHeight: 'calc(100vh - 14rem)',
+        position: 'relative'
+      }}>
         <table style={styles.table}>
-          <thead>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)' }}>
             <tr>
-              <th style={styles.th}>Tema</th>
-              <th style={styles.th}>Nombre</th>
-              <th style={{...styles.th, textAlign: 'center'}}>H. Estimadas</th>
-              <th style={styles.th}>Fecha Inicio</th>
-              <th style={styles.th}>Fecha Fin</th>
-              <th style={{...styles.th, textAlign: 'center'}}>H. Reales</th>
-              <th style={{...styles.th, textAlign: 'center'}}>Desviación</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Tema</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Nombre</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Estimadas</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Inicio</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Fin</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Reales</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Desviación</th>
             </tr>
           </thead>
           <tbody>

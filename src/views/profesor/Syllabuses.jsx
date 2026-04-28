@@ -66,18 +66,20 @@ export default function Syllabuses() {
       });
       setAssignments(assignmentsData);
 
-      // 2. Fetch ALL programaciones (without filtering by user to support imported data)
-      // We will match them in memory with the assignments we already have.
-      const qProg = query(collection(db, 'profesor_programaciones'), where('usuarioId', '==', userUid));
+      // 2. Fetch programaciones for this IES (to support imported data)
+      const qProg = query(
+        collection(db, 'profesor_programaciones'), 
+        where('iesId', '==', iesId)
+      );
       const snapProg = await getDocs(qProg);
       const progsData = snapProg.docs.map(d => ({ id: d.id, ...d.data() }));
       console.log("Fetched programaciones:", progsData.length);
       setProgramaciones(progsData);
 
-      // 3. Fetch Horarios
+      // 3. Fetch Horarios for this IES
       const qHorarios = query(
         collection(db, 'profesor_horarios'),
-        where('usuarioId', '==', uid)
+        where('iesId', '==', iesId)
       );
       const snapHorarios = await getDocs(qHorarios);
       setHorarios(snapHorarios.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -150,6 +152,67 @@ export default function Syllabuses() {
           }
         }
 
+        // --- NEW CALCULATIONS ---
+        let currentTheme = null;
+        let realCurrentTheme = null;
+        let totalDev = 0;
+        let lastUpdate = p?.updatedAt ? new Date(p.updatedAt.seconds * 1000) : null;
+
+        if (p && p.temas) {
+          // 1. Calculate Total Deviation (sum of partials)
+          p.temas.forEach(t => {
+            if (t.fechaInicio) {
+              // Tracking update: check fechaInicio and fechaFin as fallbacks for lastUpdate
+              const dInicio = new Date(t.fechaInicio);
+              if (!isNaN(dInicio.getTime()) && (!lastUpdate || dInicio > lastUpdate)) lastUpdate = dInicio;
+              
+              if (t.fechaFin) {
+                const dFin = new Date(t.fechaFin);
+                if (!isNaN(dFin.getTime()) && (!lastUpdate || dFin > lastUpdate)) lastUpdate = dFin;
+
+                try {
+                  const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, h, duracionSesion);
+                  totalDev += (hRealTema - (Number(t.horasEstimadas) || 0));
+                } catch (err) { /* ignore */ }
+              }
+            }
+          });
+
+          // 2. Find Theoretical Current Theme
+          let cumulative = 0;
+          for (const t of p.temas) {
+            const tHours = Number(t.horasEstimadas) || 0;
+            if (cumulative + tHours > hEst) {
+              currentTheme = {
+                nombre: t.nombre,
+                progress: Math.max(0, Math.min(100, ((hEst - cumulative) / tHours) * 100))
+              };
+              break;
+            }
+            cumulative += tHours;
+          }
+          if (!currentTheme && p.temas.length > 0 && hEst >= totalHours && totalHours > 0) {
+            currentTheme = { nombre: p.temas[p.temas.length - 1].nombre, progress: 100 };
+          }
+
+          // 3. Find Real Current Theme
+          const startedThemes = p.temas.filter(t => t.fechaInicio);
+          if (startedThemes.length > 0) {
+            const lastStarted = startedThemes[startedThemes.length - 1];
+            if (lastStarted.fechaFin) {
+              realCurrentTheme = { nombre: lastStarted.nombre, progress: 100, status: 'Completado' };
+            } else {
+              const hRealTema = calcularHorasReales(lastStarted.fechaInicio, today, h, duracionSesion);
+              const est = Number(lastStarted.horasEstimadas) || 1;
+              realCurrentTheme = { 
+                nombre: lastStarted.nombre, 
+                progress: Math.min(100, (hRealTema / est) * 100),
+                status: 'En curso'
+              };
+            }
+          }
+        }
+
         return { 
           ...a,
           id: a.id,
@@ -161,6 +224,10 @@ export default function Syllabuses() {
           hEst,
           hReal,
           totalHours,
+          totalDev,
+          currentTheme,
+          realCurrentTheme,
+          lastUpdate,
           progRef: p,
           hasProgramming: !!p,
           temas: p?.temas || []
@@ -271,20 +338,27 @@ export default function Syllabuses() {
         </div>
       </header>
 
-      <div className="glass-panel" style={{ overflowX: 'auto', borderRadius: '16px' }}>
+      <div className="glass-panel" style={{ 
+        overflowX: 'auto', 
+        overflowY: 'auto', 
+        borderRadius: '16px',
+        maxHeight: 'calc(100vh - 16rem)',
+        position: 'relative'
+      }}>
         <table style={styles.table}>
-          <thead>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)' }}>
             <tr>
-              <th style={styles.th}>Asignatura</th>
-              <th style={{...styles.th, textAlign: 'center'}}>H. Est. vs Real</th>
-              <th style={{...styles.th, textAlign: 'center'}}>Progreso</th>
-              <th style={{...styles.th, textAlign: 'right'}}>Acciones</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Asignatura</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Progreso: Teórico vs Real</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Desviación Total</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Última Act.</th>
+              <th style={{...styles.th, textAlign: 'right', background: 'rgba(255,255,255,0.03)'}}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredDisplayRows.length === 0 ? (
               <tr>
-                <td colSpan="4" style={styles.emptyState}>No se han encontrado imparticiones para los filtros seleccionados.</td>
+                <td colSpan="5" style={styles.emptyState}>No se han encontrado imparticiones para los filtros seleccionados.</td>
               </tr>
             ) : (
               filteredDisplayRows.map((row) => {
@@ -303,44 +377,82 @@ export default function Syllabuses() {
                         </div>
                       </div>
                     </td>
-                    <td style={{...styles.td, textAlign: 'center'}}>
-                      <div style={styles.hoursComparison}>
-                        <span style={styles.hourEst}>{row.hEst}h</span>
-                        <span style={styles.hourSeparator}>/</span>
-                        <span style={styles.hourReal}>{row.hReal}h</span>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', gap: '2rem', minWidth: '400px' }}>
+                        {/* Progress Theoretical */}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Teórico</div>
+                          {row.currentTheme ? (
+                            <>
+                              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }} title={row.currentTheme.nombre}>
+                                {row.currentTheme.nombre}
+                              </div>
+                              <div style={{...styles.progressBarBg, height: '6px', marginTop: '4px', width: '120px'}}>
+                                <div style={{...styles.progressBarFill, width: `${row.currentTheme.progress}%`}} />
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>{Math.round(row.currentTheme.progress)}% completado</div>
+                            </>
+                          ) : (
+                            <span style={{ color: '#475569', fontSize: '0.8rem' }}>No iniciado</span>
+                          )}
+                        </div>
+
+                        {/* Progress Real */}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Real</div>
+                          {row.realCurrentTheme ? (
+                            <>
+                              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }} title={row.realCurrentTheme.nombre}>
+                                {row.realCurrentTheme.nombre}
+                              </div>
+                              <div style={{...styles.progressBarBg, height: '6px', marginTop: '4px', width: '120px'}}>
+                                <div style={{...styles.progressBarFill, background: '#10b981', width: `${row.realCurrentTheme.progress}%`}} />
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>{row.realCurrentTheme.status} ({Math.round(row.realCurrentTheme.progress)}%)</div>
+                            </>
+                          ) : (
+                            <span style={{ color: '#475569', fontSize: '0.8rem' }}>Sin seguimiento</span>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>de {row.totalHours}h totales</div>
                     </td>
-                    <td style={{...styles.td, textAlign: 'center', minWidth: '160px'}}>
-                      <div style={styles.progressWrapper}>
-                        <div style={styles.progressBarBg}>
-                          <div style={{...styles.progressBarFill, width: `${Math.min(100, progressReal)}%`}} />
-                          <div style={{...styles.progressBarTarget, left: `${Math.min(100, progressEst)}%`}} />
-                        </div>
-                        <div style={styles.progressLabels}>
-                          <span>Real: {Math.round(progressReal)}%</span>
-                          <span>Est: {Math.round(progressEst)}%</span>
-                        </div>
+                    <td style={{...styles.td, textAlign: 'center'}}>
+                      <div style={{ 
+                        fontSize: '1.1rem', 
+                        fontWeight: '800', 
+                        color: row.totalDev < 0 ? '#10b981' : (row.totalDev > 0 ? '#ef4444' : '#94a3b8')
+                      }}>
+                        {row.totalDev > 0 ? `+${row.totalDev}` : row.totalDev}h
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {row.hReal}h reales / {row.totalHours}h totales
+                      </div>
+                    </td>
+                    <td style={{...styles.td, textAlign: 'center'}}>
+                      <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                        {row.lastUpdate ? row.lastUpdate.toLocaleDateString() : '-'}
                       </div>
                     </td>
                     <td style={{...styles.td, textAlign: 'right', whiteSpace: 'nowrap'}}>
-                      <button 
-                        className="btn-icon" 
-                        style={{ color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)', marginRight: '0.5rem' }}
-                        onClick={() => handleEdit(row)}
-                        title="Editar Temas"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        className="btn-icon" 
-                        style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}
-                        onClick={() => navigate(`/profesor/programaciones/${row.id}/seguimiento`)}
-                        disabled={!row.hasProgramming}
-                        title={row.hasProgramming ? "Seguimiento de Programación" : "Define los temas primero"}
-                      >
-                        <Activity size={16} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button 
+                          className="btn-icon" 
+                          style={{ color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)' }}
+                          onClick={() => handleEdit(row)}
+                          title="Editar Temas"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          className="btn-icon" 
+                          style={{ color: '#10b981', background: 'rgba(16, 185, 129, 0.1)' }}
+                          onClick={() => navigate(`/profesor/programaciones/${row.id}/seguimiento`)}
+                          disabled={!row.hasProgramming}
+                          title={row.hasProgramming ? "Seguimiento de Programación" : "Define los temas primero"}
+                        >
+                          <Activity size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
