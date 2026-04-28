@@ -414,7 +414,11 @@ select option {
 .btn-icon {
   background: transparent;
   border: 1px solid transparent;
-  padding: 0.5rem;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-secondary);
@@ -422,12 +426,19 @@ select option {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.btn-icon svg {
+  display: block;
 }
 
 .btn-icon:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: var(--border-color);
   color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .btn-icon.btn-danger:hover {

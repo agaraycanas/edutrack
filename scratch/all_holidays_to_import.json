@@ -1,0 +1,326 @@
+[
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2012-10-12",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Todos los Santos",
+    "startDate": "2012-11-01",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Puente Todos los Santos",
+    "startDate": "2012-11-02",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2012-12-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Puente Constitución",
+    "startDate": "2012-12-07",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2012-12-24",
+    "endDate": "2013-01-05",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Reyes Magos",
+    "startDate": "2013-01-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2013-01-07",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Fiesta local",
+    "startDate": "2013-01-28",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Fiesta local",
+    "startDate": "2013-03-18",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Semana Santa",
+    "startDate": "2013-03-22",
+    "endDate": "2013-04-01",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Comunidad de Madrid",
+    "startDate": "2013-05-03",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Fiesta local",
+    "startDate": "2013-05-15",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Fiesta local",
+    "startDate": "2013-05-31",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "No lectivo",
+    "startDate": "2013-06-14",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Todos los Santos",
+    "startDate": "2013-11-01",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2013-12-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2013-12-23",
+    "endDate": "2014-01-07",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "No lectivo",
+    "startDate": "2014-01-31",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "No lectivo",
+    "startDate": "2014-02-28",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Semana Santa",
+    "startDate": "2014-04-11",
+    "endDate": "2014-04-21",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del trabajador",
+    "startDate": "2014-05-01",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Comunidad de Madrid",
+    "startDate": "2014-05-02",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2016-10-12",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2016-12-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Inmaculada",
+    "startDate": "2016-12-08",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Puente Constitución",
+    "startDate": "2016-12-09",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2016-12-23",
+    "endDate": "2017-01-06",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Semana Santa",
+    "startDate": "2017-04-09",
+    "endDate": "2017-04-17",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2017-10-12",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2017-12-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Inmaculada",
+    "startDate": "2017-12-08",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Puente Constitución",
+    "startDate": "2017-12-09",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2017-12-23",
+    "endDate": "2018-01-06",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Semana Santa",
+    "startDate": "2018-04-09",
+    "endDate": "2018-04-17",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2020-10-12",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2020-11-02",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2020-11-09",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2020-12-07",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Inmaculada",
+    "startDate": "2020-12-08",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2020-12-19",
+    "endDate": "2021-01-08",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2024-10-12",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2024-11-01",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2024-12-06",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2024-12-21",
+    "endDate": "2025-01-07",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2025-04-17",
+    "endDate": "2025-04-18",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2025-05-01",
+    "endDate": "2025-05-02",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2025-05-30",
+    "endDate": "2025-05-31",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Día del Pilar",
+    "startDate": "2025-10-13",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2025-11-03",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Constitución",
+    "startDate": "2025-12-08",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Navidad",
+    "startDate": "2025-12-21",
+    "endDate": "2026-01-07",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Semana Santa",
+    "startDate": "2026-03-27",
+    "endDate": "2026-04-06",
+    "iesId": "ies_rey_fernando"
+  },
+  {
+    "nombre": "Festivo",
+    "startDate": "2026-05-01",
+    "endDate": null,
+    "iesId": "ies_rey_fernando"
+  }
+]

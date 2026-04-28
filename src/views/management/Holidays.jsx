@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -29,28 +29,33 @@ export default function Holidays() {
   
   const activeIesId = localStorage.getItem('activeIesId');
 
-  useEffect(() => {
-    fetchHolidays();
-  }, [activeIesId]);
-
-  const fetchHolidays = async () => {
+  const fetchHolidays = useCallback(async () => {
     if (!activeIesId) return;
     setLoading(true);
     try {
       const q = query(
         collection(db, 'festivos'),
         where('iesId', '==', activeIesId),
-        orderBy('startDate', 'asc')
+        orderBy('startDate', 'desc')
       );
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setHolidays(data);
     } catch (error) {
       console.error("Error fetching holidays:", error);
+      setModal({ 
+        isOpen: true, 
+        title: 'Error', 
+        message: "Error al cargar los festivos. Verifique la conexión o los índices de Firestore." 
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeIesId]);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
 
   const handleStartDateChange = (val) => {
     setStartDate(val);
@@ -156,7 +161,7 @@ export default function Holidays() {
           <p style={{ color: 'var(--text-secondary)' }}>Gestión de días no lectivos y periodos vacacionales del centro.</p>
         </div>
         <button className="btn-primary" onClick={openCreateModal}>
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           Nuevo Festivo
         </button>
       </div>
@@ -208,11 +213,21 @@ export default function Holidays() {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                          <button onClick={() => openEditModal(holiday)} className="btn-icon" title="Editar">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          <button 
+                            onClick={() => openEditModal(holiday)} 
+                            className="btn-icon" 
+                            title="Editar"
+                            style={{ borderRadius: '8px' }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                           </button>
-                          <button onClick={() => requestDelete(holiday)} className="btn-icon btn-danger" title="Eliminar">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          <button 
+                            onClick={() => requestDelete(holiday)} 
+                            className="btn-icon btn-danger" 
+                            title="Eliminar"
+                            style={{ borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                           </button>
                         </div>
                       </td>
