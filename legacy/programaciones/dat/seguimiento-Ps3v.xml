@@ -6,11 +6,11 @@
         <tema n="2" fini="2025-11-4" ffin="2025-11-14" comentario=""/>
         <tema n="3" fini="2025-11-25" ffin="2025-12-19" comentario=""/>
         <tema n="4" fini="2026-1-9" ffin="2026-1-30" comentario=""/>
-        <tema n="5" fini="2026-2-3" ffin="2026-2-6" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-1-30" ffin="2026-2-6" comentario=""/>
+        <tema n="6" fini="2026-3-10" ffin="2026-3-24" comentario=""/>
+        <tema n="7" fini="2026-4-7" ffin="2026-4-10" comentario=""/>
         <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="2026-2-10" ffin="" comentario=""/>
+        <tema n="9" fini="2026-2-10" ffin="2026-3-6" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="m1v" nombre="Programación">
@@ -19,15 +19,15 @@
         <tema n="3" fini="2025-11-10" ffin="2025-11-27" comentario=""/>
         <tema n="4" fini="2025-11-28" ffin="2025-12-18" comentario=""/>
         <tema n="5" fini="2026-1-8" ffin="2026-1-23" comentario=""/>
-        <tema n="6" fini="2026-1-26" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
-        <tema n="10" fini="" ffin="" comentario=""/>
-        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="2026-1-26" ffin="2026-2-12" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="2026-2-23" comentario=""/>
+        <tema n="8" fini="2026-2-24" ffin="2026-3-3" comentario=""/>
+        <tema n="9" fini="2026-3-4" ffin="2026-3-10" comentario=""/>
+        <tema n="10" fini="2026-3-10" ffin="2026-3-17" comentario=""/>
+        <tema n="11" fini="2026-3-18" ffin="2026-3-24" comentario=""/>
         <tema n="12" fini="" ffin="" comentario=""/>
-        <tema n="13" fini="" ffin="" comentario=""/>
-        <tema n="14" fini="" ffin="" comentario=""/>
+        <tema n="13" fini="2026-3-26" ffin="2026-4-10" comentario=""/>
+        <tema n="14" fini="2026-4-16" ffin="" comentario=""/>
         <tema n="15" fini="" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="m2v" nombre="Programación de servicios y procesos">

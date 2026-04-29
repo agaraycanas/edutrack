@@ -7,10 +7,10 @@
         <tema n="3" fini="2025-10-22" ffin="2025-11-5" comentario=""/>
         <tema n="4" fini="2025-11-6" ffin="2025-12-5" comentario=""/>
         <tema n="5" fini="2025-12-9" ffin="2026-1-29" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="2026-1-30" ffin="2026-3-2" comentario=""/>
         <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="2026-3-3" ffin="2026-3-17" comentario=""/>
+        <tema n="9" fini="2026-3-18" ffin="2026-4-9" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
         <tema n="11" fini="" ffin="" comentario=""/>
     </asignatura>
@@ -19,10 +19,10 @@
         <tema n="2" fini="2025-10-21" ffin="2025-11-18" comentario=""/>
         <tema n="3" fini="2025-11-19" ffin="2025-12-18" comentario=""/>
         <tema n="4" fini="2025-12-19" ffin="2026-1-27" comentario=""/>
-        <tema n="5" fini="2026-1-29" ffin="" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-1-29" ffin="2026-2-11" comentario=""/>
+        <tema n="6" fini="2026-2-12" ffin="2026-2-19" comentario=""/>
+        <tema n="7" fini="2026-2-20" ffin="2026-2-23" comentario=""/>
+        <tema n="8" fini="2026-2-24" ffin="2026-3-4" comentario=""/>
     </asignatura>
     <asignatura grupo="w1" nombre="Sistemas informáticos">
         <tema n="1" fini="2025-9-15" ffin="2025-9-29" comentario=""/>
@@ -30,10 +30,10 @@
         <tema n="3" fini="2025-10-20" ffin="2025-11-5" comentario=""/>
         <tema n="4" fini="2025-11-6" ffin="2025-12-5" comentario=""/>
         <tema n="5" fini="2025-12-9" ffin="2026-1-29" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="2026-1-30" ffin="2026-3-2" comentario=""/>
         <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="2026-3-3" ffin="2026-3-17" comentario=""/>
+        <tema n="9" fini="2026-3-18" ffin="2026-4-9" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
         <tema n="11" fini="" ffin="" comentario=""/>
     </asignatura>
@@ -41,8 +41,8 @@
         <tema n="1" fini="2025-9-15" ffin="2025-10-14" comentario=""/>
         <tema n="2" fini="2025-10-21" ffin="2025-11-17" comentario=""/>
         <tema n="3" fini="2025-11-18" ffin="2026-1-14" comentario=""/>
-        <tema n="4" fini="2026-1-20" ffin="" comentario=""/>
-        <tema n="5" fini="" ffin="" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="4" fini="2026-1-15" ffin="2026-2-18" comentario=""/>
+        <tema n="5" fini="2026-2-19" ffin="2026-3-24" comentario=""/>
+        <tema n="6" fini="2026-3-25" ffin="2026-4-14" comentario=""/>
     </asignatura>
 </seguimiento>

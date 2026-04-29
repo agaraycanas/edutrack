@@ -8,9 +8,9 @@
         <tema n="4" fini="2025-12-5" ffin="2025-12-12" comentario=""/>
         <tema n="5" fini="2025-12-12" ffin="2025-12-19" comentario=""/>
         <tema n="6" fini="2026-1-9" ffin="2026-2-13" comentario=""/>
-        <tema n="7" fini="2026-2-13" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="2026-2-23" comentario=""/>
+        <tema n="8" fini="2026-2-24" ffin="2026-3-13" comentario=""/>
+        <tema n="9" fini="2026-3-13" ffin="2026-4-15" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="s1b" nombre="Fundamentos de las Bases de datos">
@@ -19,7 +19,7 @@
         <tema n="3" fini="2025-10-22" ffin="2025-11-28" comentario=""/>
         <tema n="4" fini="2025-12-3" ffin="2025-12-19" comentario=""/>
         <tema n="5" fini="2026-1-9" ffin="2026-2-11" comentario=""/>
-        <tema n="6" fini="2026-2-13" ffin="" comentario=""/>
+        <tema n="6" fini="2026-2-13" ffin="2026-4-15" comentario=""/>
     </asignatura>
     <asignatura grupo="s1a" nombre="Aplicaciones ofimáticas">
         <tema n="1" fini="2025-9-12" ffin="2025-9-19" comentario=""/>
@@ -28,9 +28,9 @@
         <tema n="4" fini="2025-12-5" ffin="2025-12-12" comentario=""/>
         <tema n="5" fini="2025-12-12" ffin="2025-12-19" comentario=""/>
         <tema n="6" fini="2026-1-8" ffin="2026-2-13" comentario=""/>
-        <tema n="7" fini="2026-2-13" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="2026-2-23" comentario=""/>
+        <tema n="8" fini="2026-2-24" ffin="2026-3-13" comentario=""/>
+        <tema n="9" fini="2026-3-13" ffin="2026-4-15" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
     </asignatura>
 

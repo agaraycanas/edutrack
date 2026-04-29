@@ -6,8 +6,8 @@
         <tema n="2" fini="2025-9-18" ffin="2025-10-16" comentario=""/>
         <tema n="3" fini="2025-10-20" ffin="2025-12-1" comentario=""/>
         <tema n="4" fini="2025-12-3" ffin="2026-1-22" comentario=""/>
-        <tema n="5" fini="2026-1-22" ffin="" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-1-22" ffin="2026-3-11" comentario=""/>
+        <tema n="6" fini="2026-3-12" ffin="2026-4-9" comentario=""/>
         <tema n="7" fini="" ffin="" comentario=""/>
         <tema n="8" fini="" ffin="" comentario=""/>
         <tema n="9" fini="" ffin="" comentario=""/>
@@ -17,16 +17,16 @@
         <tema n="2" fini="2025-10-14" ffin="2025-10-24" comentario=""/>
         <tema n="3" fini="2025-10-28" ffin="2025-12-2" comentario=""/>
         <tema n="4" fini="2025-12-5" ffin="2026-2-13" comentario=""/>
-        <tema n="5" fini="2026-2-17" ffin="" comentario=""/>
+        <tema n="5" fini="2026-2-17" ffin="2026-4-10" comentario=""/>
         <tema n="6" fini="" ffin="" comentario=""/>
         <tema n="7" fini="" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="m1v" nombre="Lenguajes de marcas">
         <tema n="1" fini="2025-9-26" ffin="2025-10-10" comentario=""/>
         <tema n="2" fini="2025-10-15" ffin="2025-12-19" comentario=""/>
-        <tema n="3" fini="2026-2-18" ffin="" comentario=""/>
+        <tema n="3" fini="2026-2-18" ffin="2026-3-13" comentario=""/>
         <tema n="4" fini="2026-1-9" ffin="2026-2-13" comentario=""/>
-        <tema n="5" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-3-13" ffin="2026-4-9" comentario=""/>
         <tema n="6" fini="" ffin="" comentario=""/>
         <tema n="7" fini="" ffin="" comentario=""/>
         <tema n="8" fini="" ffin="" comentario=""/>
@@ -48,7 +48,7 @@
         <tema n="4" fini="2025-11-27" ffin="2025-12-9" comentario=""/>
         <tema n="5" fini="2025-12-9" ffin="2026-1-21" comentario=""/>
         <tema n="6" fini="2026-1-22" ffin="2026-2-12" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
+        <tema n="7" fini="2026-2-13" ffin="2026-2-20" comentario=""/>
+        <tema n="8" fini="" ffin="" comentario="Empecé un mes mas tarde y tuve la semana de la operación de mi mujer. No he podido dar este tema"/>
     </asignatura>
 </seguimiento>

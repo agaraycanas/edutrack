@@ -11,10 +11,10 @@
         <tema n="7" fini="2025-12-8" ffin="2025-12-19" comentario=""/>
         <tema n="8" fini="2026-1-8" ffin="2026-1-23" comentario=""/>
         <tema n="9" fini="2026-1-26" ffin="2026-2-4" comentario=""/>
-        <tema n="10" fini="2026-2-2" ffin="" comentario=""/>
-        <tema n="11" fini="" ffin="" comentario=""/>
-        <tema n="12" fini="" ffin="" comentario=""/>
-        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="2026-2-2" ffin="2026-2-13" comentario=""/>
+        <tema n="11" fini="2026-2-16" ffin="2026-2-24" comentario=""/>
+        <tema n="12" fini="2026-2-25" ffin="2026-3-3" comentario=""/>
+        <tema n="13" fini="2026-3-4" ffin="2026-3-26" comentario=""/>
         <tema n="14" fini="" ffin="" comentario=""/>
         <tema n="20" fini="" ffin="" comentario=""/>
     </asignatura>
@@ -26,8 +26,8 @@
         <tema n="5" fini="2025-11-18" ffin="2025-12-5" comentario=""/>
         <tema n="6" fini="2025-12-15" ffin="2026-1-22" comentario=""/>
         <tema n="7" fini="2026-1-30" ffin="2026-2-6" comentario=""/>
-        <tema n="8" fini="2026-2-9" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="2026-2-9" ffin="2026-2-27" comentario=""/>
+        <tema n="9" fini="2026-3-2" ffin="2026-3-26" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="s1b" nombre="Sistemas operativos monopuesto">
@@ -38,8 +38,8 @@
         <tema n="5" fini="2025-11-18" ffin="2025-12-11" comentario=""/>
         <tema n="6" fini="2025-12-12" ffin="2026-1-27" comentario=""/>
         <tema n="7" fini="2026-1-29" ffin="2026-2-6" comentario=""/>
-        <tema n="8" fini="2026-2-9" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
+        <tema n="8" fini="2026-2-9" ffin="2026-2-27" comentario=""/>
+        <tema n="9" fini="2026-3-2" ffin="2026-3-26" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
     </asignatura>
 </seguimiento>

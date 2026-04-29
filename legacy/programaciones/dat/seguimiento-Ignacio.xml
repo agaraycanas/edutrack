@@ -11,12 +11,12 @@
         <tema n="7" fini="2025-12-10" ffin="2025-12-19" comentario=""/>
         <tema n="8" fini="2026-1-8" ffin="2026-1-30" comentario=""/>
         <tema n="9" fini="2026-2-2" ffin="2026-2-9" comentario=""/>
-        <tema n="10" fini="2026-2-11" ffin="" comentario=""/>
-        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="10" fini="2026-2-11" ffin="2026-2-27" comentario=""/>
+        <tema n="11" fini="2026-3-2" ffin="2026-3-6" comentario=""/>
         <tema n="12" fini="" ffin="" comentario=""/>
-        <tema n="13" fini="" ffin="" comentario=""/>
+        <tema n="13" fini="2026-3-9" ffin="2026-3-20" comentario=""/>
         <tema n="14" fini="" ffin="" comentario=""/>
-        <tema n="15" fini="" ffin="" comentario=""/>
+        <tema n="15" fini="2026-3-23" ffin="2026-3-27" comentario=""/>
     </asignatura>
     <asignatura grupo="m2d" nombre="Digitalización aplicada a los sectores productivos">
         <tema n="1" fini="2025-9-29" ffin="2025-10-6" comentario=""/>

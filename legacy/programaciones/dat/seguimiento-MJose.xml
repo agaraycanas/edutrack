@@ -6,9 +6,9 @@
         <tema n="2" fini="2025-10-14" ffin="2025-10-15" comentario=""/>
         <tema n="3" fini="2025-10-28" ffin="2025-11-25" comentario=""/>
         <tema n="4" fini="2025-11-26" ffin="2026-2-11" comentario=""/>
-        <tema n="5" fini="2026-2-17" ffin="" comentario=""/>
-        <tema n="6" fini="" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-3-13" ffin="2026-3-26" comentario=""/>
+        <tema n="6" fini="2026-2-17" ffin="2026-3-13" comentario=""/>
+        <tema n="7" fini="2026-4-16" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="m1d" nombre="Lenguajes de marcas">
         <tema n="1" fini="2025-9-15" ffin="2025-9-19" comentario=""/>
@@ -16,23 +16,21 @@
         <tema n="3" fini="2025-10-3" ffin="2025-11-14" comentario=""/>
         <tema n="4" fini="2025-11-17" ffin="2025-12-5" comentario=""/>
         <tema n="5" fini="2026-1-12" ffin="2026-1-19" comentario=""/>
-        <tema n="6" fini="2026-1-23" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="2026-1-23" ffin="2026-2-27" comentario=""/>
+        <tema n="7" fini="2026-2-27" ffin="2026-3-23" comentario=""/>
         <tema n="8" fini="" ffin="" comentario=""/>
         <tema n="9" fini="2025-12-15" ffin="2025-12-19" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
-        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="2026-4-16" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="w1" nombre="Entornos de desarrollo">
         <tema n="1" fini="2025-9-16" ffin="2025-10-8" comentario=""/>
         <tema n="2" fini="2025-10-14" ffin="2025-10-15" comentario=""/>
         <tema n="3" fini="2025-10-28" ffin="2025-11-25" comentario=""/>
         <tema n="4" fini="2025-11-26" ffin="2026-2-11" comentario=""/>
-        <tema n="6" fini="2026-2-17" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
-        <tema n="8" fini="" ffin="" comentario=""/>
-        <tema n="9" fini="" ffin="" comentario=""/>
-        <tema n="10" fini="" ffin="" comentario=""/>
+        <tema n="5" fini="2026-3-11" ffin="2026-3-25" comentario=""/>
+        <tema n="6" fini="2026-2-11" ffin="2026-3-11" comentario=""/>
+        <tema n="7" fini="2026-4-16" ffin="" comentario=""/>
     </asignatura>
     <asignatura grupo="w1" nombre="Lenguajes de marcas">
         <tema n="1" fini="2025-9-15" ffin="2025-9-19" comentario=""/>
@@ -40,11 +38,11 @@
         <tema n="3" fini="2025-10-3" ffin="2025-11-14" comentario=""/>
         <tema n="4" fini="2025-11-17" ffin="2025-12-5" comentario=""/>
         <tema n="5" fini="2026-1-12" ffin="2026-1-19" comentario=""/>
-        <tema n="6" fini="2026-1-23" ffin="" comentario=""/>
-        <tema n="7" fini="" ffin="" comentario=""/>
+        <tema n="6" fini="2026-1-23" ffin="2026-2-27" comentario=""/>
+        <tema n="7" fini="2026-2-27" ffin="2026-3-23" comentario=""/>
         <tema n="8" fini="" ffin="" comentario=""/>
         <tema n="9" fini="2025-12-15" ffin="2025-12-19" comentario=""/>
         <tema n="10" fini="" ffin="" comentario=""/>
-        <tema n="11" fini="" ffin="" comentario=""/>
+        <tema n="11" fini="2026-4-16" ffin="" comentario=""/>
     </asignatura>
 </seguimiento>

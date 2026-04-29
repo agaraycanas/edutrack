@@ -32,11 +32,11 @@
         <tema n="9" fini="2025-11-24" ffin="2025-12-1" comentario=""/>
         <tema n="10" fini="2026-2-2" ffin="2026-2-6" comentario=""/>
         <tema n="11" fini="2026-2-9" ffin="2026-2-13" comentario=""/>
-        <tema n="12" fini="2026-2-16" ffin="" comentario=""/>
-        <tema n="13" fini="" ffin="" comentario=""/>
-        <tema n="14" fini="" ffin="" comentario=""/>
-        <tema n="15" fini="" ffin="" comentario=""/>
-        <tema n="16" fini="" ffin="" comentario=""/>
+        <tema n="12" fini="2026-2-16" ffin="2026-2-20" comentario=""/>
+        <tema n="13" fini="2026-2-23" ffin="2026-3-6" comentario=""/>
+        <tema n="14" fini="2026-3-9" ffin="2026-3-13" comentario=""/>
+        <tema n="15" fini="2026-3-16" ffin="2026-3-20" comentario=""/>
+        <tema n="16" fini="2026-3-23" ffin="2026-4-10" comentario=""/>
     </asignatura>
     <asignatura grupo="s1b" nombre="Redes locales">
         <tema n="1" fini="2025-9-29" ffin="2025-10-8" comentario=""/>
@@ -50,11 +50,11 @@
         <tema n="9" fini="2025-11-24" ffin="2025-12-1" comentario=""/>
         <tema n="10" fini="2026-2-2" ffin="2026-2-6" comentario=""/>
         <tema n="11" fini="2026-2-9" ffin="2026-2-13" comentario=""/>
-        <tema n="12" fini="2026-2-16" ffin="" comentario=""/>
-        <tema n="13" fini="" ffin="" comentario=""/>
-        <tema n="14" fini="" ffin="" comentario=""/>
-        <tema n="15" fini="" ffin="" comentario=""/>
-        <tema n="16" fini="" ffin="" comentario=""/>
+        <tema n="12" fini="2026-2-16" ffin="2026-2-20" comentario=""/>
+        <tema n="13" fini="2026-2-23" ffin="2026-3-6" comentario=""/>
+        <tema n="14" fini="2026-3-9" ffin="2026-3-13" comentario=""/>
+        <tema n="15" fini="2026-3-16" ffin="2026-3-20" comentario=""/>
+        <tema n="16" fini="2026-3-23" ffin="2026-4-10" comentario=""/>
     </asignatura>
     <asignatura grupo="s2a" nombre="Seguridad en redes">
         <tema n="1" fini="" ffin="" comentario=""/>

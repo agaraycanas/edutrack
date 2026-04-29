@@ -26,7 +26,7 @@
         <tema n="2" fini="2025-10-1" ffin="2025-10-22" comentario=""/>
         <tema n="3" fini="2025-10-29" ffin="2025-11-19" comentario=""/>
         <tema n="4" fini="2025-11-19" ffin="2025-12-17" comentario=""/>
-        <tema n="5" fini="2025-12-17" ffin="" comentario=""/>
+        <tema n="5" fini="2025-12-17" ffin="2026-2-4" comentario=""/>
     </asignatura>
     <asignatura grupo="s2b" nombre="Sistemas Operativos en red">
         <tema n="1" fini="2025-9-12" ffin="2025-9-18" comentario=""/>
