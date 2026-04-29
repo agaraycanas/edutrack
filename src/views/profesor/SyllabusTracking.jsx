@@ -17,6 +17,8 @@ export default function SyllabusTracking() {
   
   // Array of temas
   const [temas, setTemas] = useState([]);
+  const [festivos, setFestivos] = useState([]);
+  const [ausencias, setAusencias] = useState([]);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
@@ -25,13 +27,13 @@ export default function SyllabusTracking() {
     return temas.reduce((acc, tema) => {
       if (tema && tema.fechaInicio && tema.fechaFin && horario) {
         const duracionSesion = academicYear?.duracionSesion || 55;
-        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion);
+        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias);
         const estimadas = Number(tema.horasEstimadas) || 0;
         return acc + (hReales - estimadas);
       }
       return acc;
     }, 0);
-  }, [temas, horario, academicYear]);
+  }, [temas, horario, academicYear, festivos, ausencias]);
 
   useEffect(() => {
     fetchData();
@@ -77,6 +79,21 @@ export default function SyllabusTracking() {
         setHorario(hSnap.data());
       } else {
         setModal({ isOpen: true, title: 'Aviso', message: 'No hay horario definido para esta impartición. Las horas reales no se podrán calcular.' });
+      }
+
+      // 4. Fetch Festivos (del centro)
+      const activeIesId = localStorage.getItem('activeIesId');
+      if (activeIesId) {
+        const qFestivos = query(collection(db, 'festivos'), where('iesId', '==', activeIesId));
+        const snapFestivos = await getDocs(qFestivos);
+        setFestivos(snapFestivos.docs.map(doc => doc.data()));
+      }
+
+      // 5. Fetch Ausencias (del profesor)
+      if (auth.currentUser) {
+        const qAusencias = query(collection(db, 'profesor_ausencias'), where('userId', '==', auth.currentUser.uid));
+        const snapAusencias = await getDocs(qAusencias);
+        setAusencias(snapAusencias.docs.map(doc => doc.data()));
       }
 
     } catch (error) {
@@ -181,7 +198,7 @@ export default function SyllabusTracking() {
                 
                 const duracionSesion = academicYear?.duracionSesion || 55;
                 const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion) 
+                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)

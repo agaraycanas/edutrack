@@ -27,6 +27,15 @@ export default function Holidays() {
   const [editingId, setEditingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, holiday: null });
   
+  // AI Import States
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importStep, setImportStep] = useState('location'); // 'location', 'searching', 'proposal'
+  const [comunidad, setComunidad] = useState('Madrid');
+  const [localidad, setLocalidad] = useState('');
+  const [proposedHolidays, setProposedHolidays] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedProposed, setSelectedProposed] = useState([]);
+  
   const activeIesId = localStorage.getItem('activeIesId');
 
   const fetchHolidays = useCallback(async () => {
@@ -62,6 +71,18 @@ export default function Holidays() {
     setEndDate(val); // Sincronizar fecha fin con fecha inicio por defecto
   };
 
+  const checkOverlap = (start, end, idToExclude = null) => {
+    const s = new Date(start);
+    const e = end ? new Date(end) : s;
+    
+    return holidays.find(h => {
+      if (idToExclude && h.id === idToExclude) return false;
+      const hStart = new Date(h.startDate);
+      const hEnd = h.endDate ? new Date(h.endDate) : hStart;
+      return s <= hEnd && hStart <= e;
+    });
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!activeIesId) return;
@@ -73,6 +94,16 @@ export default function Holidays() {
       iesId: activeIesId,
       updatedAt: serverTimestamp()
     };
+
+    const overlap = checkOverlap(payload.startDate, payload.endDate, isEditing ? editingId : null);
+    if (overlap) {
+      setModal({
+        isOpen: true,
+        title: 'Conflicto de Fechas',
+        message: `Festivo ya presente en el sistema o solapado con "${overlap.nombre}".`
+      });
+      return;
+    }
 
     try {
       if (isEditing) {
@@ -152,6 +183,128 @@ export default function Holidays() {
       });
     }
   };
+  const handleAIImport = () => {
+    setImportStep('location');
+    setIsImportModalOpen(true);
+  };
+
+  const startSearch = async () => {
+    setImportStep('searching');
+    setIsSearching(true);
+    
+    // Simular "investigación" de la IA basada en la ubicación
+    setTimeout(() => {
+      let mockProposed = [];
+      
+      if (comunidad === 'Castilla-La Mancha') {
+        mockProposed = [
+          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
+          { nombre: 'Día no lectivo (Puente)', startDate: '2025-10-31', endDate: null },
+          { nombre: 'Todos los Santos', startDate: '2025-11-01', endDate: null },
+          { nombre: 'Día de la Enseñanza', startDate: '2025-11-14', endDate: null },
+          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
+          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
+          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-22', endDate: '2026-01-07' },
+          { nombre: 'Carnaval / Libre disposición', startDate: '2026-02-16', endDate: '2026-02-17' },
+          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-30', endDate: '2026-04-06' },
+          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
+          { nombre: 'Día de Castilla-La Mancha', startDate: '2026-05-31', endDate: null },
+          { nombre: 'Corpus Christi', startDate: '2026-06-04', endDate: null },
+          { nombre: 'Día no lectivo', startDate: '2026-06-05', endDate: null },
+        ];
+      } else if (comunidad === 'Madrid') {
+        const isSanFernando = localidad.toLowerCase().includes('fernando');
+        
+        mockProposed = [
+          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
+          { nombre: 'Día no lectivo', startDate: '2025-10-31', endDate: null },
+          { nombre: 'Día de Todos los Santos', startDate: '2025-11-01', endDate: null },
+          { nombre: 'Día no lectivo', startDate: '2025-11-03', endDate: null },
+          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
+          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
+          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-20', endDate: '2026-01-07' },
+          { nombre: 'Día no lectivo', startDate: '2026-02-13', endDate: null },
+          { nombre: 'Día no lectivo', startDate: '2026-02-16', endDate: null },
+          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-27', endDate: '2026-04-06' },
+          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
+          { nombre: 'Día de la Comunidad (No lectivo)', startDate: '2026-05-02', endDate: null },
+        ];
+
+        if (isSanFernando) {
+          mockProposed.push({ nombre: 'Festivo Local (San Fernando)', startDate: '2026-05-15', endDate: null });
+          mockProposed.push({ nombre: 'Festivo Local (San Fernando)', startDate: '2026-05-29', endDate: null });
+        }
+      } else {
+        mockProposed = [
+          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
+          { nombre: 'Todos los Santos', startDate: '2025-11-01', endDate: null },
+          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
+          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
+          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-22', endDate: '2026-01-07' },
+          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-30', endDate: '2026-04-06' },
+          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
+        ];
+      }
+
+      // Marcar los que ya existen en lugar de filtrarlos
+      const withOverlapInfo = mockProposed.map(p => ({
+        ...p,
+        alreadyPresent: !!checkOverlap(p.startDate, p.endDate)
+      }));
+      
+      setProposedHolidays(withOverlapInfo);
+      // Solo seleccionar los que no están presentes
+      setSelectedProposed(withOverlapInfo
+        .map((p, index) => p.alreadyPresent ? null : index)
+        .filter(i => i !== null)
+      );
+      
+      setIsSearching(false);
+      setImportStep('proposal');
+    }, 2000);
+  };
+
+  const executeImport = async () => {
+    if (!activeIesId) return;
+    
+    setLoading(true);
+    try {
+      const toImport = proposedHolidays.filter((_, index) => selectedProposed.includes(index));
+      
+      for (const holiday of toImport) {
+        await addDoc(collection(db, 'festivos'), {
+          nombre: holiday.nombre,
+          startDate: holiday.startDate,
+          endDate: holiday.endDate,
+          iesId: activeIesId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      setModal({
+        isOpen: true,
+        title: 'Importación Completada',
+        message: `Se han importado correctamente ${toImport.length} festivos para ${localidad || comunidad}.`
+      });
+      
+      fetchHolidays();
+      setIsImportModalOpen(false);
+    } catch (error) {
+      console.error("Error importing holidays:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'Hubo un error durante la importación.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleProposed = (index) => {
+    if (selectedProposed.includes(index)) {
+      setSelectedProposed(selectedProposed.filter(i => i !== index));
+    } else {
+      setSelectedProposed([...selectedProposed, index]);
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -160,10 +313,30 @@ export default function Holidays() {
           <h1 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' }}>Días Festivos</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Gestión de días no lectivos y periodos vacacionales del centro.</p>
         </div>
-        <button className="btn-primary" onClick={openCreateModal}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Nuevo Festivo
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button 
+            className="btn-secondary" 
+            onClick={handleAIImport}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem',
+              border: '1px solid var(--accent-primary)',
+              color: 'var(--accent-primary)',
+              background: 'rgba(99, 102, 241, 0.05)'
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10 10 10 0 0 1-10-10 10 10 0 0 1 10-10z"></path><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ opacity: 0.8 }}><path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z"/></svg>
+              (AI) Importar Festivos
+            </span>
+          </button>
+          <button className="btn-primary" onClick={openCreateModal}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Nuevo Festivo
+          </button>
+        </div>
       </div>
 
       <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
@@ -341,6 +514,151 @@ export default function Holidays() {
           >
             Eliminar Definitivamente
           </button>
+        </div>
+      </Modal>
+
+      {/* AI Import Modal */}
+      <Modal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title={
+          importStep === 'location' ? "(AI) Configurar Ubicación" : 
+          importStep === 'searching' ? "Investigando..." : "(AI) Propuesta de Festivos"
+        }
+      >
+        <div style={{ minHeight: '300px' }}>
+          {importStep === 'location' ? (
+            <div style={styles.form}>
+              <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
+                Para ofrecerte el calendario correcto, la IA necesita saber la ubicación del centro.
+              </p>
+              
+              <div className="form-group">
+                <label className="form-label">Comunidad Autónoma</label>
+                <select 
+                  className="input-field" 
+                  value={comunidad}
+                  onChange={e => setComunidad(e.target.value)}
+                >
+                  <option value="Andalucía">Andalucía</option>
+                  <option value="Aragón">Aragón</option>
+                  <option value="Asturias">Asturias</option>
+                  <option value="Baleares">Baleares</option>
+                  <option value="Canarias">Canarias</option>
+                  <option value="Cantabria">Cantabria</option>
+                  <option value="Castilla y León">Castilla y León</option>
+                  <option value="Castilla-La Mancha">Castilla-La Mancha</option>
+                  <option value="Cataluña">Cataluña</option>
+                  <option value="Comunidad Valenciana">Comunidad Valenciana</option>
+                  <option value="Extremadura">Extremadura</option>
+                  <option value="Galicia">Galicia</option>
+                  <option value="Madrid">Madrid</option>
+                  <option value="Murcia">Murcia</option>
+                  <option value="Navarra">Navarra</option>
+                  <option value="País Vasco">País Vasco</option>
+                  <option value="La Rioja">La Rioja</option>
+                  <option value="Ceuta">Ceuta</option>
+                  <option value="Melilla">Melilla</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label className="form-label">Localidad / Municipio</label>
+                <input 
+                  type="text" 
+                  className="input-field"
+                  placeholder="Ej: Toledo, Madrid, Alcázar..."
+                  value={localidad}
+                  onChange={e => setLocalidad(e.target.value)}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+                  Usaremos esto para buscar los festivos locales específicos.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                <button className="btn-secondary" onClick={() => setIsImportModalOpen(false)} style={{ flex: 1 }}>
+                  Cancelar
+                </button>
+                <button className="btn-primary" onClick={startSearch} style={{ flex: 2 }}>
+                  Investigar Calendario
+                </button>
+              </div>
+            </div>
+          ) : importStep === 'searching' ? (
+            <div style={{ padding: '4rem', textAlign: 'center' }}>
+              <div className="spinner-small" style={{ margin: '0 auto 1rem' }}></div>
+              <p>Investigando calendario escolar oficial para <b>{localidad ? `${localidad}, ` : ''}{comunidad}</b>...</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Buscando festivos regionales, nacionales y locales para el curso 2025-2026.</p>
+            </div>
+          ) : proposedHolidays.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+              <p>No se han encontrado nuevos festivos para proponer en {comunidad}.</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Todos los festivos detectados ya están en el sistema.</p>
+              <button className="btn-secondary" onClick={() => setIsImportModalOpen(false)} style={{ marginTop: '1.5rem' }}>Cerrar</button>
+            </div>
+          ) : (
+            <>
+              <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
+                Resultados encontrados para <b>{localidad ? `${localidad} (${comunidad})` : comunidad}</b>:
+              </p>
+              <div className="scrollable" style={{ maxHeight: '40vh', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem' }}>
+                {proposedHolidays.map((holiday, index) => (
+                  <div 
+                    key={index} 
+                    onClick={() => !holiday.alreadyPresent && toggleProposed(index)}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '1rem', 
+                      padding: '0.75rem', 
+                      borderBottom: index < proposedHolidays.length - 1 ? '1px solid var(--border-color)' : 'none',
+                      cursor: holiday.alreadyPresent ? 'default' : 'pointer',
+                      background: selectedProposed.includes(index) ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                      opacity: holiday.alreadyPresent ? 0.6 : 1,
+                      transition: 'background 0.2s',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={selectedProposed.includes(index)} 
+                      disabled={holiday.alreadyPresent}
+                      onChange={() => {}} 
+                      style={{ width: '18px', height: '18px', cursor: holiday.alreadyPresent ? 'default' : 'pointer' }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: '600', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {holiday.nombre}
+                        {holiday.alreadyPresent && (
+                          <span className="badge" style={{ fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none' }}>
+                            Ya presente
+                          </span>
+                        )}
+                      </p>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {new Date(holiday.startDate).toLocaleDateString()}
+                        {holiday.endDate && <> al {new Date(holiday.endDate).toLocaleDateString()}</>}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button className="btn-secondary" onClick={() => setImportStep('location')} style={{ flex: 1 }}>
+                  Atrás
+                </button>
+                <button 
+                  className="btn-primary" 
+                  onClick={executeImport} 
+                  disabled={selectedProposed.length === 0}
+                  style={{ flex: 2 }}
+                >
+                  Importar {selectedProposed.length} festivos
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

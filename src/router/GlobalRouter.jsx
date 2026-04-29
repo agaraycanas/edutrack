@@ -14,6 +14,7 @@ import Holidays from '../views/management/Holidays'
 import Schedules from '../views/profesor/Schedules'
 import Syllabuses from '../views/profesor/Syllabuses'
 import SyllabusTracking from '../views/profesor/SyllabusTracking'
+import Absences from '../views/profesor/Absences'
 import DashboardLayout from '../layouts/DashboardLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 
@@ -44,6 +45,7 @@ export function GlobalRouter() {
           <Route path="/profesor/horarios" element={<Schedules />} />
           <Route path="/profesor/programaciones" element={<Syllabuses />} />
           <Route path="/profesor/programaciones/:id/seguimiento" element={<SyllabusTracking />} />
+          <Route path="/profesor/ausencias" element={<Absences />} />
         </Route>
 
         <Route path="/register" element={
