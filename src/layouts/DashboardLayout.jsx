@@ -127,6 +127,7 @@ export default function DashboardLayout({ children }) {
     if (newIesId) {
       localStorage.setItem('activeIesId', newIesId);
     }
+    navigate('/home');
   };
 
   const handleLogout = async () => {

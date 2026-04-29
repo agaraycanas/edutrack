@@ -19,15 +19,24 @@ export default function Login() {
   const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
 
+  const ALLOWED_DOMAIN = '@educa.madrid.org';
+
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      
+      if (result.user.email && !result.user.email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+        await auth.signOut();
+        setError(`Acceso denegado: Solo se permiten correos de ${ALLOWED_DOMAIN}`);
+        return;
+      }
+      
       navigate('/home');
     } catch (err) {
       console.error("Error Google Auth:", err);
-      setError(`Fallo de Auth Google: ${err.code}`);
+      setError(`Fallo de Auth Google: ${err.message || err.code}`);
     }
   };
 
@@ -35,6 +44,12 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    if (isSignUp && !email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+      setError(`Solo se permiten registros con el dominio ${ALLOWED_DOMAIN}`);
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isSignUp) {
