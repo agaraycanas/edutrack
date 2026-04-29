@@ -105,14 +105,6 @@ export default function Approvals() {
       
       if (action === 'accept') {
         const userRef = doc(db, 'usuarios', solicitud.userId);
-        const roleLabels = {
-          superadmin: 'Súperadmin',
-          jefe_estudios: 'Jefe de Estudios',
-          jefe_departamento: 'Jefe de Departamento',
-          profesor: 'Profesor',
-          alumno: 'Alumno'
-        };
-
         const roleLabel = roleLabels[solicitud.rol] || solicitud.rol;
 
         await updateDoc(userRef, {
@@ -150,6 +142,23 @@ export default function Approvals() {
         });
       } else {
         await updateDoc(solRef, { estado: 'denegada' });
+        
+        // Enviar correo de notificación de denegación
+        await addDoc(collection(db, 'mail'), {
+          to: solicitud.userEmail,
+          message: {
+            subject: 'Estado de tu solicitud en EduTrack',
+            html: `
+              <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                <h2>Hola ${solicitud.userName},</h2>
+                <p>Lamentamos informarte que tu solicitud de acceso a la plataforma <b>EduTrack</b> ha sido denegada por los responsables del centro.</p>
+                <p>Si crees que esto se trata de un error, por favor ponte en contacto con la jefatura de estudios de tu centro educativo.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 12px; color: #777;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+              </div>
+            `
+          }
+        });
       }
 
       setSolicitudes(solicitudes.filter(s => s.id !== solicitud.id));

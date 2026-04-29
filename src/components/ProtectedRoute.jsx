@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
@@ -8,13 +8,25 @@ export function ProtectedRoute({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [domainError, setDomainError] = useState(false);
   const location = useLocation();
+
+  const ALLOWED_DOMAIN = '@educa.madrid.org';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
-        setUser(currentUser);
         if (currentUser) {
+          // Validar dominio
+          if (currentUser.email && !currentUser.email.toLowerCase().endsWith(ALLOWED_DOMAIN)) {
+            console.warn("Intento de acceso con dominio no permitido:", currentUser.email);
+            await signOut(auth);
+            setDomainError(true);
+            setLoading(false);
+            return;
+          }
+
+          setUser(currentUser);
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
@@ -22,6 +34,9 @@ export function ProtectedRoute({ children }) {
           } else {
             setUserProfile(null);
           }
+        } else {
+          setUser(null);
+          setUserProfile(null);
         }
       } catch (error) {
         console.error("Error al cargar perfil en ProtectedRoute:", error);
@@ -60,6 +75,10 @@ export function ProtectedRoute({ children }) {
         `}</style>
       </div>
     );
+  }
+
+  if (domainError) {
+    return <Navigate to="/login" state={{ error: `Tu cuenta debe ser ${ALLOWED_DOMAIN}` }} replace />;
   }
 
   if (!user) {

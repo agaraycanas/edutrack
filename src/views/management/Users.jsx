@@ -37,6 +37,8 @@ export default function Users() {
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   
   const [deptModal, setDeptModal] = useState({ isOpen: false, user: null, newDept: '' });
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterText, setFilterText] = useState('');
   
   const activeRole = localStorage.getItem('activeRole') || 'profesor';
   const activeIesId = localStorage.getItem('activeIesId');
@@ -53,29 +55,21 @@ export default function Users() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Fetch current IES info
         if (activeIesId) {
           const iesSnap = await getDoc(doc(db, 'ies', activeIesId));
-          if (iesSnap.exists()) {
-            setCurrentIes(iesSnap.data());
-          }
+          if (iesSnap.exists()) setCurrentIes(iesSnap.data());
           
-          // 2. Fetch departments for this IES
           const deptsSnap = await getDocs(query(collection(db, 'departamentos'), where('iesId', '==', activeIesId)));
           const deptsList = deptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           deptsList.sort((a, b) => a.nombre.localeCompare(b.nombre));
           setDepartments(deptsList);
         }
 
-        // 3. Fetch users
         let q;
         if (activeRole === 'superadmin') {
           q = collection(db, 'usuarios');
         } else {
-          q = query(
-            collection(db, 'usuarios'),
-            where('iesIds', 'array-contains', activeIesId)
-          );
+          q = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
         }
 
         const querySnapshot = await getDocs(q);
@@ -83,15 +77,15 @@ export default function Users() {
         
         const filtered = allUsers.filter(u => {
           if (activeRole === 'superadmin') return true;
-          const hasRoleInMyIes = u.roles?.some(r => r.iesId === activeIesId);
-          if (!hasRoleInMyIes) return false;
-          if (activeRole === 'jefe_estudios') return true;
-          if (activeRole === 'jefe_departamento') {
-            const myDept = allUsers.find(curr => curr.email === currentUser?.email)
-              ?.roles?.find(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId)?.departamento;
-            return u.email === currentUser?.email || u.roles?.some(r => r.iesId === activeIesId && r.departamento === myDept);
-          }
-          return u.email === currentUser?.email;
+          if (u.email === currentUser?.email) return true; // Siempre verse a uno mismo
+
+          const userRolesInIes = u.roles?.filter(r => r.iesId === activeIesId) || [];
+          if (userRolesInIes.length === 0) return false;
+
+          const userMaxRank = Math.max(...userRolesInIes.map(r => RANKS[r.rol] || 0));
+          
+          // Solo ver usuarios con rango inferior al mío
+          return userMaxRank < myRank;
         });
 
         setUsers(filtered);
@@ -103,7 +97,7 @@ export default function Users() {
     };
 
     fetchData();
-  }, [activeRole, activeIesId, currentUser]);
+  }, [activeRole, activeIesId, currentUser, myRank]);
 
   const toggleRole = async (user, roleKey) => {
     const targetRank = RANKS[roleKey];
@@ -203,8 +197,32 @@ export default function Users() {
 
   if (loading) return <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando datos...</div>;
 
-  // Sort users in render block to ensure auth.currentUser is ready
-  const sortedUsers = [...users].sort((a, b) => {
+  // 1. Filtrado
+  const filteredUsers = users.filter(u => {
+    // Filtro de Rol
+    if (filterRole !== 'all') {
+      const hasRole = u.roles?.some(r => r.rol === filterRole && r.iesId === activeIesId);
+      if (!hasRole) return false;
+    }
+
+    // Filtro de Texto (nombre, apellidos, email, departamento)
+    if (filterText.trim()) {
+      const search = filterText.toLowerCase();
+      const userDept = (u.roles?.find(r => r.iesId === activeIesId)?.departamento || '').toLowerCase();
+      const matchesText = 
+        (u.nombre || '').toLowerCase().includes(search) ||
+        (u.apellidos || '').toLowerCase().includes(search) ||
+        (u.email || '').toLowerCase().includes(search) ||
+        userDept.includes(search);
+      
+      if (!matchesText) return false;
+    }
+
+    return true;
+  });
+
+  // 2. Ordenación
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
     const myEmail = currentUser?.email;
     const isMeA = a.email === myEmail;
     const isMeB = b.email === myEmail;
@@ -223,13 +241,69 @@ export default function Users() {
 
   return (
     <div className="animate-fade-in" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Gestión de Usuarios</h1>
+      <style>{`
+        .user-avatar-zoom {
+          transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .user-avatar-zoom:hover {
+          transform: scale(1.15);
+          border-color: var(--accent-primary) !important;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 10;
+        }
+      `}</style>
+      <h1 style={{ marginBottom: '1.5rem' }}>Gestión de Usuarios</h1>
+
+      {/* Barra de Filtros */}
+      <div style={styles.filterBar}>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Filtrar por Rol:</label>
+          <select 
+            className="input-field" 
+            style={styles.filterSelect}
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+          >
+            <option value="all">Todos los roles</option>
+            {Object.entries(ROLE_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Buscar usuario:</label>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Nombre, email, depto..." 
+              style={styles.filterInput}
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+            />
+            {filterText && (
+              <button 
+                onClick={() => setFilterText('')}
+                style={styles.clearBtn}
+                title="Limpiar búsqueda"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', paddingBottom: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          {sortedUsers.length} {sortedUsers.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
+        </div>
+      </div>
       
       <div className="glass-panel" style={{ width: '100%', overflow: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '50px' }}>Foto</th>
+              <th style={{ ...styles.th, width: '60px' }}>Foto</th>
               <th style={styles.th}>Nombre</th>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Departamento</th>
@@ -247,13 +321,31 @@ export default function Users() {
               return (
                 <tr key={user.id} style={{ ...styles.tr, backgroundColor: isMe ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
                   <td style={styles.td}>
-                    <img src={user.foto || user.avatar || 'https://via.placeholder.com/32'} style={styles.miniAvatar} alt="" />
+                    <img 
+                      src={user.foto || user.avatar || 'https://via.placeholder.com/48'} 
+                      className="user-avatar-zoom"
+                      style={styles.miniAvatar} 
+                      alt="" 
+                      onClick={() => setModal({
+                        isOpen: true,
+                        title: `Foto de ${user.nombre}`,
+                        message: <div style={{ textAlign: 'center' }}><img src={user.foto || user.avatar || 'https://via.placeholder.com/200'} style={{ width: '250px', height: '250px', borderRadius: '20px', objectFit: 'cover', border: '4px solid var(--border-color)' }} /></div>
+                      })}
+                    />
                   </td>
                   <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
                     {user.apellidos}, {user.nombre} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
                   </td>
-                  <td style={{ ...styles.td, color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={user.email}>
-                    {user.email}
+                  <td style={{ ...styles.td, color: 'var(--text-secondary)', fontSize: '0.85rem' }} title={user.email}>
+                    {user.email?.includes('@educa.madrid.org') ? (
+                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                        {user.email.split('@')[0]}
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                        {user.email}
+                      </span>
+                    )}
                   </td>
                   <td style={styles.td}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -261,7 +353,6 @@ export default function Users() {
                         {userDept || 'Sin departamento'}
                       </span>
                       {canEditDept && (
-                        <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <button 
                             onClick={() => handleDeptEditRequest(user)} 
@@ -272,7 +363,6 @@ export default function Users() {
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                           </button>
                         </div>
-                      </td>
                       )}
                     </div>
                   </td>
@@ -305,7 +395,7 @@ export default function Users() {
         onClose={() => setModal({ ...modal, isOpen: false })}
         title={modal.title}
       >
-        <p>{modal.message}</p>
+        {typeof modal.message === 'string' ? <p>{modal.message}</p> : modal.message}
       </Modal>
 
       {/* Modal de Cambio de Departamento */}
@@ -374,7 +464,7 @@ const styles = {
   th: { padding: '0.8rem 0.5rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', position: 'sticky', top: 0, backgroundColor: 'var(--surface-color)', zIndex: 10, boxShadow: '0 1px 0 var(--border-color)' },
   td: { padding: '0.8rem 0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' },
   tr: { transition: 'background 0.2s' },
-  miniAvatar: { width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' },
+  miniAvatar: { width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', border: '2px solid var(--border-color)', transition: 'transform 0.2s ease, border-color 0.2s ease', cursor: 'pointer' },
   checkbox: { width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--active-role-color)' },
   editBtn: {
     background: 'rgba(255,255,255,0.05)',
@@ -387,5 +477,60 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.2s'
+  },
+  filterBar: {
+    display: 'flex',
+    gap: '2rem',
+    marginBottom: '1.5rem',
+    padding: '1.2rem',
+    background: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: '16px',
+    border: '1px solid var(--border-color)',
+    alignItems: 'center',
+    flexWrap: 'wrap'
+  },
+  filterGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    minWidth: '200px'
+  },
+  filterLabel: {
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    color: 'var(--text-secondary)'
+  },
+  filterSelect: {
+    padding: '8px 12px',
+    fontSize: '0.9rem',
+    background: 'var(--surface-color)',
+    borderRadius: '10px'
+  },
+  filterInput: {
+    padding: '8px 12px',
+    paddingRight: '30px',
+    fontSize: '0.9rem',
+    background: 'var(--surface-color)',
+    borderRadius: '10px',
+    width: '100%'
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: '8px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-secondary)',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    padding: '0 4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
+    transition: 'opacity 0.2s'
   }
 };

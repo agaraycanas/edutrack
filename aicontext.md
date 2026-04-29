@@ -6,10 +6,10 @@ Este fichero sirve como memoria central para que Antigravity (o cualquier IA) pu
 
 1. **Imágenes sin texto**: Si el usuario envía una o varias imágenes **sin texto**, la IA debe responder únicamente con la frase **"Esperando audio"** y no realizar ninguna otra acción.
 2. **Comandos Git**: El comando "Haz commit" (o similar) implica siempre: `git add .`, `git commit -m "mensaje"` y **`git push`**.
-3. **Directrices de Trabajo**:
-    - Priorizar siempre las instrucciones de la última iteración.
-    - No repetir acciones de sesiones anteriores a menos que se pida.
-    - Antes de modificar código estable, verificar si la acción es necesaria.
+3. **Foco y Concisión (ESTRICTO)**:
+    - Ciñete **exclusivamente** a lo que se pide en la interacción actual.
+    - **Prohibido** repetir o resumir tareas/estados de sesiones o turnos anteriores ya cerrados.
+    - Si tienes dudas o quieres sugerir algo, **pregunta** siempre antes.
 
 ---
 
