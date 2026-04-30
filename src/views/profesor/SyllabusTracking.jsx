@@ -145,7 +145,7 @@ export default function SyllabusTracking() {
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
               </button>
               <h1 style={styles.title}>
-                Seguimiento de Programación 
+                {assignment?.asignaturaNombre || 'Seguimiento de Programación'} 
                 <span style={{ 
                   marginLeft: '1rem', 
                   fontSize: '1.2rem', 
