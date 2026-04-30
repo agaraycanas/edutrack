@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db, auth } from '../../config/firebase';
 import { 
   collection, 
@@ -16,6 +17,7 @@ import {
 import Modal from '../../components/common/Modal';
 
 export default function TeachingAssignments() {
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
@@ -382,35 +384,78 @@ export default function TeachingAssignments() {
         </div>
       </section>
 
-      {/* Assignments Grid */}
-      <div style={styles.grid}>
+      {/* Assignments List */}
+      <div className="glass-panel" style={styles.mainPanel}>
         {assignments.length === 0 ? (
           <div style={styles.emptyState}>No hay imparticiones asignadas para este filtro.</div>
         ) : (
-          assignments.map(a => (
-            <div key={a.id} className="glass-panel" style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div style={styles.profInfo}>
-                  <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
-                  <div>
-                    <h3 style={styles.profName}>{a.profesorNombre}</h3>
-                    <p style={styles.cardSubtitle}>{a.grupoNombre}</p>
-                  </div>
-                </div>
-                <button onClick={() => setDeleteConfirm({ isOpen: true, assignment: a })} className="btn-delete" title="Eliminar">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </button>
-              </div>
-              <div style={styles.cardBody}>
-                <div style={styles.badgeSub}>{a.asignaturaSigla}</div>
-                <div style={styles.subName}>{a.asignaturaNombre}</div>
-                <div style={styles.cardLabel}>{a.label}</div>
-              </div>
-            </div>
-          ))
+          <div style={{ overflowX: 'auto', width: '100%' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Profesor</th>
+                  <th style={{ textAlign: 'left' }}>Siglas</th>
+                  <th style={{ textAlign: 'left' }}>Asignatura</th>
+                  <th style={{ textAlign: 'left' }}>Grupo</th>
+                  <th style={{ textAlign: 'left' }}>Label</th>
+                  <th style={{ textAlign: 'right', width: '120px' }}>ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.map(a => (
+                  <tr key={a.id}>
+                    <td>
+                      <div style={styles.profInfoCell}>
+                        <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
+                        <span style={{ fontWeight: '600' }}>{a.profesorNombre}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-accent" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--active-role-color)' }}>
+                        {a.asignaturaSigla}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '0.9rem' }}>{a.asignaturaNombre}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: '500' }}>{a.grupoNombre}</div>
+                    </td>
+                    <td>
+                      <code style={styles.codeLabel}>{a.label}</code>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <button 
+                          onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
+                          className="btn-secondary"
+                          style={{ padding: '0.4rem', minWidth: 'auto' }}
+                          title="Ver seguimiento"
+                        >
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                          </svg>
+                        </button>
+                        <button 
+                          onClick={() => setDeleteConfirm({ isOpen: true, assignment: a })} 
+                          className="btn-delete"
+                          style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
+                          title="Eliminar"
+                        >
+                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -564,37 +609,19 @@ const styles = {
   container: { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
   header: { marginBottom: '2.5rem' },
   headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  title: { fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
   subtitle: { color: '#94a3b8', fontSize: '1.1rem' },
   newButton: { padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '12px' },
   filtersPanel: { padding: '1.5rem', display: 'flex', gap: '2rem', marginBottom: '2rem', borderRadius: '16px' },
   filterGroup: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   filterLabel: { fontSize: '0.875rem', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' },
   select: { width: '100%', cursor: 'pointer' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' },
-  card: { padding: '1.5rem', borderRadius: '20px', transition: 'all 0.3s ease', cursor: 'default', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid rgba(255, 255, 255, 0.1)' },
-  cardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  profInfo: { display: 'flex', gap: '1rem', alignItems: 'center' },
-  avatarMini: { width: '40px', height: '40px', borderRadius: '12px', background: 'var(--active-role-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '1.2rem', color: '#fff' },
-  profName: { fontSize: '1.1rem', fontWeight: '700', color: '#fff' },
-  cardSubtitle: { color: '#94a3b8', fontSize: '0.875rem' },
-  deleteBtn: { 
-    background: 'rgba(239, 68, 68, 0.1)', 
-    color: '#ef4444', 
-    border: 'none', 
-    padding: '0.5rem', 
-    borderRadius: '8px', 
-    cursor: 'pointer', 
-    transition: 'all 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  cardBody: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  badgeSub: { alignSelf: 'flex-start', padding: '0.25rem 0.75rem', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', color: 'var(--active-role-color)', border: '1px solid rgba(255, 255, 255, 0.1)' },
-  subName: { color: '#e2e8f0', fontSize: '0.95rem', fontWeight: '500', lineHeight: '1.4' },
-  cardLabel: { fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px', alignSelf: 'flex-start' },
-  emptyState: { gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: '#94a3b8', fontSize: '1.1rem', fontStyle: 'italic' },
+  mainPanel: { padding: '2rem', borderRadius: '20px' },
+  profInfoCell: { display: 'flex', gap: '0.75rem', alignItems: 'center' },
+  avatarMini: { width: '32px', height: '32px', borderRadius: '8px', background: 'var(--active-role-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.9rem', color: '#fff' },
+  codeLabel: { fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' },
+  emptyState: { textAlign: 'center', padding: '4rem', color: '#94a3b8', fontSize: '1.1rem', fontStyle: 'italic' },
   loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.2rem' },
-  confirmData: { margin: '1.5rem 0', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', borderLeft: '4px solid #ef4444' }
+  confirmData: { margin: '1.5rem 0', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', borderLeft: '4px solid #ef4444' },
+  form: { display: 'flex', flexDirection: 'column', gap: '1rem' }
 };

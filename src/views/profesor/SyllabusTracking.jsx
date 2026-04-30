@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { calcularHorasReales, calcularDesviacion, contarSesiones } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
   const { id } = useParams(); // imparticionId
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isReadOnly = searchParams.get('readOnly') === 'true';
   
   const [loading, setLoading] = useState(true);
   const [programacion, setProgramacion] = useState(null);
@@ -27,7 +29,7 @@ export default function SyllabusTracking() {
     return temas.reduce((acc, tema) => {
       if (tema && tema.fechaInicio && tema.fechaFin && horario) {
         const duracionSesion = academicYear?.duracionSesion || 55;
-        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias);
+        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario.patron, duracionSesion, festivos, ausencias);
         const estimadas = Number(tema.horasEstimadas) || 0;
         return acc + (hReales - estimadas);
       }
@@ -89,9 +91,10 @@ export default function SyllabusTracking() {
         setFestivos(snapFestivos.docs.map(doc => doc.data()));
       }
 
-      // 5. Fetch Ausencias (del profesor)
-      if (auth.currentUser) {
-        const qAusencias = query(collection(db, 'profesor_ausencias'), where('userId', '==', auth.currentUser.uid));
+      // 5. Fetch Ausencias (del profesor asignado)
+      const targetUserId = assignmentData?.usuarioId || auth.currentUser?.uid;
+      if (targetUserId) {
+        const qAusencias = query(collection(db, 'profesor_ausencias'), where('userId', '==', targetUserId));
         const snapAusencias = await getDocs(qAusencias);
         setAusencias(snapAusencias.docs.map(doc => doc.data()));
       }
@@ -138,7 +141,7 @@ export default function SyllabusTracking() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
               <button 
                 className="btn-secondary" 
-                onClick={() => navigate('/profesor/programaciones')}
+                onClick={() => navigate(-1)}
                 style={{ padding: '0.4rem', display: 'flex', alignItems: 'center' }}
                 title="Volver"
               >
@@ -162,9 +165,11 @@ export default function SyllabusTracking() {
               {assignment?.asignaturaSigla} - {assignment?.grupoNombre} ({assignment?.cursoAcademicoLabel})
             </p>
           </div>
-          <button className="btn-primary" onClick={saveChanges} disabled={isProcessing} style={styles.saveButton}>
-            {isProcessing ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
+          {!isReadOnly && (
+            <button className="btn-primary" onClick={saveChanges} disabled={isProcessing} style={styles.saveButton}>
+              {isProcessing ? 'Guardando...' : 'Guardar Cambios'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -199,11 +204,11 @@ export default function SyllabusTracking() {
                 
                 const duracionSesion = academicYear?.duracionSesion || 55;
                 const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
+                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario.patron, duracionSesion, festivos, ausencias) 
                   : 0;
                 
                 const nSesiones = (tema.fechaInicio && tema.fechaFin && horario)
-                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario, festivos, ausencias)
+                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario.patron, festivos, ausencias)
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
@@ -233,6 +238,7 @@ export default function SyllabusTracking() {
                         style={{ padding: '0.4rem', fontSize: '0.85rem', maxWidth: '140px' }}
                         value={tema.fechaInicio || ''}
                         onChange={(e) => handleDateChange(index, 'fechaInicio', e.target.value)}
+                        disabled={isReadOnly}
                       />
                     </td>
                     <td style={styles.td}>
@@ -242,6 +248,7 @@ export default function SyllabusTracking() {
                         style={{ padding: '0.4rem', fontSize: '0.85rem', maxWidth: '140px' }}
                         value={tema.fechaFin || ''}
                         onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
+                        disabled={isReadOnly}
                       />
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>

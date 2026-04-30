@@ -1,0 +1,167 @@
+{
+  "imparticiones": [
+    {
+      "legacy_grupo": "w2",
+      "legacy_curso": "DAW2",
+      "asignatura_nombre": "DiseÃ±o de interfaces web",
+      "pattern": {
+        "lunes": 0,
+        "martes": 2,
+        "miercoles": 2,
+        "jueves": 0,
+        "viernes": 0
+      },
+      "temas": [
+        {
+          "id": 1,
+          "nombre": "ImplementaciÃ³n de la usabilidad en la web",
+          "horasEstimadas": 2,
+          "fechaInicio": "2025-09-16",
+          "fechaFin": "2025-09-17"
+        },
+        {
+          "id": 2,
+          "nombre": "DiseÃ±o de webs accesibles",
+          "horasEstimadas": 2,
+          "fechaInicio": "2025-09-18",
+          "fechaFin": "2025-09-23"
+        },
+        {
+          "id": 3,
+          "nombre": "PlanificaciÃ³n de interfaces grÃ¡ficas",
+          "horasEstimadas": 2,
+          "fechaInicio": "2025-09-24",
+          "fechaFin": "2025-09-30"
+        },
+        {
+          "id": 4,
+          "nombre": "Uso de hojas de estilos",
+          "horasEstimadas": 12,
+          "fechaInicio": "2025-10-01",
+          "fechaFin": "2025-10-21"
+        },
+        {
+          "id": 5,
+          "nombre": "Uso de estilos avanzados",
+          "horasEstimadas": 15,
+          "fechaInicio": "2025-10-22",
+          "fechaFin": "2025-11-18"
+        },
+        {
+          "id": 6,
+          "nombre": "Librerias CSS - Bootstrap",
+          "horasEstimadas": 4,
+          "fechaInicio": "2025-11-19",
+          "fechaFin": "2025-11-25"
+        },
+        {
+          "id": 7,
+          "nombre": "ImplantaciÃ³n de contenido multimedia",
+          "horasEstimadas": 2,
+          "fechaInicio": "2025-11-26",
+          "fechaFin": "2025-12-02"
+        },
+        {
+          "id": 8,
+          "nombre": "IntegraciÃ³n de contenido interactivo",
+          "horasEstimadas": 20,
+          "fechaInicio": "2025-12-03",
+          "fechaFin": "2026-01-27"
+        },
+        {
+          "id": 9,
+          "nombre": "Librerias javascript - jQuery",
+          "horasEstimadas": 20,
+          "fechaInicio": "",
+          "fechaFin": ""
+        },
+        {
+          "id": 10,
+          "nombre": "FFE",
+          "horasEstimadas": 41,
+          "fechaInicio": "",
+          "fechaFin": ""
+        }
+      ]
+    }
+  ],
+  "horarios": [],
+  "programaciones": [],
+  "ausencias": [
+    {
+      "startDate": "2017-04-22",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-24",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-25",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-26",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-27",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-28",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-29",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-04-30",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-01",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-02",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-03",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-04",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-05",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-06",
+      "endDate": null,
+      "motivo": ""
+    },
+    {
+      "startDate": "2017-05-07",
+      "endDate": null,
+      "motivo": ""
+    }
+  ]
+}
