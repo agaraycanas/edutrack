@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate } from 'react-router-dom';
-import { calcularHorasReales, calcularDesviacion } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularDesviacion, contarSesiones } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
@@ -183,6 +183,7 @@ export default function SyllabusTracking() {
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Estimadas</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Inicio</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Fin</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Sesiones</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Reales</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Desviación</th>
             </tr>
@@ -199,6 +200,10 @@ export default function SyllabusTracking() {
                 const duracionSesion = academicYear?.duracionSesion || 55;
                 const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
                   ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
+                  : 0;
+                
+                const nSesiones = (tema.fechaInicio && tema.fechaFin && horario)
+                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario, festivos, ausencias)
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
@@ -238,6 +243,14 @@ export default function SyllabusTracking() {
                         value={tema.fechaFin || ''}
                         onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
                       />
+                    </td>
+                    <td style={{...styles.td, textAlign: 'center'}}>
+                      <span 
+                        title="Número de clases impartidas para este tema" 
+                        style={{ fontWeight: '600', color: '#a5b4fc', cursor: 'help' }}
+                      >
+                        {tema.fechaInicio && tema.fechaFin ? nSesiones : '-'}
+                      </span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>

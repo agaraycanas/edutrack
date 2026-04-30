@@ -15,19 +15,17 @@ const getDayKey = (dayNumber) => {
 };
 
 /**
- * Calcula las horas reales invertidas entre dos fechas, basándose en el patrón horario,
+ * Cuenta el número de sesiones entre dos fechas, basándose en el patrón horario,
  * excluyendo festivos y ausencias.
  * 
  * @param {string} fechaInicio YYYY-MM-DD
  * @param {string} fechaFin YYYY-MM-DD
  * @param {object} horario { lunes: 2, martes: 0, ... }
- * @param {number} duracionSesion Minutos por sesión (default: 55)
  * @param {array} festivos Lista de festivos [{ startDate, endDate }]
  * @param {array} ausencias Lista de ausencias [{ startDate, endDate }]
- * @returns {number} Horas reales (redondeadas)
+ * @returns {number} Número total de sesiones
  */
-export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
-  // Normalizar formato de fecha si viene sin ceros (ej. 2026-2-18 -> 2026-02-18)
+export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], ausencias = []) => {
   const normalizeDate = (d) => {
     if (!d) return null;
     const parts = d.split('-');
@@ -56,11 +54,10 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
 
   if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) return 0;
 
-  // Asegurarnos de que no haya horas que interfieran
   start.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
 
-  if (end < start) return 0; // Fechas inválidas
+  if (end < start) return 0;
 
   let totalSesiones = 0;
   let current = new Date(start);
@@ -73,7 +70,6 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
     const dayKey = getDayKey(dayNumber);
 
     if (dayKey) {
-      // Es de lunes a viernes
       const esFestivo = isDateInRanges(current, festivos);
       const esAusencia = isDateInRanges(current, ausencias);
 
@@ -83,10 +79,18 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
       }
     }
 
-    // Sumar 1 día
     current.setDate(current.getDate() + 1);
   }
 
+  return totalSesiones;
+};
+
+/**
+ * Calcula las horas reales invertidas entre dos fechas, basándose en el patrón horario,
+ * excluyendo festivos y ausencias.
+ */
+export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
+  const totalSesiones = contarSesiones(fechaInicio, fechaFin, horario, festivos, ausencias);
   const minutosTotales = totalSesiones * duracionSesion;
   return Math.round(minutosTotales / 60);
 };

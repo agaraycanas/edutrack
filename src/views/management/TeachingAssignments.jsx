@@ -45,6 +45,12 @@ export default function TeachingAssignments() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, assignment: null });
+  const [conflictModal, setConflictModal] = useState({ 
+    isOpen: false, 
+    existingAssignment: null, 
+    hasItems: false,
+    message: '' 
+  });
 
   const activeIesId = localStorage.getItem('activeIesId');
   const activeRole = localStorage.getItem('activeRole');
@@ -186,23 +192,102 @@ export default function TeachingAssignments() {
 
       const generatedLabel = `${yearDigits}_${studyGroupLabel}_${subSigla}_${profInitials}`;
 
-      // Duplicate Check: Same label in the same IES
-      const qDup = query(
+      // Logical Duplicate Check: Same Year, Group and Subject in the same IES
+      const qLogical = query(
         collection(db, 'ies_imparticiones'),
         where('iesId', '==', activeIesId),
-        where('label', '==', generatedLabel),
+        where('cursoAcademicoId', '==', formData.cursoAcademicoId),
+        where('grupoId', '==', formData.grupoId),
+        where('asignaturaId', '==', formData.asignaturaId),
         limit(1)
       );
-      const snapDup = await getDocs(qDup);
-      if (!snapDup.empty) {
-        setModal({ 
-          isOpen: true, 
-          title: 'Duplicado', 
-          message: `Ya existe una impartición con el identificador: ${generatedLabel}.` 
-        });
+      const snapLogical = await getDocs(qLogical);
+      
+      if (!snapLogical.empty) {
+        const existing = { id: snapLogical.docs[0].id, ...snapLogical.docs[0].data() };
+        
+        // Case 1: Same professor
+        if (existing.usuarioId === formData.usuarioId) {
+          setModal({ 
+            isOpen: true, 
+            title: 'Asignación Existente', 
+            message: `Este profesor ya tiene asignada esta materia para este grupo.` 
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        // Case 2: Different professor -> Check for items
+        const hasItems = await checkIfHasItems(existing.id);
+        
+        if (hasItems) {
+          setModal({
+            isOpen: true,
+            title: 'Conflicto de Asignación',
+            message: `Esta impartición ya está asignada a ${existing.profesorNombre} y ya contiene datos asociados (horario o temas). No se puede reasignar automáticamente para evitar pérdida de datos.`
+          });
+        } else {
+          setConflictModal({
+            isOpen: true,
+            existingAssignment: existing,
+            hasItems: false,
+            message: `Esta impartición ya está asignada a ${existing.profesorNombre}. Al no tener datos asociados (sin horario ni temas), puedes reasignarla. ¿Deseas borrar la asignación anterior y crear esta nueva?`
+          });
+        }
         setIsProcessing(false);
         return;
       }
+
+      await completeAssignment();
+    } catch (error) {
+      console.error("Error creating assignment:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'No se pudo crear la impartición.' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const checkIfHasItems = async (assignmentId) => {
+    try {
+      // Check Horarios
+      const hSnap = await getDoc(doc(db, 'profesor_horarios', assignmentId));
+      if (hSnap.exists()) return true;
+
+      // Check Programaciones (if has themes)
+      const pSnap = await getDoc(doc(db, 'profesor_programaciones', assignmentId));
+      if (pSnap.exists()) {
+        const data = pSnap.data();
+        if (data.temas && data.temas.length > 0) return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Error checking items:", e);
+      return false;
+    }
+  };
+
+  const completeAssignment = async (assignmentToDeleteId = null) => {
+    try {
+      if (assignmentToDeleteId) {
+        await deleteDoc(doc(db, 'ies_imparticiones', assignmentToDeleteId));
+      }
+
+      const prof = professors.find(p => p.id === formData.usuarioId);
+      const sub = subjects.find(s => s.id === formData.asignaturaId);
+      const grp = groups.find(g => g.id === formData.grupoId);
+      const year = academicYears.find(y => y.id === formData.cursoAcademicoId);
+      const study = studies.find(s => s.id === formData.iesEstudioId);
+
+      const yearParts = year.nombre.split(/[-\/]/);
+      const yearDigits = yearParts.map(p => p.trim().slice(-2)).join('');
+      const studySigla = study.nombre.split(' - ')[0] || 'STD';
+      const groupLevel = grp.nombre.match(/\d/)?.[0] || '';
+      const studyGroupLabel = `${studySigla}${groupLevel}`;
+      const subSigla = sub.sigla;
+      const nameInitial = prof.nombre.trim().charAt(0).toUpperCase();
+      const surnameInitial = prof.apellidos.trim().charAt(0).toUpperCase();
+      const profInitials = `${nameInitial}${surnameInitial}`;
+      const generatedLabel = `${yearDigits}_${studyGroupLabel}_${subSigla}_${profInitials}`;
 
       const assignmentData = {
         iesId: activeIesId,
@@ -224,14 +309,20 @@ export default function TeachingAssignments() {
 
       await addDoc(collection(db, 'ies_imparticiones'), assignmentData);
       setIsFormOpen(false);
+      setConflictModal({ isOpen: false, existingAssignment: null, hasItems: false, message: '' });
       fetchAssignments();
       setModal({ isOpen: true, title: 'Éxito', message: 'Impartición asignada correctamente.' });
     } catch (error) {
-      console.error("Error creating assignment:", error);
-      setModal({ isOpen: true, title: 'Error', message: 'No se pudo crear la impartición.' });
-    } finally {
-      setIsProcessing(false);
+      console.error("Error completing assignment:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'No se pudo completar la asignación.' });
     }
+  };
+
+  const handleConfirmReassign = async () => {
+    if (!conflictModal.existingAssignment) return;
+    setIsProcessing(true);
+    await completeAssignment(conflictModal.existingAssignment.id);
+    setIsProcessing(false);
   };
 
   const handleDelete = async () => {
@@ -442,6 +533,27 @@ export default function TeachingAssignments() {
       {modal.isOpen && (
         <Modal isOpen={modal.isOpen} onClose={() => setModal({ ...modal, isOpen: false })} title={modal.title}>
           <p style={{ lineHeight: '1.6' }}>{modal.message}</p>
+        </Modal>
+      )}
+
+      {/* Conflict Modal */}
+      {conflictModal.isOpen && (
+        <Modal 
+          isOpen={conflictModal.isOpen} 
+          onClose={() => setConflictModal({ ...conflictModal, isOpen: false })} 
+          title="Conflicto de Asignación"
+          footer={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setConflictModal({ ...conflictModal, isOpen: false })}>
+                Cancelar
+              </button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmReassign} disabled={isProcessing}>
+                {isProcessing ? '...' : 'Confirmar Reasignación'}
+              </button>
+            </div>
+          }
+        >
+          <p style={{ lineHeight: '1.6' }}>{conflictModal.message}</p>
         </Modal>
       )}
     </div>

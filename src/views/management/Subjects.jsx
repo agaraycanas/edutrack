@@ -22,7 +22,7 @@ export default function Subjects() {
   const [userProfile, setUserProfile] = useState(null);
   
   // Filters
-  const [filterStudy, setFilterStudy] = useState('');
+  const [filterStudy, setFilterStudy] = useState('all');
   const [filterLevel, setFilterLevel] = useState('');
 
   // Form state
@@ -50,7 +50,7 @@ export default function Subjects() {
     if (activeIesId) {
       fetchSubjects();
     }
-  }, [filterStudy, filterLevel]);
+  }, [filterStudy, filterLevel, userProfile]);
 
   const fetchInitialData = async () => {
     if (!activeIesId) return;
@@ -92,13 +92,36 @@ export default function Subjects() {
       setSubjects([]);
       return;
     }
+
+    const isGlobalRole = activeRole === 'jefe_estudios' || activeRole === 'superadmin';
+    
+    // If filtering all and not global role, we need the profile to know the department
+    if (filterStudy === 'all' && !isGlobalRole && !userProfile) {
+      return;
+    }
     
     try {
       let q = query(
         collection(db, 'ies_asignaturas'),
-        where('iesId', '==', activeIesId),
-        where('iesEstudioId', '==', filterStudy)
+        where('iesId', '==', activeIesId)
       );
+
+      if (filterStudy !== 'all') {
+        q = query(q, where('iesEstudioId', '==', filterStudy));
+      } else {
+        // "Todas" logic: filter by department if not a global role
+        if (!isGlobalRole) {
+          const myRoleData = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
+          const myDept = myRoleData?.departamento;
+          if (myDept) {
+            q = query(q, where('departamento', '==', myDept));
+          } else {
+            // If no department found for this role, we can't filter yet or they see nothing
+            setSubjects([]);
+            return;
+          }
+        }
+      }
 
       if (filterLevel) {
         q = query(q, where('curso', '==', parseInt(filterLevel)));
@@ -134,7 +157,7 @@ export default function Subjects() {
         nombre: '',
         sigla: '',
         curso: filterLevel || '',
-        iesEstudioId: filterStudy || ''
+        iesEstudioId: filterStudy === 'all' ? '' : (filterStudy || '')
       });
     }
     setIsFormOpen(true);
@@ -299,9 +322,9 @@ export default function Subjects() {
           <div style={styles.headerText}>
             <h1 style={styles.title}>Asignaturas</h1>
             <p style={styles.subtitle}>
-              {activeRole === 'jefe_departamento' 
-                ? `Departamento de ${userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId)?.departamento || '...'}`
-                : 'Gestión académica global'}
+              {activeRole === 'jefe_estudios' || activeRole === 'superadmin'
+                ? 'Gestión académica global'
+                : `Departamento de ${userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId)?.departamento || '...'}`}
             </p>
           </div>
           <button className="btn-primary" onClick={() => handleOpenForm()} style={styles.newButton}>
@@ -325,7 +348,7 @@ export default function Subjects() {
               }}
               style={styles.select}
             >
-              <option value="">Selecciona una titulación...</option>
+              <option value="all">Todas</option>
               {studies
                 .filter(s => {
                   if (activeRole === 'jefe_estudios' || activeRole === 'superadmin') return true;
@@ -350,7 +373,7 @@ export default function Subjects() {
               style={styles.select}
             >
               <option value="">TODOS LOS CURSOS</option>
-              {selectedStudyForFilter?.cursos?.map(c => (
+              {(filterStudy === 'all' ? [1, 2, 3, 4] : selectedStudyForFilter?.cursos)?.map(c => (
                 <option key={c} value={c}>{c}º Curso</option>
               ))}
             </select>
@@ -362,7 +385,7 @@ export default function Subjects() {
       <div className="glass-panel" style={styles.mainPanel}>
         <div style={styles.listHeader}>
           <h2 style={styles.listTitle}>
-            {filterStudy ? selectedStudyForFilter?.nombre : 'Selecciona una titulación'}
+            {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
           </h2>
           {filterStudy && subjects.length > 0 && (
             <span style={styles.countBadge}>{subjects.length} asignaturas</span>
