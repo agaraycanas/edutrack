@@ -213,6 +213,7 @@ select option {
 
 .data-table {
   width: 100%;
+  min-width: 1000px; /* Force horizontal scroll on smaller screens */
   border-collapse: collapse;
   text-align: left;
 }
@@ -223,6 +224,11 @@ select option {
   border-bottom: 1px solid var(--border-color);
   font-size: 0.95rem;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
 }
 
 .data-table th {
@@ -231,8 +237,22 @@ select option {
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: #13172a;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* Scroll wrapper estándar para tablas largas */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 65vh;
+  width: 100%;
+  padding-bottom: 1rem; /* Prevent truncation of the last item */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-primary) transparent;
 }
 
 /* Acciones column fix */
@@ -362,6 +382,82 @@ select option {
   background: rgba(255, 255, 255, 0.1) !important;
   border-color: var(--active-role-color) !important;
   transform: translateY(-1px);
+}
+
+/* Sidebar Specific */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.nav-group-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.nav-item-active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: var(--active-role-color) !important;
+  font-weight: 600;
+  box-shadow: inset 4px 0 0 var(--active-role-color), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.nav-item:hover:not(.nav-item-active) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.nav-item-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-tooltip {
+  position: absolute;
+  left: calc(100% + 15px);
+  padding: 8px 12px;
+  background: var(--surface-color);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-10px);
+  z-index: 9999;
+  box-shadow: var(--shadow-md);
+  border-left: 3px solid var(--active-role-color);
+}
+
+.sidebar-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: var(--surface-color);
+  border-left: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nav-item-container:hover .sidebar-tooltip {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .modal-content {

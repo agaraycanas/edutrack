@@ -172,8 +172,9 @@ export default function AcademicYears() {
               No hay cursos académicos registrados todavía.
             </p>
           ) : (
-            <div style={styles.list}>
-              {years.map(year => (
+            <div style={{ overflowY: 'auto', maxHeight: '60vh' }}>
+              <div style={styles.list}>
+                {years.map(year => (
                 <div key={year.id} style={styles.yearItem}>
                   <div style={styles.yearInfo}>
                     <div style={styles.yearIcon}>
@@ -203,7 +204,8 @@ export default function AcademicYears() {
                     </button>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
       </div>

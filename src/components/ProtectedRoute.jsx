@@ -52,56 +52,33 @@ export function ProtectedRoute({ children }) {
     return (
       <div style={{ 
         display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
         alignItems: 'center', 
-        height: '100vh', 
-        backgroundColor: 'var(--bg-color)',
-        gap: '1rem'
+        justifyContent: 'center', 
+        minHeight: '100vh',
+        backgroundColor: '#f8fafc',
+        color: '#64748b',
+        fontWeight: '500'
       }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          border: '3px solid rgba(255,255,255,0.1)',
-          borderTopColor: 'var(--accent-primary)',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
-        <h2 style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: '400' }}>Cargando EduTrack...</h2>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+        Cargando EduTrack...
       </div>
     );
   }
 
   if (domainError) {
-    return <Navigate to="/login" state={{ error: `Tu cuenta debe ser ${ALLOWED_DOMAIN}` }} replace />;
+    return <Navigate to="/login" state={{ from: location, error: 'dominio' }} replace />;
   }
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Si está en /register no hacemos nada más
-  if (location.pathname === '/register') {
-    return children;
-  }
-
-  // Si no tiene perfil, le mandamos a registrarse
-  if (!userProfile) {
-    return <Navigate to="/register" replace />;
-  }
-
-  // Verificar si tiene al menos un rol ACTIVO
-  const hasActiveRole = userProfile.roles?.some(role => role.estado === 'activo');
-  
-  // Si no tiene ningún rol activo y no está en /register, redirigir a /register
-  // donde se le mostrará el estado de "Pendiente" o el formulario
-  if (!hasActiveRole && location.pathname !== '/register') {
-    return <Navigate to="/register" replace />;
+  // Si no hay perfil en Firestore, obligamos a pasar por registro/completar perfil si no está ya allí
+  // Nota: Deberíamos tener una ruta de "espera de aprobación" o "registro"
+  if (!userProfile && location.pathname !== '/register' && location.pathname !== '/onboarding') {
+    // Si no tiene perfil, es que se acaba de registrar con Firebase pero no ha completado el proceso de EduTrack
+    // O está esperando aprobación del primer rol.
+    // Para simplificar, si no hay perfil lo mandamos a login para que se registre o reintente
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return children;

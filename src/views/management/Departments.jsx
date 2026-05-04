@@ -7,6 +7,7 @@ import {
   getDocs, 
   addDoc, 
   deleteDoc, 
+  updateDoc,
   doc, 
   serverTimestamp 
 } from 'firebase/firestore';
@@ -19,6 +20,7 @@ export default function Departments() {
   const [newDeptName, setNewDeptName] = useState('');
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, dept: null });
   
   const activeIesId = localStorage.getItem('activeIesId');
@@ -99,6 +101,31 @@ export default function Departments() {
     setConfirmDelete({ isOpen: true, dept });
   };
 
+  const openEditModal = (dept) => {
+    setEditingDept(dept);
+    setNewDeptName(dept.nombre);
+    setIsFormOpen(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingDept || !newDeptName.trim()) return;
+
+    try {
+      await updateDoc(doc(db, 'departamentos', editingDept.id), {
+        nombre: newDeptName.trim()
+      });
+      setEditingDept(null);
+      setNewDeptName('');
+      setIsFormOpen(false);
+      fetchData();
+      setModal({ isOpen: true, title: 'Éxito', message: 'Departamento actualizado correctamente.' });
+    } catch (error) {
+      console.error("Error updating department:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'No se pudo actualizar el departamento.' });
+    }
+  };
+
   const executeDelete = async () => {
     const dept = confirmDelete.dept;
     if (!dept) return;
@@ -141,39 +168,70 @@ export default function Departments() {
       "Lengua Castellana y Literatura", "Matemáticas", "Música", "Orientación", 
       "Religión", "Tecnología", "Administración y Gestión", "Comercio y Márketing", 
       "Formación y Orientación Laboral", "Informática y Comunicaciones", 
-      "Imagen Personal", "Extraescolares"
+      "Imagen Personal", "Extraescolares", "General"
     ];
 
     setLoading(true);
     try {
-      // 1. Check if "Informática" exists and rename it to "Informática y Comunicaciones"
-      const infoDept = departments.find(d => d.nombre === "Informática");
-      if (infoDept) {
-        await updateDoc(doc(db, 'departamentos', infoDept.id), { 
-          nombre: "Informática y Comunicaciones" 
-        });
-        
-        // Update users who have "Informática"
-        const qUsers = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
-        const usersSnap = await getDocs(qUsers);
-        for (const userDoc of usersSnap.docs) {
-          const userData = userDoc.data();
-          const newRoles = userData.roles?.map(r => {
-            if (r.iesId === activeIesId && r.departamento === "Informática") {
-              return { ...r, departamento: "Informática y Comunicaciones" };
-            }
-            return r;
-          });
-          if (JSON.stringify(newRoles) !== JSON.stringify(userData.roles)) {
-            await updateDoc(userDoc.ref, { roles: newRoles });
+      const oldName = "Informática";
+      const newName = "Informática y Comunicaciones";
+      
+      // 1. Force migration across all collections regardless of department document existence
+      
+      // Update users
+      const qUsers = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
+      const usersSnap = await getDocs(qUsers);
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data();
+        let changed = false;
+        const newRoles = userData.roles?.map(r => {
+          if (r.iesId === activeIesId && r.departamento === oldName) {
+            changed = true;
+            return { ...r, departamento: newName };
           }
+          return r;
+        });
+        if (changed) {
+          await updateDoc(userDoc.ref, { roles: newRoles });
         }
       }
 
-      // 2. Add missing defaults
+      // Update ies_estudios
+      const qStudies = query(collection(db, 'ies_estudios'), where('iesId', '==', activeIesId));
+      const studiesSnap = await getDocs(qStudies);
+      for (const studyDoc of studiesSnap.docs) {
+        const studyData = studyDoc.data();
+        if (studyData.departamentos?.includes(oldName)) {
+          let newDepts = studyData.departamentos.map(d => d === oldName ? newName : d);
+          newDepts = [...new Set(newDepts)];
+          await updateDoc(studyDoc.ref, { departamentos: newDepts });
+        }
+      }
+
+      // Update ies_asignaturas
+      const qSubjects = query(collection(db, 'ies_asignaturas'), where('iesId', '==', activeIesId), where('departamento', '==', oldName));
+      const subjectsSnap = await getDocs(qSubjects);
+      for (const subjectDoc of subjectsSnap.docs) {
+        await updateDoc(subjectDoc.ref, { departamento: newName });
+      }
+
+      // 2. Handle the department document itself
+      const infoDept = departments.find(d => d.nombre === oldName);
+      const canonicalDept = departments.find(d => d.nombre === newName);
+
+      if (infoDept) {
+        if (canonicalDept) {
+          await deleteDoc(doc(db, 'departamentos', infoDept.id));
+        } else {
+          await updateDoc(doc(db, 'departamentos', infoDept.id), { nombre: newName });
+        }
+      }
+
+      // 3. Add missing defaults
       for (const name of defaultDepts) {
-        // After potential rename, check if name exists
-        const exists = departments.some(d => d.nombre === name) || (name === "Informática y Comunicaciones" && infoDept);
+        // Fetch fresh departments state or use the updated one
+        const exists = departments.some(d => d.nombre === name) || 
+                      (name === newName && (infoDept || canonicalDept));
         if (!exists) {
           await addDoc(collection(db, 'departamentos'), {
             iesId: activeIesId,
@@ -187,7 +245,7 @@ export default function Departments() {
       setModal({
         isOpen: true,
         title: 'Departamentos Inicializados',
-        message: 'Se han cargado los departamentos por defecto y se ha actualizado el vínculo con los usuarios existentes.'
+        message: 'Se han cargado los departamentos por defecto y se ha completado la migración de "Informática" a "Informática y Comunicaciones" en todos los registros.'
       });
     } catch (error) {
       console.error("Error initializing departments:", error);
@@ -222,7 +280,7 @@ export default function Departments() {
               No hay departamentos registrados.
             </p>
           ) : (
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+          <div className="table-scroll-wrapper">
             <table className="data-table">
             <thead>
               <tr>
@@ -286,12 +344,16 @@ export default function Departments() {
 
       <Modal
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        title="Nuevo Departamento"
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingDept(null);
+          setNewDeptName('');
+        }}
+        title={editingDept ? "Editar Departamento" : "Nuevo Departamento"}
       >
         <form onSubmit={(e) => {
-          handleCreate(e);
-          setIsFormOpen(false);
+          if (editingDept) handleUpdate(e);
+          else handleCreate(e);
         }} style={styles.form}>
           <div style={styles.field}>
             <label style={styles.label}>Nombre del Departamento</label>
@@ -305,7 +367,7 @@ export default function Departments() {
             />
           </div>
           <button type="submit" className="btn-primary" style={{ width: '100%' }}>
-            Crear Departamento
+            {editingDept ? "Guardar Cambios" : "Crear Departamento"}
           </button>
         </form>
       </Modal>

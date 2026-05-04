@@ -18,6 +18,7 @@ import Modal from '../../components/common/Modal';
 export default function Subjects() {
   const [subjects, setSubjects] = useState([]);
   const [studies, setStudies] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   
@@ -31,7 +32,8 @@ export default function Subjects() {
     nombre: '',
     sigla: '',
     curso: '',
-    iesEstudioId: ''
+    iesEstudioId: '',
+    departamento: ''
   });
   
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
@@ -71,6 +73,17 @@ export default function Subjects() {
       const studiesData = snapshotStudies.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       studiesData.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setStudies(studiesData);
+
+      // 3. Fetch Departments
+      const qDepts = query(
+        collection(db, 'departamentos'),
+        where('iesId', '==', activeIesId)
+      );
+      const snapshotDepts = await getDocs(qDepts);
+      const deptsData = snapshotDepts.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      setDepartments(deptsData);
 
       // If user is jefe_departamento, auto-select first study of their dept if available
       if (activeRole === 'jefe_departamento') {
@@ -150,15 +163,20 @@ export default function Subjects() {
         nombre: subject.nombre,
         sigla: subject.sigla || '',
         curso: subject.curso,
-        iesEstudioId: subject.iesEstudioId
+        iesEstudioId: subject.iesEstudioId,
+        departamento: subject.departamento || ''
       });
     } else {
       setEditingSubject(null);
+      // For new subjects, pre-fill department from user's role if applicable
+      const myRoleData = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
+      const myDept = myRoleData?.departamento || '';
       setFormData({
         nombre: '',
         sigla: '',
         curso: filterLevel || '',
-        iesEstudioId: filterStudy === 'all' ? '' : (filterStudy || '')
+        iesEstudioId: filterStudy === 'all' ? '' : (filterStudy || ''),
+        departamento: myDept
       });
     }
     setIsFormOpen(true);
@@ -222,8 +240,6 @@ export default function Subjects() {
       }
 
       const selectedStudy = studies.find(s => s.id === formData.iesEstudioId);
-      const myRoleData = userProfile.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
-      const myDept = myRoleData?.departamento;
 
       const subjectData = {
         iesId: activeIesId,
@@ -232,7 +248,7 @@ export default function Subjects() {
         curso: parseInt(formData.curso),
         iesEstudioId: formData.iesEstudioId,
         titulacionNombre: selectedStudy.nombre,
-        departamento: activeRole === 'jefe_departamento' ? myDept : (selectedStudy.departamentos?.[0] || 'General'),
+        departamento: formData.departamento || selectedStudy.departamentos?.[0] || 'General',
         updatedAt: serverTimestamp()
       };
 
@@ -412,9 +428,9 @@ export default function Subjects() {
       </section>
 
       {/* Main Content */}
-      <div className="glass-panel" style={styles.mainPanel}>
-        <div style={styles.listHeader}>
-          <h2 style={styles.listTitle}>
+      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>
             {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
           </h2>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -459,7 +475,7 @@ export default function Subjects() {
             </button>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+          <div className="table-scroll-wrapper">
             <table className="data-table">
               <thead>
                 <tr>
@@ -597,7 +613,17 @@ export default function Subjects() {
             <select 
               className="input-field"
               value={formData.iesEstudioId}
-              onChange={e => setFormData({...formData, iesEstudioId: e.target.value, curso: ''})}
+              onChange={e => {
+                const sel = studies.find(s => s.id === e.target.value);
+                // Auto-fill department from study if not manually set yet
+                const autoDept = sel?.departamentos?.[0] || '';
+                setFormData(prev => ({
+                  ...prev,
+                  iesEstudioId: e.target.value,
+                  curso: '',
+                  departamento: prev.departamento || autoDept
+                }));
+              }}
               required
             >
               <option value="">Selecciona titulación...</option>
@@ -610,6 +636,21 @@ export default function Subjects() {
                 .map(s => (
                   <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
+            </select>
+          </div>
+
+          <div style={styles.formField}>
+            <label style={styles.label}>Departamento responsable</label>
+            <select
+              className="input-field"
+              value={formData.departamento}
+              onChange={e => setFormData({...formData, departamento: e.target.value})}
+              required
+            >
+              <option value="">Selecciona departamento...</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.nombre}>{d.nombre}</option>
+              ))}
             </select>
           </div>
 

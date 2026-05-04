@@ -345,7 +345,7 @@ export default function Studies() {
         </button>
       </div>
 
-      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)' }}>
         {loading ? (
           <div style={{ padding: '4rem', textAlign: 'center' }}>
             <div className="loader" style={{ margin: '0 auto mb-4' }}></div>
@@ -375,7 +375,7 @@ export default function Studies() {
             </button>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+          <div className="table-scroll-wrapper">
             <table className="data-table">
               <thead>
                 <tr>

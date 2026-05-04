@@ -344,7 +344,7 @@ export default function Holidays() {
           <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>Listado de Festivos</h2>
         </div>
         
-        <div className="scrollable" style={{ maxHeight: '60vh' }}>
+        <div className="table-scroll-wrapper">
           {loading ? (
             <div style={{ padding: '4rem', textAlign: 'center' }}>
               <div className="spinner-small" style={{ margin: '0 auto 1rem' }}></div>
@@ -358,7 +358,7 @@ export default function Holidays() {
             </div>
           ) : (
             <table className="data-table">
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr>
                   <th>Nombre</th>
                   <th>Fecha Inicio</th>

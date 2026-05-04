@@ -191,7 +191,8 @@ export default function Approvals() {
           No hay solicitudes pendientes para tu nivel de autoridad.
         </div>
       ) : (
-        <div style={styles.list}>
+        <div style={{ overflowY: 'auto', maxHeight: '70vh' }}>
+          <div style={styles.list}>
           {solicitudes.map(sol => (
             <div key={sol.id} className="glass-panel" style={styles.card}>
               <div style={{ ...styles.info, flex: 1, minWidth: 0 }}>
@@ -241,6 +242,7 @@ export default function Approvals() {
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
 

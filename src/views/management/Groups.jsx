@@ -327,9 +327,9 @@ export default function Groups() {
       </section>
 
       {/* Main Content */}
-      <div className="glass-panel" style={styles.mainPanel}>
-        <div style={styles.listHeader}>
-          <h2 style={styles.listTitle}>
+      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
+        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>
             {groups.length} {groups.length === 1 ? 'Grupo encontrado' : 'Grupos encontrados'}
           </h2>
         </div>
@@ -347,7 +347,7 @@ export default function Groups() {
             <p>Prueba a cambiar los filtros o crea uno nuevo.</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+          <div className="table-scroll-wrapper">
             <table className="data-table">
               <thead>
                 <tr>
@@ -571,7 +571,7 @@ const styles = {
   filterLabel: { fontSize: '0.85rem', fontWeight: '700', color: 'var(--accent-primary)', textTransform: 'uppercase' },
   selectWrapper: { position: 'relative' },
   select: { width: '100%', background: 'rgba(255,255,255,0.05)' },
-  mainPanel: { padding: '2.5rem', minHeight: '400px' },
+  mainPanel: { padding: '2.5rem' },
   listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
   listTitle: { fontSize: '1.5rem', fontWeight: '700' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },

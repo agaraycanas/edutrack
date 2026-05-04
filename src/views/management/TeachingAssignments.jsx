@@ -389,7 +389,7 @@ export default function TeachingAssignments() {
         {assignments.length === 0 ? (
           <div style={styles.emptyState}>No hay imparticiones asignadas para este filtro.</div>
         ) : (
-          <div style={{ overflowX: 'auto', width: '100%' }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh', width: '100%' }}>
             <table className="data-table">
               <thead>
                 <tr>
