@@ -26,6 +26,7 @@ const getDayKey = (dayNumber) => {
  * @returns {number} Número total de sesiones
  */
 export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], ausencias = []) => {
+  if (!horario) return 0;
   const normalizeDate = (d) => {
     if (!d) return null;
     const parts = d.split('-');

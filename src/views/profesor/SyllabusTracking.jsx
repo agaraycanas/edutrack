@@ -29,7 +29,7 @@ export default function SyllabusTracking() {
     return temas.reduce((acc, tema) => {
       if (tema && tema.fechaInicio && tema.fechaFin && horario) {
         const duracionSesion = academicYear?.duracionSesion || 55;
-        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario.patron, duracionSesion, festivos, ausencias);
+        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias);
         const estimadas = Number(tema.horasEstimadas) || 0;
         return acc + (hReales - estimadas);
       }
@@ -204,11 +204,11 @@ export default function SyllabusTracking() {
                 
                 const duracionSesion = academicYear?.duracionSesion || 55;
                 const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario.patron, duracionSesion, festivos, ausencias) 
+                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
                   : 0;
                 
                 const nSesiones = (tema.fechaInicio && tema.fechaFin && horario)
-                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario.patron, festivos, ausencias)
+                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario, festivos, ausencias)
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
