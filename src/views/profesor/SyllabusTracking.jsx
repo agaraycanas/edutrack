@@ -43,6 +43,8 @@ export default function SyllabusTracking() {
 
   const fetchData = async () => {
     setLoading(true);
+    const activeIesId = localStorage.getItem('activeIesId');
+    
     try {
       // 1. Fetch Impartición (for labels)
       const aSnap = await getDoc(doc(db, 'ies_imparticiones', id));
@@ -80,11 +82,12 @@ export default function SyllabusTracking() {
       if (hSnap.exists()) {
         setHorario(hSnap.data());
       } else {
-        setModal({ isOpen: true, title: 'Aviso', message: 'No hay horario definido para esta impartición. Las horas reales no se podrán calcular.' });
+        // Si no hay horario, intentamos ver si hay un horario general del profesor
+        // pero lo ideal es que cada impartición tenga el suyo.
+        console.warn("No hay horario para la impartición:", id);
       }
 
       // 4. Fetch Festivos (del centro)
-      const activeIesId = localStorage.getItem('activeIesId');
       if (activeIesId) {
         const qFestivos = query(collection(db, 'festivos'), where('iesId', '==', activeIesId));
         const snapFestivos = await getDocs(qFestivos);

@@ -51,7 +51,12 @@ async function run() {
     await horarioRef.set({
       imparticionId: label,
       usuarioId: UID_GUILLERMO,
-      patron: imp.pattern,
+      iesId: IES_ID,
+      lunes: Number(imp.pattern.lunes || 0),
+      martes: Number(imp.pattern.martes || 0),
+      miercoles: Number(imp.pattern.miercoles || 0),
+      jueves: Number(imp.pattern.jueves || 0),
+      viernes: Number(imp.pattern.viernes || 0),
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 

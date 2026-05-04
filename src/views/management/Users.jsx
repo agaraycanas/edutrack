@@ -17,7 +17,7 @@ const RANKS = {
   jefe_estudios: 80,
   jefe_departamento: 60,
   profesor: 40,
-  alumno: 20
+  // alumno: 20
 };
 
 const ROLE_LABELS = {
@@ -25,7 +25,7 @@ const ROLE_LABELS = {
   jefe_estudios: 'Jefe de Estudios',
   jefe_departamento: 'Jefe de Depto.',
   profesor: 'Profesor',
-  alumno: 'Alumno'
+  // alumno: 'Alumno' (removed to hide from UI)
 };
 
 export default function Users() {
@@ -114,8 +114,8 @@ export default function Users() {
     const isMe = user.email === currentUser?.email;
     if (isMe) {
       const myMaxRole = user.roles
-        .filter(r => r.iesId === activeIesId && r.estado === 'activo')
-        .reduce((max, r) => RANKS[r.rol] > RANKS[max] ? r.rol : max, 'alumno');
+        .filter(r => r.iesId === activeIesId && r.estado === 'activo' && r.rol?.toLowerCase() !== 'alumno')
+        .reduce((max, r) => (RANKS[r.rol] || 0) > (RANKS[max] || 0) ? r.rol : max, 'profesor');
       
       if (roleKey === myMaxRole && user.roles.some(r => r.rol === roleKey && r.iesId === activeIesId)) {
         setModal({

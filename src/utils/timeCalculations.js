@@ -29,10 +29,38 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
   if (!horario) return 0;
   const normalizeDate = (d) => {
     if (!d) return null;
-    const parts = d.split('-');
-    if (parts.length !== 3) return new Date(d);
-    const [y, m, d_] = parts;
-    return new Date(`${y}-${m.padStart(2, '0')}-${d_.padStart(2, '0')}`);
+    
+    // Handle Firestore Timestamps
+    if (d && typeof d.toDate === 'function') return d.toDate();
+    if (d && d.seconds) return new Date(d.seconds * 1000);
+    
+    if (typeof d !== 'string') return new Date(d);
+
+    // Try YYYY-MM-DD
+    if (d.includes('-')) {
+      const parts = d.split('-');
+      if (parts.length === 3) {
+        const [y, m, day] = parts;
+        // Si el primer segmento es el año (4 dígitos)
+        if (y.length === 4) {
+          return new Date(Number(y), Number(m) - 1, Number(day));
+        } else {
+          // Asumimos DD-MM-YYYY
+          return new Date(Number(day), Number(m) - 1, Number(y));
+        }
+      }
+    }
+
+    // Try DD/MM/YYYY
+    if (d.includes('/')) {
+      const parts = d.split('/');
+      if (parts.length === 3) {
+        const [day, m, y] = parts;
+        return new Date(Number(y), Number(m) - 1, Number(day));
+      }
+    }
+
+    return new Date(d);
   };
 
   const isDateInRanges = (date, ranges) => {

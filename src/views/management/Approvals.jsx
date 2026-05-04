@@ -61,6 +61,7 @@ export default function Approvals() {
 
         // 3. Filtrar según jerarquía inteligente
         const filtered = allSolicitudes.filter(sol => {
+          if (sol.rol?.toLowerCase() === 'alumno') return false;
           if (activeRole === 'superadmin') return true;
           if (sol.iesId !== activeIesId) return false;
 
@@ -130,10 +131,10 @@ export default function Approvals() {
                 <p>Nos complace informarte que tu solicitud para el rol de <b>${roleLabel}</b> ${solicitud.departamento ? `en el departamento de <b>${solicitud.departamento}</b>` : ''} en el centro <b>${solicitud.iesNombre}</b> ha sido aprobada.</p>
                 <p>Ya puedes acceder a la plataforma y comenzar a utilizar todas las funciones disponibles para tu perfil.</p>
                 <div style="margin: 30px 0;">
-                  <a href="${window.location.origin}/login" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a EduTrack</a>
+                  <a href="https://edutrack-803e0.firebaseapp.com/login" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Acceder a EduTrack</a>
                 </div>
                 <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
-                <p>${window.location.origin}/login</p>
+                <p>https://edutrack-803e0.firebaseapp.com/login</p>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
                 <p style="font-size: 12px; color: #777;">Este es un correo automático, por favor no respondas a este mensaje.</p>
               </div>
@@ -259,7 +260,7 @@ const roleLabels = {
   jefe_estudios: 'Jefe de Estudios',
   jefe_departamento: 'Jefe de Depto.',
   profesor: 'Profesor',
-  alumno: 'Alumno'
+  // alumno: 'Alumno'
 };
 
 const styles = {

@@ -56,7 +56,7 @@ export default function Login() {
           <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
             <p style={{ fontSize: '1rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
               {isSignUp 
-                ? 'Para registrarte, utiliza tu cuenta corporativa de EducaMadrid. El registro está limitado a personal docente y alumnos autorizados.'
+                ? 'Para registrarte, utiliza tu cuenta corporativa de EducaMadrid. El registro está limitado a personal docente autorizado.'
                 : 'Accede de forma segura utilizando tu identidad digital de EducaMadrid.'}
             </p>
           </div>

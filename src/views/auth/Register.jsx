@@ -226,7 +226,7 @@ export default function Register() {
             <option value="profesor">Profesor</option>
             <option value="jefe_departamento">Jefe de Departamento</option>
             <option value="jefe_estudios">Jefe de Estudios</option>
-            <option value="alumno">Alumno</option>
+            {/* <option value="alumno">Alumno</option> */}
           </select>
         </div>
 

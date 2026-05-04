@@ -40,6 +40,18 @@ export default function Home() {
     year: 'numeric' 
   });
   const capitalizedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  
+  // Persistencia de scroll para volver al mismo sitio
+  useEffect(() => {
+    const savedScroll = sessionStorage.getItem('home_scroll_pos');
+    const mainContent = document.getElementById('main-content');
+    if (savedScroll && !loading && mainContent) {
+      setTimeout(() => {
+        mainContent.scrollTo(0, parseInt(savedScroll));
+        sessionStorage.removeItem('home_scroll_pos');
+      }, 100);
+    }
+  }, [loading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,11 +67,23 @@ export default function Home() {
 
         const normalizeDate = (d) => {
           if (!d) return null;
-          if (d.seconds) return d.toDate(); // Firestore timestamp
-          const parts = d.split('-');
-          if (parts.length !== 3) return new Date(d);
-          const [y, m, d_] = parts;
-          const date = new Date(`${y}-${m.padStart(2, '0')}-${d_.padStart(2, '0')}`);
+          let date;
+          if (d && typeof d.toDate === 'function') date = d.toDate();
+          else if (d && d.seconds) date = new Date(d.seconds * 1000);
+          else if (typeof d === 'string') {
+            if (d.includes('-')) {
+              const [p1, p2, p3] = d.split('-');
+              if (p1.length === 4) date = new Date(Number(p1), Number(p2) - 1, Number(p3));
+              else date = new Date(Number(p3), Number(p2) - 1, Number(p1));
+            } else if (d.includes('/')) {
+              const [p1, p2, p3] = d.split('/');
+              date = new Date(Number(p3), Number(p2) - 1, Number(p1));
+            } else {
+              date = new Date(d);
+            }
+          } else {
+            date = new Date(d);
+          }
           date.setHours(0,0,0,0);
           return date;
         };
@@ -375,7 +399,7 @@ export default function Home() {
 
                 <div style={{ marginTop: 'auto' }}>
                   <div style={styles.statRow}>
-                    <span style={{ fontSize: '0.9rem' }}>Progreso Teórico:</span>
+                    <span style={{ fontSize: '0.9rem' }}>Progreso Teórico (Hoy):</span>
                     <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.2rem' }}>{imp.progreso}%</span>
                   </div>
                   <div style={{...styles.progressBarBg, height: '8px', margin: '8px 0'}}>
@@ -441,7 +465,16 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {dashboardData.imparticiones.map(imp => (
-                    <tr key={imp.id} className="row-hover" style={styles.tr}>
+                    <tr 
+                      key={imp.id} 
+                      className="row-hover" 
+                      style={{ ...styles.tr, cursor: 'pointer' }}
+                      onClick={() => {
+                        const mainContent = document.getElementById('main-content');
+                        if (mainContent) sessionStorage.setItem('home_scroll_pos', mainContent.scrollTop);
+                        navigate(`/profesor/programaciones/${imp.id}/seguimiento?readOnly=true`);
+                      }}
+                    >
                       <td style={styles.td}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <img src={imp.profFoto || 'https://via.placeholder.com/36'} style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} alt="" />
@@ -531,7 +564,24 @@ export default function Home() {
                   <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No hay imparticiones con retraso significativo.</p>
                 ) : (
                   dashboardData.topDelays.map(imp => (
-                    <div key={imp.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '16px' }}>
+                    <div 
+                      key={imp.id} 
+                      className="card-hover"
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '1rem', 
+                        padding: '1rem', 
+                        background: 'rgba(255,255,255,0.03)', 
+                        borderRadius: '16px',
+                        cursor: 'pointer' 
+                      }}
+                      onClick={() => {
+                        const mainContent = document.getElementById('main-content');
+                        if (mainContent) sessionStorage.setItem('home_scroll_pos', mainContent.scrollTop);
+                        navigate(`/profesor/programaciones/${imp.id}/seguimiento?readOnly=true`);
+                      }}
+                    >
                       <img src={imp.profFoto || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }} alt="" />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{imp.profNombre}</div>

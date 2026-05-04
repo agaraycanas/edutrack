@@ -24,6 +24,7 @@ export default function Subjects() {
   // Filters
   const [filterStudy, setFilterStudy] = useState('all');
   const [filterLevel, setFilterLevel] = useState('');
+  const [search, setSearch] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -315,6 +316,20 @@ export default function Subjects() {
   const selectedStudyForFilter = studies.find(s => s.id === filterStudy);
   const selectedStudyForForm = studies.find(s => s.id === formData.iesEstudioId);
 
+  const filteredSubjects = subjects.filter(s => {
+    if (!search) return true;
+    
+    const normalize = (str) => 
+      (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+    const term = normalize(search);
+    const name = normalize(s.nombre);
+    const sigla = normalize(s.sigla);
+    const dept = normalize(s.departamento);
+
+    return name.includes(term) || sigla.includes(term) || dept.includes(term);
+  });
+
   return (
     <div className="animate-fade-in" style={styles.container}>
       <header style={styles.header}>
@@ -379,6 +394,21 @@ export default function Subjects() {
             </select>
           </div>
         </div>
+
+        <div style={{ ...styles.filterGroup, flex: 2 }}>
+          <label style={styles.filterLabel}>Buscar Asignatura</label>
+          <div style={styles.searchWrapper}>
+            <input 
+              type="text"
+              className="input-field"
+              placeholder="Nombre, sigla o departamento..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={styles.searchInput}
+            />
+            <svg style={styles.searchIcon} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+        </div>
       </section>
 
       {/* Main Content */}
@@ -387,9 +417,21 @@ export default function Subjects() {
           <h2 style={styles.listTitle}>
             {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
           </h2>
-          {filterStudy && subjects.length > 0 && (
-            <span style={styles.countBadge}>{subjects.length} asignaturas</span>
-          )}
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Limpiar búsqueda
+              </button>
+            )}
+            {filterStudy && subjects.length > 0 && (
+              <span style={styles.countBadge}>
+                {search ? `${filteredSubjects.length} de ${subjects.length}` : subjects.length} asignaturas
+              </span>
+            )}
+          </div>
         </div>
         
         {loading ? (
@@ -421,42 +463,55 @@ export default function Subjects() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left' }}>Sigla</th>
-                  <th style={{ textAlign: 'left' }}>Nombre de la Asignatura</th>
-                  <th style={{ textAlign: 'left' }}>Curso</th>
-                  <th style={{ textAlign: 'left' }}>Departamento</th>
-                  <th style={{ textAlign: 'right', width: '100px' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '1rem 1.5rem', width: '100px' }}>SIGLA</th>
+                  <th style={{ textAlign: 'left', padding: '1rem' }}>NOMBRE DE LA ASIGNATURA</th>
+                  <th style={{ textAlign: 'left', padding: '1rem' }}>TITULACIÓN</th>
+                  <th style={{ textAlign: 'left', padding: '1rem', width: '120px' }}>CURSO</th>
+                  <th style={{ textAlign: 'left', padding: '1rem' }}>DEPARTAMENTO</th>
+                  <th style={{ textAlign: 'right', padding: '1rem 1.5rem', width: '120px' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
-                {subjects.map(subject => (
+                {filteredSubjects.map(subject => (
                   <tr key={subject.id}>
-                    <td>
+                    <td style={{ padding: '1rem 1.5rem' }}>
                       <div style={{ 
-                        width: '44px', 
-                        height: '44px', 
+                        width: '45px', 
+                        height: '45px', 
                         borderRadius: '12px', 
-                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%)', 
-                        color: '#a5b4fc', 
+                        background: 'rgba(99, 102, 241, 0.1)', 
                         display: 'flex', 
                         alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontWeight: '800', 
-                        fontSize: '0.75rem', 
-                        border: '1px solid rgba(165, 180, 252, 0.2)' 
+                        justifyContent: 'center',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        color: 'var(--accent-primary)',
+                        border: '1px solid rgba(99, 102, 241, 0.2)'
                       }}>
-                        {subject.sigla || subject.nombre.substring(0, 2).toUpperCase()}
+                        {subject.sigla || '---'}
                       </div>
                     </td>
-                    <td>
-                      <div style={{ fontWeight: '600', fontSize: '1rem' }}>{subject.nombre}</div>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '1rem', color: '#fff' }}>{subject.nombre}</div>
                     </td>
-                    <td>
-                      <span className="badge badge-accent">
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                        {subject.titulacionNombre || 'General'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <span style={{ 
+                        padding: '4px 10px', 
+                        borderRadius: '6px', 
+                        background: 'rgba(59, 130, 246, 0.15)', 
+                        color: '#3b82f6', 
+                        fontSize: '0.75rem', 
+                        fontWeight: '700' 
+                      }}>
                         {subject.curso}º Curso
                       </span>
                     </td>
-                    <td>
+                    <td style={{ padding: '1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         {subject.departamento}
@@ -657,6 +712,15 @@ const styles = {
   },
   mainPanel: {
     padding: '2.5rem', minHeight: '400px', border: '1px solid rgba(255,255,255,0.05)'
+  },
+  searchWrapper: {
+    position: 'relative', display: 'flex', alignItems: 'center'
+  },
+  searchInput: {
+    width: '100%', paddingLeft: '2.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)'
+  },
+  searchIcon: {
+    position: 'absolute', left: '1rem', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none'
   },
   listHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem'

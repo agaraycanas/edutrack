@@ -146,8 +146,7 @@ export default function DashboardLayout({ children }) {
       superadmin: 'Súperadmin',
       jefe_estudios: 'Jefe de Estudios',
       jefe_departamento: 'Jefe de Dpto.',
-      profesor: 'Profesor',
-      alumno: 'Alumno'
+      profesor: 'Profesor'
     };
     
     return labels[roleId] || roleId;
@@ -295,7 +294,7 @@ export default function DashboardLayout({ children }) {
                       handleRoleChange(e.target.value, selectedOption.getAttribute('data-ies'));
                     }}
                   >
-                    {userProfile?.roles?.filter(r => r.estado === 'activo').map(r => (
+                    {userProfile?.roles?.filter(r => r.estado === 'activo' && r.rol?.toLowerCase() !== 'alumno').map(r => (
                       <option key={(r.rol || 'rol') + (r.iesId || 'ies')} value={r.rol} data-ies={r.iesId}>
                         {getRoleLabel(r)}
                       </option>
@@ -311,7 +310,7 @@ export default function DashboardLayout({ children }) {
         </header>
 
         {/* Page Content */}
-        <main style={styles.pageContent}>
+        <main id="main-content" style={styles.pageContent}>
           {children || <Outlet />}
         </main>
       </div>

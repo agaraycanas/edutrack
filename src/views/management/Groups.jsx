@@ -273,7 +273,7 @@ export default function Groups() {
             <p style={styles.subtitle}>
               {activeRole === 'jefe_departamento' 
                 ? `Gestión de grupos del departamento`
-                : 'Organización de alumnos y titulaciones'}
+                : 'Organización de grupos y titulaciones'}
             </p>
           </div>
           <button className="btn-primary" onClick={() => handleOpenForm()} style={styles.newButton}>
@@ -548,7 +548,7 @@ export default function Groups() {
         {deleteConfirm.inUse ? (
           <div style={styles.alertDanger}>
             <strong>No se puede eliminar</strong>
-            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Este grupo tiene alumnos matriculados o asignaturas vinculadas.</p>
+            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Este grupo tiene registros vinculados o asignaturas asignadas.</p>
           </div>
         ) : (
           <p>¿Estás seguro de que deseas eliminar el grupo <b>{deleteConfirm.group?.nombre}</b>?</p>
