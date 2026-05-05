@@ -284,7 +284,7 @@ export default function DashboardLayout({ children }) {
       transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       display: 'flex',
       flexDirection: 'column',
-      minHeight: '100vh'
+      height: '100vh'
     },
     navbar: {
       height: '64px',

@@ -27,6 +27,10 @@ const getDayKey = (dayNumber) => {
  */
 export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], ausencias = []) => {
   if (!horario) return 0;
+  
+  // Soporte para objetos de horario que vienen con la propiedad 'patron' (Firestore doc)
+  const actualPatron = horario.patron || horario;
+
   const normalizeDate = (d) => {
     if (!d) return null;
     
@@ -103,7 +107,7 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
       const esAusencia = isDateInRanges(current, ausencias);
 
       if (!esFestivo && !esAusencia) {
-        const sesionesDelDia = horario[dayKey] || 0;
+        const sesionesDelDia = actualPatron[dayKey] || 0;
         totalSesiones += sesionesDelDia;
       }
     }

@@ -327,13 +327,14 @@ export default function Groups() {
       </section>
 
       {/* Main Content */}
-      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>
-            {groups.length} {groups.length === 1 ? 'Grupo encontrado' : 'Grupos encontrados'}
-          </h2>
-        </div>
-        
+      {/* Main Content Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+          {groups.length} {groups.length === 1 ? 'Grupo encontrado' : 'Grupos encontrados'}
+        </h2>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={styles.centered}>
             <div className="loader"></div>
@@ -559,7 +560,7 @@ export default function Groups() {
 }
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', paddingBottom: '4rem' },
+  container: { maxWidth: '1200px', margin: '0 auto' },
   header: { marginBottom: '2.5rem' },
   headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' },
   headerText: {},

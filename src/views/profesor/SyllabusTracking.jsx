@@ -191,6 +191,7 @@ export default function SyllabusTracking() {
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Estimadas</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Inicio</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Fin</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Observaciones</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Sesiones</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Reales</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Desviación</th>
@@ -199,7 +200,7 @@ export default function SyllabusTracking() {
           <tbody>
             {temas.length === 0 ? (
               <tr>
-                <td colSpan="7" style={styles.emptyState}>No hay temas definidos.</td>
+                <td colSpan="8" style={styles.emptyState}>No hay temas definidos.</td>
               </tr>
             ) : (
               temas.map((tema, index) => {
@@ -251,6 +252,17 @@ export default function SyllabusTracking() {
                         style={{ padding: '0.4rem', fontSize: '0.85rem', maxWidth: '140px' }}
                         value={tema.fechaFin || ''}
                         onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
+                        disabled={isReadOnly}
+                      />
+                    </td>
+                    <td style={styles.td}>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        placeholder="Sin observaciones..."
+                        style={{ padding: '0.4rem', fontSize: '0.85rem', minWidth: '200px' }}
+                        value={tema.observaciones || ''}
+                        onChange={(e) => handleDateChange(index, 'observaciones', e.target.value)}
                         disabled={isReadOnly}
                       />
                     </td>

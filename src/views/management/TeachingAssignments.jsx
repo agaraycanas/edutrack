@@ -33,6 +33,7 @@ export default function TeachingAssignments() {
   // Filters
   const [filterYear, setFilterYear] = useState('');
   const [filterStudy, setFilterStudy] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -341,6 +342,14 @@ export default function TeachingAssignments() {
     }
   };
 
+  const filteredAssignments = assignments.filter(a => {
+    const search = searchTerm.toLowerCase();
+    return a.profesorNombre.toLowerCase().includes(search) || 
+           a.asignaturaNombre.toLowerCase().includes(search) ||
+           a.asignaturaSigla.toLowerCase().includes(search) ||
+           a.grupoNombre.toLowerCase().includes(search);
+  });
+
   if (loading) return <div style={styles.loading}>Cargando panel de imparticiones...</div>;
 
   return (
@@ -382,12 +391,26 @@ export default function TeachingAssignments() {
             {studies.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
           </select>
         </div>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Búsqueda rápida</label>
+          <div style={{ position: 'relative' }}>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Profesor, asignatura, grupo..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ ...styles.select, paddingLeft: '2.5rem' }} 
+            />
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#64748b" strokeWidth="2.5" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+        </div>
       </section>
 
       {/* Assignments List */}
       <div className="glass-panel" style={styles.mainPanel}>
-        {assignments.length === 0 ? (
-          <div style={styles.emptyState}>No hay imparticiones asignadas para este filtro.</div>
+        {filteredAssignments.length === 0 ? (
+          <div style={styles.emptyState}>No hay imparticiones que coincidan con la búsqueda.</div>
         ) : (
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh', width: '100%' }}>
             <table className="data-table">
@@ -402,11 +425,19 @@ export default function TeachingAssignments() {
                 </tr>
               </thead>
               <tbody>
-                {assignments.map(a => (
+                {filteredAssignments.map(a => (
                   <tr key={a.id}>
                     <td>
                       <div style={styles.profInfoCell}>
-                        <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
+                        {professors.find(p => p.id === a.usuarioId)?.foto ? (
+                          <img 
+                            src={professors.find(p => p.id === a.usuarioId).foto} 
+                            alt={a.profesorNombre} 
+                            style={styles.avatarMini} 
+                          />
+                        ) : (
+                          <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
+                        )}
                         <span style={{ fontWeight: '600' }}>{a.profesorNombre}</span>
                       </div>
                     </td>
@@ -618,7 +649,7 @@ const styles = {
   select: { width: '100%', cursor: 'pointer' },
   mainPanel: { padding: '2rem', borderRadius: '20px' },
   profInfoCell: { display: 'flex', gap: '0.75rem', alignItems: 'center' },
-  avatarMini: { width: '32px', height: '32px', borderRadius: '8px', background: 'var(--active-role-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.9rem', color: '#fff' },
+  avatarMini: { width: '32px', height: '32px', borderRadius: '8px', background: 'var(--active-role-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.9rem', color: '#fff', objectFit: 'cover' },
   codeLabel: { fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' },
   emptyState: { textAlign: 'center', padding: '4rem', color: '#94a3b8', fontSize: '1.1rem', fontStyle: 'italic' },
   loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.2rem' },

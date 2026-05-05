@@ -428,28 +428,29 @@ export default function Subjects() {
       </section>
 
       {/* Main Content */}
-      <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>
-            {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
-          </h2>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {search && (
-              <button 
-                onClick={() => setSearch('')}
-                style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Limpiar búsqueda
-              </button>
-            )}
-            {filterStudy && subjects.length > 0 && (
-              <span style={styles.countBadge}>
-                {search ? `${filteredSubjects.length} de ${subjects.length}` : subjects.length} asignaturas
-              </span>
-            )}
-          </div>
+      {/* Main Content Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
+          {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
+        </h2>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {search && (
+            <button 
+              onClick={() => setSearch('')}
+              style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Limpiar búsqueda
+            </button>
+          )}
+          {filterStudy && subjects.length > 0 && (
+            <span style={styles.countBadge}>
+              {search ? `${filteredSubjects.length} de ${subjects.length}` : subjects.length} asignaturas
+            </span>
+          )}
         </div>
-        
+      </div>
+
+      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={styles.centered}>
             <div className="loader"></div>
@@ -718,7 +719,7 @@ export default function Subjects() {
 
 const styles = {
   container: {
-    maxWidth: '1200px', margin: '0 auto', paddingBottom: '4rem'
+    maxWidth: '1200px', margin: '0 auto'
   },
   header: {
     marginBottom: '2.5rem'

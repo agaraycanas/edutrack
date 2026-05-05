@@ -322,7 +322,7 @@ export default function Studies() {
   };
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '4rem' }}>
+    <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: '800', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Oferta Educativa</h1>
@@ -345,7 +345,7 @@ export default function Studies() {
         </button>
       </div>
 
-      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '4rem', textAlign: 'center' }}>
             <div className="loader" style={{ margin: '0 auto mb-4' }}></div>
