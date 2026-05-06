@@ -12,7 +12,8 @@ import {
   updateDoc,
   serverTimestamp,
   getDoc,
-  limit
+  limit,
+  setDoc
 } from 'firebase/firestore';
 import Modal from '../../components/common/Modal';
 
@@ -22,6 +23,7 @@ export default function TeachingAssignments() {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [userDept, setUserDept] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
   
   // Data for selects
   const [academicYears, setAcademicYears] = useState([]);
@@ -65,6 +67,7 @@ export default function TeachingAssignments() {
   useEffect(() => {
     if (activeIesId && userDept) {
       fetchAssignments();
+      fetchLockState();
     }
     // Persist filters
     localStorage.setItem('teachingFilterYear', filterYear);
@@ -124,6 +127,46 @@ export default function TeachingAssignments() {
       console.error("Error fetching teaching initial data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLockState = async () => {
+    if (!activeIesId || !userDept) return;
+    try {
+      const configRef = doc(db, 'ies_departamento_config', `${activeIesId}_${userDept}`);
+      const configSnap = await getDoc(configRef);
+      if (configSnap.exists()) {
+        setIsLocked(configSnap.data().isProgrammingLocked || false);
+      }
+    } catch (error) {
+      console.error("Error fetching lock state:", error);
+    }
+  };
+
+  const toggleLock = async () => {
+    if (!activeIesId || !userDept) return;
+    const newState = !isLocked;
+    setIsProcessing(true);
+    try {
+      const configRef = doc(db, 'ies_departamento_config', `${activeIesId}_${userDept}`);
+      await setDoc(configRef, {
+        isProgrammingLocked: newState,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser.uid
+      }, { merge: true });
+      setIsLocked(newState);
+      setModal({ 
+        isOpen: true, 
+        title: newState ? 'Programación Bloqueada' : 'Programación Desbloqueada', 
+        message: newState 
+          ? 'Los profesores ya no podrán añadir, eliminar o renombrar temas en sus programaciones.' 
+          : 'Los profesores ahora pueden volver a editar la estructura de sus programaciones.' 
+      });
+    } catch (error) {
+      console.error("Error toggling lock:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'No se pudo cambiar el estado del bloqueo.' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -366,19 +409,41 @@ export default function TeachingAssignments() {
             <h1 style={styles.title}>Imparticiones</h1>
             <p style={styles.subtitle}>Gestión de asignación de carga docente del departamento</p>
           </div>
-          <button className="btn-primary" onClick={() => {
-            setFormData({
-              cursoAcademicoId: filterYear,
-              iesEstudioId: filterStudy,
-              asignaturaId: '',
-              grupoId: '',
-              usuarioId: ''
-            });
-            setIsFormOpen(true);
-          }} style={styles.newButton}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Nueva Impartición
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div 
+              onClick={toggleLock}
+              style={{
+                ...styles.lockToggle,
+                background: isLocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                borderColor: isLocked ? '#ef4444' : '#10b981',
+                color: isLocked ? '#ef4444' : '#10b981'
+              }}
+              title={isLocked ? "Desbloquear edición para profesores" : "Bloquear edición para profesores"}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}>
+                {isLocked ? (
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4M12 11v4M8 11h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z" />
+                ) : (
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1M12 11v4M8 11h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2z" />
+                )}
+              </svg>
+              {isLocked ? 'Edición Bloqueada' : 'Edición Habilitada'}
+            </div>
+
+            <button className="btn-primary" onClick={() => {
+              setFormData({
+                cursoAcademicoId: filterYear,
+                iesEstudioId: filterStudy,
+                asignaturaId: '',
+                grupoId: '',
+                usuarioId: ''
+              });
+              setIsFormOpen(true);
+            }} style={styles.newButton}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Nueva Impartición
+            </button>
+          </div>
         </div>
       </header>
 
@@ -649,6 +714,18 @@ const styles = {
   title: { fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
   subtitle: { color: '#94a3b8', fontSize: '1.1rem' },
   newButton: { padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '12px' },
+  lockToggle: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    padding: '0.75rem 1.25rem', 
+    borderRadius: '12px', 
+    border: '1px solid',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: '700',
+    transition: 'all 0.2s ease',
+    userSelect: 'none'
+  },
   filtersPanel: { padding: '1.5rem', display: 'flex', gap: '2rem', marginBottom: '2rem', borderRadius: '16px' },
   filterGroup: { flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   filterLabel: { fontSize: '0.875rem', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' },

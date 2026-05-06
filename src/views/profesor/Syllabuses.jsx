@@ -8,6 +8,7 @@ import {
   getDocs,
   doc,
   setDoc,
+  getDoc,
   serverTimestamp
 } from 'firebase/firestore';
 import { calcularHorasReales } from '../../utils/timeCalculations';
@@ -21,6 +22,7 @@ export default function Syllabuses() {
   const [horarios, setHorarios] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState('all');
+  const [isLocked, setIsLocked] = useState(false);
   const navigate = useNavigate();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -91,6 +93,18 @@ export default function Syllabuses() {
       );
       const snapYears = await getDocs(qYears);
       setAcademicYears(snapYears.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      // 5. Fetch Lock State for the teacher's department
+      if (assignmentsData.length > 0) {
+        const dept = assignmentsData[0].departamento;
+        if (dept) {
+          const configRef = doc(db, 'ies_departamento_config', `${iesId}_${dept}`);
+          const configSnap = await getDoc(configRef);
+          if (configSnap.exists()) {
+            setIsLocked(configSnap.data().isProgrammingLocked || false);
+          }
+        }
+      }
 
     } catch (error) {
       console.error("Error fetching syllabuses data:", error);
@@ -437,9 +451,13 @@ export default function Syllabuses() {
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                         <button 
                           className="btn-icon" 
-                          style={{ color: '#6366f1', background: 'rgba(99, 102, 241, 0.1)' }}
-                          onClick={() => handleEdit(row)}
-                          title="Editar Temas"
+                          style={{ 
+                            color: isLocked ? '#64748b' : '#6366f1', 
+                            background: isLocked ? 'rgba(100, 116, 139, 0.1)' : 'rgba(99, 102, 241, 0.1)',
+                            cursor: isLocked ? 'not-allowed' : 'pointer'
+                          }}
+                          onClick={() => !isLocked && handleEdit(row)}
+                          title={isLocked ? "Edición bloqueada por el Jefe de Departamento" : "Editar Temas"}
                         >
                           <Edit2 size={16} />
                         </button>
