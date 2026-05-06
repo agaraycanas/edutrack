@@ -205,19 +205,19 @@ export default function SyllabusTracking() {
             <tr>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Tema</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Nombre</th>
-              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Estimadas</th>
-              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Inicio</th>
-              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Fecha Fin</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)', width: isReadOnly ? '80px' : '100px'}}>Fecha Inicio</th>
+              <th style={{...styles.th, background: 'rgba(255,255,255,0.03)', width: isReadOnly ? '80px' : '100px'}}>Fecha Fin</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '90px'}}>H. Estimadas</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '80px'}}>Sesiones</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '80px'}}>H. Reales</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '90px'}}>Desviación</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Observaciones</th>
-              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Sesiones</th>
-              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>H. Reales</th>
-              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)'}}>Desviación</th>
             </tr>
           </thead>
           <tbody>
             {temas.length === 0 ? (
               <tr>
-                <td colSpan="8" style={styles.emptyState}>No hay temas definidos.</td>
+                <td colSpan="9" style={styles.emptyState}>No hay temas definidos.</td>
               </tr>
             ) : (
               temas.map((tema, index) => {
@@ -251,39 +251,46 @@ export default function SyllabusTracking() {
                     <td style={styles.td}>
                       <span style={{ fontWeight: '500' }}>{tema.nombre}</span>
                     </td>
+                    <td style={{...styles.td, width: isReadOnly ? '80px' : '100px'}}>
+                      {isReadOnly ? (
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                          {tema.fechaInicio ? new Date(tema.fechaInicio).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </span>
+                      ) : (
+                        <input 
+                          type="date" 
+                          className="input-field" 
+                          style={{ 
+                            padding: '0.3rem', 
+                            fontSize: '0.8rem', 
+                            maxWidth: '95px'
+                          }}
+                          value={tema.fechaInicio || ''}
+                          onChange={(e) => handleDateChange(index, 'fechaInicio', e.target.value)}
+                        />
+                      )}
+                    </td>
+                    <td style={{...styles.td, width: isReadOnly ? '80px' : '100px'}}>
+                      {isReadOnly ? (
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                          {tema.fechaFin ? new Date(tema.fechaFin).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                        </span>
+                      ) : (
+                        <input 
+                          type="date" 
+                          className="input-field" 
+                          style={{ 
+                            padding: '0.3rem', 
+                            fontSize: '0.8rem', 
+                            maxWidth: '95px'
+                          }}
+                          value={tema.fechaFin || ''}
+                          onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
+                        />
+                      )}
+                    </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span style={styles.badgeEstimadas}>{Math.round(tema.horasEstimadas)}h</span>
-                    </td>
-                    <td style={styles.td}>
-                      <input 
-                        type="date" 
-                        className="input-field" 
-                        style={{ padding: '0.4rem', fontSize: '0.85rem', maxWidth: '140px' }}
-                        value={tema.fechaInicio || ''}
-                        onChange={(e) => handleDateChange(index, 'fechaInicio', e.target.value)}
-                        disabled={isReadOnly}
-                      />
-                    </td>
-                    <td style={styles.td}>
-                      <input 
-                        type="date" 
-                        className="input-field" 
-                        style={{ padding: '0.4rem', fontSize: '0.85rem', maxWidth: '140px' }}
-                        value={tema.fechaFin || ''}
-                        onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
-                        disabled={isReadOnly}
-                      />
-                    </td>
-                    <td style={styles.td}>
-                      <input 
-                        type="text" 
-                        className="input-field" 
-                        placeholder="Sin observaciones..."
-                        style={{ padding: '0.4rem', fontSize: '0.85rem', minWidth: '200px' }}
-                        value={tema.observaciones || ''}
-                        onChange={(e) => handleDateChange(index, 'observaciones', e.target.value)}
-                        disabled={isReadOnly}
-                      />
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span 
@@ -302,6 +309,26 @@ export default function SyllabusTracking() {
                       <span style={{ fontWeight: '800', fontSize: '1.1rem', color: devColor }}>
                         {desviacion !== null ? (desviacion > 0 ? `+${desviacion}h` : `${desviacion}h`) : '-'}
                       </span>
+                    </td>
+                    <td style={styles.td}>
+                      {isReadOnly ? (
+                        <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                          {tema.observaciones || '-'}
+                        </span>
+                      ) : (
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          placeholder="Sin observaciones..."
+                          style={{ 
+                            padding: '0.4rem', 
+                            fontSize: '0.85rem', 
+                            minWidth: '200px'
+                          }}
+                          value={tema.observaciones || ''}
+                          onChange={(e) => handleDateChange(index, 'observaciones', e.target.value)}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
