@@ -25,62 +25,83 @@ const getDayKey = (dayNumber) => {
  * @param {array} ausencias Lista de ausencias [{ startDate, endDate }]
  * @returns {number} Número total de sesiones
  */
+/**
+ * Normaliza una fecha desde varios formatos posibles (Timestamp, String, Date)
+ * a un objeto Date de JS.
+ * 
+ * @param {any} d 
+ * @returns {Date|null}
+ */
+export const normalizeDate = (d) => {
+  if (!d) return null;
+  
+  // Handle Firestore Timestamps
+  if (d && typeof d.toDate === 'function') return d.toDate();
+  if (d && d.seconds) return new Date(d.seconds * 1000);
+  
+  if (d instanceof Date) return d;
+
+  if (typeof d !== 'string') return new Date(d);
+
+  // Try YYYY-MM-DD or DD-MM-YYYY
+  if (d.includes('-')) {
+    const parts = d.split('-');
+    if (parts.length === 3) {
+      const [p1, p2, p3] = parts;
+      // Si el primer segmento es el año (4 dígitos)
+      if (p1.length === 4) {
+        return new Date(Number(p1), Number(p2) - 1, Number(p3));
+      } else {
+        // Asumimos DD-MM-YYYY
+        return new Date(Number(p3), Number(p2) - 1, Number(p1));
+      }
+    }
+  }
+
+  // Try DD/MM/YYYY
+  if (d.includes('/')) {
+    const parts = d.split('/');
+    if (parts.length === 3) {
+      const [day, m, y] = parts;
+      return new Date(Number(y), Number(m) - 1, Number(day));
+    }
+  }
+
+  const date = new Date(d);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+const isDateInRanges = (date, ranges) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const t = d.getTime();
+
+  return ranges.some(range => {
+    const s = normalizeDate(range.startDate);
+    const e = range.endDate ? normalizeDate(range.endDate) : s;
+    if (!s || !e) return false;
+    s.setHours(0, 0, 0, 0);
+    e.setHours(0, 0, 0, 0);
+    return t >= s.getTime() && t <= e.getTime();
+  });
+};
+
+/**
+ * Cuenta el número de sesiones entre dos fechas, basándose en el patrón horario,
+ * excluyendo festivos y ausencias.
+ * 
+ * @param {string} fechaInicio YYYY-MM-DD
+ * @param {string} fechaFin YYYY-MM-DD
+ * @param {object} horario { lunes: 2, martes: 0, ... }
+ * @param {array} festivos Lista de festivos [{ startDate, endDate }]
+ * @param {array} ausencias Lista de ausencias [{ startDate, endDate }]
+ * @returns {number} Número total de sesiones
+ */
 export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], ausencias = []) => {
   if (!horario) return 0;
   
   // Soporte para objetos de horario que vienen con la propiedad 'patron' (Firestore doc)
   const actualPatron = horario.patron || horario;
-
-  const normalizeDate = (d) => {
-    if (!d) return null;
-    
-    // Handle Firestore Timestamps
-    if (d && typeof d.toDate === 'function') return d.toDate();
-    if (d && d.seconds) return new Date(d.seconds * 1000);
-    
-    if (typeof d !== 'string') return new Date(d);
-
-    // Try YYYY-MM-DD
-    if (d.includes('-')) {
-      const parts = d.split('-');
-      if (parts.length === 3) {
-        const [y, m, day] = parts;
-        // Si el primer segmento es el año (4 dígitos)
-        if (y.length === 4) {
-          return new Date(Number(y), Number(m) - 1, Number(day));
-        } else {
-          // Asumimos DD-MM-YYYY
-          return new Date(Number(day), Number(m) - 1, Number(y));
-        }
-      }
-    }
-
-    // Try DD/MM/YYYY
-    if (d.includes('/')) {
-      const parts = d.split('/');
-      if (parts.length === 3) {
-        const [day, m, y] = parts;
-        return new Date(Number(y), Number(m) - 1, Number(day));
-      }
-    }
-
-    return new Date(d);
-  };
-
-  const isDateInRanges = (date, ranges) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    const t = d.getTime();
-
-    return ranges.some(range => {
-      const s = normalizeDate(range.startDate);
-      const e = range.endDate ? normalizeDate(range.endDate) : s;
-      if (!s || !e) return false;
-      s.setHours(0, 0, 0, 0);
-      e.setHours(0, 0, 0, 0);
-      return t >= s.getTime() && t <= e.getTime();
-    });
-  };
 
   const start = normalizeDate(fechaInicio);
   const end = normalizeDate(fechaFin);
@@ -118,6 +139,7 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
   return totalSesiones;
 };
 
+
 /**
  * Calcula las horas reales invertidas entre dos fechas, basándose en el patrón horario,
  * excluyendo festivos y ausencias. Devuelve el valor con decimales para cálculos internos.
@@ -146,15 +168,16 @@ export const calcularDesviacion = (horasReales, horasEstimadas) => {
 /**
  * Calcula todas las métricas de una programación de forma centralizada.
  * 
- * @param {Array} temas Lista de temas [{ fechaInicio, fechaFin, horasEstimadas, nombre }]
+ * @param {Array} temas Lista de temas [{ fechaInicio, fechaFin, horasEstimadas, nombre, updatedAt }]
  * @param {Object} horario Patrón horario
  * @param {Object} academicYear Configuración del curso { fechaInicioClases, duracionSesion }
  * @param {Array} festivos Lista de festivos
  * @param {Array} ausencias Lista de ausencias
  * @param {String} todayIso Fecha de referencia (hoy) en formato YYYY-MM-DD
+ * @param {any} baseUpdatedAt Fecha base de actualización (ej. del documento de impartición)
  * @returns {Object} { desviacion, progreso, temaActual, lastUpdate }
  */
-export const calcularMetricasSeguimiento = (temas, horario, academicYear, festivos = [], ausencias = [], todayIso = new Date().toISOString().split('T')[0]) => {
+export const calcularMetricasSeguimiento = (temas, horario, academicYear, festivos = [], ausencias = [], todayIso = new Date().toISOString().split('T')[0], baseUpdatedAt = null) => {
   if (!academicYear || !horario) {
     return { desviacion: 0, progreso: 0, temaActual: 'Sin configuración', lastUpdate: null };
   }
@@ -173,6 +196,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   let totalHours = 0;
   let currentThemeName = 'No iniciado';
   let cumulativeEstimadas = 0;
+  
+  // La fecha de última actualización SOLO se basa en las fechas de los temas (calendario)
   let lastUpdate = null;
 
   temas.forEach(t => {
@@ -183,16 +208,15 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
       try {
         const hRealTemaRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
         totalDevRaw += (hRealTemaRaw - hEst);
-        
-        // Seguimiento de la última actualización
-        const dFin = new Date(t.fechaFin);
-        if (!lastUpdate || dFin > lastUpdate) lastUpdate = dFin;
-        if (t.updatedAt) {
-           const dUpd = t.updatedAt.seconds ? new Date(t.updatedAt.seconds * 1000) : new Date(t.updatedAt);
-           if (!lastUpdate || dUpd > lastUpdate) lastUpdate = dUpd;
-        }
       } catch (err) {}
     }
+
+    // La fecha de última actualización es la fecha más reciente registrada en el calendario (Inicio o Fin)
+    const dIni = normalizeDate(t.fechaInicio);
+    const dFin = normalizeDate(t.fechaFin);
+    
+    if (dIni && (!lastUpdate || dIni > lastUpdate)) lastUpdate = dIni;
+    if (dFin && (!lastUpdate || dFin > lastUpdate)) lastUpdate = dFin;
 
     // Identificar tema actual basado en horas lectivas transcurridas vs acumulado de estimadas
     if (currentThemeName === 'No iniciado' && cumulativeEstimadas + hEst > horasTranscurridasHoy) {

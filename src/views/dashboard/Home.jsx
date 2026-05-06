@@ -2,7 +2,26 @@ import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { calcularHorasReales, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
+
+const formatShortName = (nombre, apellidos) => {
+  const name = nombre || '';
+  const surnameList = (apellidos || '').trim().split(/\s+/);
+  const particles = ['de', 'la', 'del', 'las', 'los'];
+  let firstSurnameParts = [];
+  let i = 0;
+  while (i < surnameList.length && particles.includes(surnameList[i].toLowerCase())) {
+    firstSurnameParts.push(surnameList[i]);
+    i++;
+  }
+  if (i < surnameList.length) firstSurnameParts.push(surnameList[i]);
+  return `${name} ${firstSurnameParts.join(' ')}`.trim();
+};
+
+const getImparticionMetrics = (imp, temas, horario, academicYear, festivos, ausencias) => {
+  const todayIso = new Date().toISOString().split('T')[0];
+  return calcularMetricasSeguimiento(temas, horario, academicYear, festivos, ausencias, todayIso);
+};
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +47,7 @@ export default function Home() {
     absenceReason: '',
     isWeekend: false
   });
+  const [error, setError] = useState(null);
 
   const activeRole = localStorage.getItem('activeRole') || 'profesor';
   const activeIesId = localStorage.getItem('activeIesId');
@@ -57,6 +77,9 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
+      const activeIesId = localStorage.getItem('activeIesId');
+      
       try {
         const user = auth.currentUser;
         if (!user) return;
@@ -66,33 +89,12 @@ export default function Home() {
         const t = now.getTime();
         const todayIso = now.toISOString().split('T')[0];
 
-        const normalizeDate = (d) => {
-          if (!d) return null;
-          let date;
-          if (d && typeof d.toDate === 'function') date = d.toDate();
-          else if (d && d.seconds) date = new Date(d.seconds * 1000);
-          else if (typeof d === 'string') {
-            if (d.includes('-')) {
-              const [p1, p2, p3] = d.split('-');
-              if (p1.length === 4) date = new Date(Number(p1), Number(p2) - 1, Number(p3));
-              else date = new Date(Number(p3), Number(p2) - 1, Number(p1));
-            } else if (d.includes('/')) {
-              const [p1, p2, p3] = d.split('/');
-              date = new Date(Number(p3), Number(p2) - 1, Number(p1));
-            } else {
-              date = new Date(d);
-            }
-          } else {
-            date = new Date(d);
-          }
-          date.setHours(0,0,0,0);
-          return date;
-        };
-
         const isTodayInRange = (range) => {
           const s = normalizeDate(range.startDate);
           const e = range.endDate ? normalizeDate(range.endDate) : s;
           if (!s || !e) return false;
+          s.setHours(0,0,0,0);
+          e.setHours(0,0,0,0);
           return t >= s.getTime() && t <= e.getTime();
         };
 
@@ -163,21 +165,30 @@ export default function Home() {
               fechaFin: d.data().fechaFin || '',
               updatedAt: d.data().updatedAt || null,
             }));
-            // Compute lastUpdate from the most recent updatedAt or fechaFin
-            let lastUpdate = null;
-            temas.forEach(t => {
-              const d = t.updatedAt ? new Date(t.updatedAt.seconds * 1000) : (t.fechaFin ? new Date(t.fechaFin) : null);
-              if (d && (!lastUpdate || d > lastUpdate)) lastUpdate = d;
-            });
-            return { temas, lastUpdate };
+            return { temas };
           }
-          return { temas: [], lastUpdate: null };
+          return { temas: [] };
         };
 
-        // Helper to calculate metrics for an imparticion
-        const getImparticionMetrics = (imp, temas, horario, ay, profAusencias = []) => {
-          const metrics = calcularMetricasSeguimiento(temas, horario, ay, allFestivos, profAusencias, todayIso);
-          return { ...imp, ...metrics };
+        // Helper to sort imparticiones consistently
+        const sortImparticiones = (list) => {
+          return [...list].sort((a, b) => {
+            // Primary sort: Date (oldest update first)
+            const dateA = a.lastUpdate ? a.lastUpdate.getTime() : 0;
+            const dateB = b.lastUpdate ? b.lastUpdate.getTime() : 0;
+            
+            if (dateA !== dateB) {
+              // If one doesn't have a date (0), it's "never updated", should be at the top
+              if (dateA === 0) return -1;
+              if (dateB === 0) return 1;
+              return dateA - dateB;
+            }
+            
+            // Secondary sort: highest deviation first
+            const devA = parseFloat(a.desviacion) || 0;
+            const devB = parseFloat(b.desviacion) || 0;
+            return devB - devA;
+          });
         };
 
         if (activeRole === 'profesor') {
@@ -185,17 +196,18 @@ export default function Home() {
           const snapI = await getDocs(qI);
           const assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           
-            const metricsPromises = assigns.map(async (imp) => {
-              const { temas, lastUpdate } = await fetchTemas(imp.id);
-              const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
-              const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-              const myAusencias = allAusencias.filter(a => a.userId === user.uid);
-              
-              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, myAusencias);
-              return { ...imp, ...metrics };
-            });
+          const metricsPromises = assigns.map(async (imp) => {
+            const { temas } = await fetchTemas(imp.id);
+            const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
+            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
+            const myAusencias = allAusencias.filter(a => a.userId === user.uid);
+            
+            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, myAusencias);
+            return { ...imp, ...metrics };
+          });
           
-          dData.imparticiones = await Promise.all(metricsPromises);
+          const unsorted = await Promise.all(metricsPromises);
+          dData.imparticiones = sortImparticiones(unsorted);
         }
 
         if (activeRole === 'jefe_departamento') {
@@ -225,25 +237,25 @@ export default function Home() {
               const imp = { id: docSnap.id, ...docSnap.data() };
               const profDoc = deptProfs.find(p => p.id === imp.usuarioId);
               const prof = profDoc?.data();
-              const { temas, lastUpdate } = await fetchTemas(imp.id);
+              const { temas } = await fetchTemas(imp.id);
               const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
               const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
               const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
               
-              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, profAusencias);
+              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, profAusencias);
               return { 
                 ...imp, 
                 ...metrics, 
+
                 profFoto: prof?.foto || prof?.avatar,
-                profNombre: `${prof?.nombre || 'Profesor'} ${prof?.apellidos || ''}`
+                profNombre: prof?.nombre || 'Profesor',
+                profApellidos: prof?.apellidos || '',
+                profDisplayName: formatShortName(prof?.nombre, prof?.apellidos)
               };
             });
             
-            dData.imparticiones = (await Promise.all(metricsPromises)).sort((a, b) => {
-              const dateA = a.lastUpdate ? a.lastUpdate.getTime() : 0;
-              const dateB = b.lastUpdate ? b.lastUpdate.getTime() : 0;
-              return dateA - dateB;
-            });
+            const unsorted = await Promise.all(metricsPromises);
+            dData.imparticiones = sortImparticiones(unsorted);
           }
         }
 
@@ -271,20 +283,20 @@ export default function Home() {
           const deptMap = {}; // { deptName: { totalProg: 0, count: 0 } }
           
           const globalMetricsPromises = allAssigns.map(async (imp) => {
-            const { temas, lastUpdate } = await fetchTemas(imp.id);
+            const { temas } = await fetchTemas(imp.id);
             const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
             const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
             const prof = allUsers.find(u => u.id === imp.usuarioId);
             
             const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
-            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, profAusencias);
+            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, profAusencias);
             
             if (metrics.desviacion > 5) countAlerts++;
             totalProgreso += metrics.progreso;
 
             // Inactivity check (> 7 days)
-            if (lastUpdate) {
-              const diffDays = (now.getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24);
+            if (metrics.lastUpdate) {
+              const diffDays = (now.getTime() - metrics.lastUpdate.getTime()) / (1000 * 3600 * 24);
               if (diffDays > 7) countInactivos++;
             } else {
               countInactivos++; // Never updated
@@ -296,12 +308,13 @@ export default function Home() {
             deptMap[dName].totalProg += metrics.progreso;
             deptMap[dName].count += 1;
 
-            return { 
-              ...imp, 
-              ...metrics, 
-              profNombre: prof ? `${prof.nombre} ${prof.apellidos || ''}` : 'Desconocido',
-              profFoto: prof?.foto || prof?.avatar 
-            };
+              return { 
+                ...imp, 
+                ...metrics, 
+                profNombre: prof ? `${prof.nombre} ${prof.apellidos || ''}` : 'Desconocido',
+                profDisplayName: prof ? formatShortName(prof.nombre, prof.apellidos) : 'Desconocido',
+                profFoto: prof?.foto || prof?.avatar 
+              };
           });
 
           const allMetrics = await Promise.all(globalMetricsPromises);
@@ -329,8 +342,9 @@ export default function Home() {
         }
 
         setDashboardData(dData);
-      } catch (error) {
-        console.error("Error fetching home data:", error);
+      } catch (err) {
+        console.error("Error in dashboard fetchData:", err);
+        setError("Error al cargar los datos del panel.");
       } finally {
         setLoading(false);
       }
@@ -389,7 +403,12 @@ export default function Home() {
               <div key={imp.id} className="glass-panel card-hover" style={styles.card} onClick={() => navigate(`/profesor/programaciones/${imp.id}/seguimiento`)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <span style={styles.siglaBadge}>{imp.asignaturaSigla}</span>
-                  <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: '700' }}>{imp.grupoNombre}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <span style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', fontWeight: '700' }}>{imp.grupoNombre}</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                      {imp.departamento || 'Sin Dept.'}
+                    </span>
+                  </div>
                 </div>
                 <h3 style={styles.cardTitle}>{imp.asignaturaNombre}</h3>
                 
@@ -430,7 +449,7 @@ export default function Home() {
 
       {activeRole === 'jefe_departamento' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div style={styles.grid}>
+          <div style={{ ...styles.grid, gridTemplateColumns: 'repeat(3, 1fr)' }}>
             <div className="glass-panel card-hover" style={{ ...styles.statCard, cursor: 'pointer' }} onClick={() => navigate('/users')}>
               <div style={styles.statIcon}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
               <div>
@@ -467,9 +486,8 @@ export default function Home() {
                 <thead>
                   <tr>
                     <th style={styles.th}>Profesor</th>
-                    <th style={styles.th}>Asignatura / Grupo</th>
+                    <th style={styles.th}>Asig./grupo</th>
                     <th style={{...styles.th, textAlign: 'center'}}>Desviación</th>
-                    <th style={{...styles.th, textAlign: 'center'}}>Progreso</th>
                     <th style={{...styles.th, textAlign: 'right'}}>Última Act.</th>
                   </tr>
                 </thead>
@@ -485,15 +503,29 @@ export default function Home() {
                         navigate(`/profesor/programaciones/${imp.id}/seguimiento?readOnly=true`);
                       }}
                     >
-                      <td style={styles.td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <img src={imp.profFoto || 'https://via.placeholder.com/36'} style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} alt="" />
-                          <span style={{ fontWeight: '600' }}>{imp.profNombre}</span>
+                      <td style={{ ...styles.td, paddingLeft: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img 
+                            src={imp.profFoto && imp.profFoto !== 'undefined' && imp.profFoto !== '' ? imp.profFoto : `https://ui-avatars.com/api/?name=${encodeURIComponent(imp.profNombre)}+${encodeURIComponent(imp.profApellidos || '')}&background=6366f1&color=fff&size=128`} 
+                            style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'cover', background: 'var(--bg-secondary)' }} 
+                            alt=""
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              const name = imp.profNombre || 'P';
+                              const sur = imp.profApellidos || '';
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}+${encodeURIComponent(sur)}&background=6366f1&color=fff&size=128`;
+                            }}
+                          />
+                          <span style={{ fontWeight: '600', fontSize: '0.85rem' }}>
+                            {imp.profDisplayName || imp.profNombre}
+                          </span>
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{imp.asignaturaSigla}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{imp.grupoNombre}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{imp.asignaturaSigla}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{imp.grupoNombre}</span>
+                        </div>
                       </td>
                       <td style={{...styles.td, textAlign: 'center'}}>
                         <span style={{ 
@@ -506,14 +538,6 @@ export default function Home() {
                         }}>
                           {imp.desviacion > 0 ? `+${imp.desviacion}h` : `${imp.desviacion}h`}
                         </span>
-                      </td>
-                      <td style={{...styles.td, textAlign: 'center'}}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                          <div style={{...styles.progressBarBg, width: '60px', height: '4px', margin: 0}}>
-                            <div style={{...styles.progressBarFill, width: `${imp.progreso}%`}} />
-                          </div>
-                          <span style={{ fontSize: '0.85rem', fontWeight: '700' }}>{imp.progreso}%</span>
-                        </div>
                       </td>
                       <td style={{...styles.td, textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                         {imp.lastUpdate ? imp.lastUpdate.toLocaleDateString() : 'Nunca'}
@@ -592,9 +616,17 @@ export default function Home() {
                         navigate(`/profesor/programaciones/${imp.id}/seguimiento?readOnly=true`);
                       }}
                     >
-                      <img src={imp.profFoto || 'https://via.placeholder.com/40'} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }} alt="" />
+                       <img 
+                        src={imp.profFoto && imp.profFoto !== 'undefined' && imp.profFoto !== '' ? imp.profFoto : `https://ui-avatars.com/api/?name=${encodeURIComponent(imp.profNombre)}&background=6366f1&color=fff&size=128`} 
+                        style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', background: 'var(--bg-secondary)' }} 
+                        alt=""
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(imp.profNombre)}&background=6366f1&color=fff&size=128`;
+                        }}
+                      />
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{imp.profNombre}</div>
+                        <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{imp.profDisplayName || imp.profNombre}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{imp.asignaturaSigla} - {imp.grupoNombre}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
@@ -726,9 +758,9 @@ const styles = {
     letterSpacing: '1px'
   },
   td: {
-    padding: '1.2rem 0.5rem',
+    padding: '0.1rem 0.5rem',
     borderBottom: '1px solid rgba(255,255,255,0.03)',
-    fontSize: '0.95rem'
+    fontSize: '0.85rem'
   },
   tr: {
     transition: 'all 0.2s'

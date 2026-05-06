@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { calcularHorasReales, calcularHorasRealesRaw, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularHorasRealesRaw, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
@@ -27,8 +27,8 @@ export default function SyllabusTracking() {
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
 
   const metrics = useMemo(() => {
-    return calcularMetricasSeguimiento(temas, horario, academicYear, festivos, ausencias);
-  }, [temas, horario, academicYear, festivos, ausencias]);
+    return calcularMetricasSeguimiento(temas, horario, academicYear, festivos, ausencias, undefined, assignment?.updatedAt);
+  }, [temas, horario, academicYear, festivos, ausencias, assignment]);
 
   const totalDesviacion = metrics.desviacion;
 
@@ -76,6 +76,7 @@ export default function SyllabusTracking() {
           fechaInicio: d.data().fechaInicio || '',
           fechaFin: d.data().fechaFin || '',
           observaciones: d.data().observaciones || '',
+          updatedAt: d.data().updatedAt || null,
         }))
         .sort((a, b) => a.id - b.id);
       
@@ -191,7 +192,16 @@ export default function SyllabusTracking() {
               </h1>
             </div>
             <p style={styles.subtitle}>
-              {assignment?.asignaturaSigla} - {assignment?.grupoNombre} {isReadOnly && teacher && ` - ${teacher.nombre} ${teacher.apellidos || ''}`} ({assignment?.cursoAcademicoLabel})
+              {assignment?.asignaturaSigla} - {assignment?.grupoNombre}
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', textTransform: 'uppercase', verticalAlign: 'middle' }}>
+                {assignment?.departamento}
+              </span>
+              {isReadOnly && teacher && ` - ${teacher.nombre} ${teacher.apellidos || ''}`} ({assignment?.cursoAcademicoLabel})
+              {metrics.lastUpdate && (
+                <span style={{ marginLeft: '1.5rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.8rem' }}>
+                  Última actualización: {normalizeDate(metrics.lastUpdate)?.toLocaleDateString() || 'Formato inválido'}
+                </span>
+              )}
             </p>
           </div>
           {!isReadOnly && (
@@ -263,7 +273,7 @@ export default function SyllabusTracking() {
                     <td style={{...styles.td, width: isReadOnly ? '80px' : '100px'}}>
                       {isReadOnly ? (
                         <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                          {tema.fechaInicio ? new Date(tema.fechaInicio).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                          {tema.fechaInicio ? normalizeDate(tema.fechaInicio)?.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) || 'Error' : '-'}
                         </span>
                       ) : (
                         <input 
@@ -282,7 +292,7 @@ export default function SyllabusTracking() {
                     <td style={{...styles.td, width: isReadOnly ? '80px' : '100px'}}>
                       {isReadOnly ? (
                         <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                          {tema.fechaFin ? new Date(tema.fechaFin).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                          {tema.fechaFin ? normalizeDate(tema.fechaFin)?.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) || 'Error' : '-'}
                         </span>
                       ) : (
                         <input 
