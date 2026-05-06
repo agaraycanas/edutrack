@@ -18,7 +18,8 @@ export default function Home() {
     topDelays: [],
     deptStats: [],
     inactivosCount: 0,
-    ausenciasHoyCentro: 0
+    ausenciasHoyCentro: 0,
+    gruposCount: 0
   });
   const [status, setStatus] = useState({
     isHoliday: false,
@@ -145,7 +146,8 @@ export default function Home() {
           topDelays: [],
           deptStats: [],
           inactivosCount: 0,
-          ausenciasHoyCentro: 0
+          ausenciasHoyCentro: 0,
+          gruposCount: 0
         };
 
         // Fetch temas for an imparticion from the standard collection
@@ -209,6 +211,15 @@ export default function Home() {
 
             const qDeptI = query(collection(db, 'ies_imparticiones'), where('iesId', '==', activeIesId), where('departamento', '==', myDept));
             const snapDeptI = await getDocs(qDeptI);
+            
+            // Calculate unique groups for this department
+            const uniqueGroups = new Set();
+            snapDeptI.docs.forEach(docSnap => {
+              const data = docSnap.data();
+              if (data.grupoId) uniqueGroups.add(data.grupoId);
+              else if (data.grupoNombre) uniqueGroups.add(data.grupoNombre);
+            });
+            dData.gruposCount = uniqueGroups.size;
             
             const metricsPromises = snapDeptI.docs.map(async (docSnap) => {
               const imp = { id: docSnap.id, ...docSnap.data() };
@@ -420,14 +431,21 @@ export default function Home() {
       {activeRole === 'jefe_departamento' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <div style={styles.grid}>
-            <div className="glass-panel" style={styles.statCard}>
+            <div className="glass-panel card-hover" style={{ ...styles.statCard, cursor: 'pointer' }} onClick={() => navigate('/users')}>
               <div style={styles.statIcon}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
               <div>
                 <h3 style={styles.cardTitle}>Profesores</h3>
                 <p style={styles.cardNumber}>{dashboardData.profesoresCount}</p>
               </div>
             </div>
-            <div className="glass-panel" style={styles.statCard}>
+            <div className="glass-panel card-hover" style={{ ...styles.statCard, cursor: 'pointer' }} onClick={() => navigate('/groups')}>
+              <div style={{...styles.statIcon, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)'}}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></div>
+              <div>
+                <h3 style={styles.cardTitle}>Grupos</h3>
+                <p style={styles.cardNumber}>{dashboardData.gruposCount}</p>
+              </div>
+            </div>
+            <div className="glass-panel card-hover" style={{ ...styles.statCard, cursor: 'pointer' }} onClick={() => navigate('/teaching-assignments')}>
               <div style={{...styles.statIcon, color: '#10b981', background: 'rgba(16, 185, 129, 0.1)'}}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></div>
               <div>
                 <h3 style={styles.cardTitle}>Imparticiones</h3>
