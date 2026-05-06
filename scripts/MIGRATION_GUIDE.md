@@ -41,3 +41,22 @@ Los archivos XML legacy suelen estar codificados en `latin-1` o tienen una decla
 
 - El botón de volver en las vistas de detalle debe usar `navigate(-1)` para soportar la navegación desde diferentes orígenes (Mis Programaciones vs Gestión de Imparticiones).
 - La vista de seguimiento soporta un parámetro `?readOnly=true` para jefes de estudios, que oculta el botón de guardar y deshabilita los inputs.
+
+## 5. Extracción Estructural de XML (Evitar "Slurping")
+
+**PROBLEMA DETECTADO:** El uso de expresiones regulares globales (ej. `[\s\S]*?`) para buscar asignaturas puede causar que el script salte de una asignatura a otra si el nombre coincide pero el grupo no, "engullendo" datos de asignaturas intermedias.
+
+**SOLUCIÓN / MEJOR PRÁCTICA:**
+- **Jerarquía de bloques:** NUNCA buscar una asignatura globalmente en el archivo. Primero, extraer el bloque del curso (`<curso nombre="DAW1">...`) y luego realizar la búsqueda solo dentro de ese fragmento.
+- **Límites de etiquetas:** Si se usa regex, asegurarse de que la búsqueda no pueda cruzar el cierre de una etiqueta del mismo nivel (ej. no saltar de un `</asignatura>` a otro).
+- **Codificación:** Leer siempre con `utf8` si el XML lo declara, o asegurar que los caracteres especiales (tildes) están correctamente mapeados en la regex para evitar fallos de coincidencia silenciosos.
+- **Recomendación:** Para importaciones complejas, preferir un parser XML real (`fast-xml-parser`) sobre manipulación manual de strings.
+
+## 6. Normalización de Horas (Ajuste al Calendario Real)
+
+**PROBLEMA DETECTADO:** Las horas estimadas en las programaciones XML (ej. 155h) suelen no coincidir con la capacidad real del calendario escolar (ej. 111h lectivas reales tras descontar festivos y periodos de FCT). Esto causa que un profesor que sigue perfectamente el calendario tenga una desviación acumulada enorme (ej. -44h).
+
+**SOLUCIÓN / MEJOR PRÁCTICA:**
+- **Factor de Reequilibrio:** Al importar, calcular el total de horas lectivas disponibles para esa impartición específica (basándose en su horario semanal y las fechas de inicio/fin de clases).
+- **Ajuste Proporcional:** Multiplicar cada `horasEstimadas` del XML por un factor `(HorasDisponibles / HorasTotalesXML)`.
+- **Resultado:** La suma de las horas estimadas coincidirá con la realidad física del curso, y la métrica de desviación empezará en 0, reflejando solo adelantos o retrasos reales respecto al ritmo previsto.

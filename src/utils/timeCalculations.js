@@ -120,12 +120,18 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
 
 /**
  * Calcula las horas reales invertidas entre dos fechas, basándose en el patrón horario,
- * excluyendo festivos y ausencias.
+ * excluyendo festivos y ausencias. Devuelve el valor con decimales para cálculos internos.
+ */
+export const calcularHorasRealesRaw = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
+  const totalSesiones = contarSesiones(fechaInicio, fechaFin, horario, festivos, ausencias);
+  return (totalSesiones * duracionSesion) / 60;
+};
+
+/**
+ * Calcula las horas reales redondeadas para visualización.
  */
 export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
-  const totalSesiones = contarSesiones(fechaInicio, fechaFin, horario, festivos, ausencias);
-  const minutosTotales = totalSesiones * duracionSesion;
-  return Math.round(minutosTotales / 60);
+  return Math.round(calcularHorasRealesRaw(fechaInicio, fechaFin, horario, duracionSesion, festivos, ausencias));
 };
 
 /**
@@ -134,7 +140,7 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
  * Si es positivo, hemos perdido tiempo (rojo).
  */
 export const calcularDesviacion = (horasReales, horasEstimadas) => {
-  return horasReales - horasEstimadas;
+  return Math.round(horasReales - horasEstimadas);
 };
 
 /**
@@ -159,11 +165,11 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   // 1. Horas lectivas que deberían haber transcurrido hasta hoy según el horario
   let horasTranscurridasHoy = 0;
   try {
-    horasTranscurridasHoy = calcularHorasReales(fechaInicioClases, todayIso, horario, duracionSesion, festivos, ausencias);
+    horasTranscurridasHoy = calcularHorasRealesRaw(fechaInicioClases, todayIso, horario, duracionSesion, festivos, ausencias);
   } catch (e) {}
 
   // 2. Cálculo de desviación acumulada y progreso
-  let totalDev = 0;
+  let totalDevRaw = 0;
   let totalHours = 0;
   let currentThemeName = 'No iniciado';
   let cumulativeEstimadas = 0;
@@ -175,8 +181,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
 
     if (t.fechaInicio && t.fechaFin) {
       try {
-        const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
-        totalDev += (hRealTema - hEst);
+        const hRealTemaRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
+        totalDevRaw += (hRealTemaRaw - hEst);
         
         // Seguimiento de la última actualización
         const dFin = new Date(t.fechaFin);
@@ -203,7 +209,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   const progreso = totalHours > 0 ? Math.min(100, Math.round((horasTranscurridasHoy / totalHours) * 100)) : 0;
 
   return { 
-    desviacion: totalDev, 
+    desviacion: Math.round(totalDevRaw), 
     progreso, 
     temaActual: currentThemeName, 
     lastUpdate 

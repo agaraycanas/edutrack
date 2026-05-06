@@ -120,18 +120,18 @@ export default function Syllabuses() {
         const duracionSesion = ay?.duracionSesion || 55;
         const today = new Date().toISOString().split('T')[0];
 
-        // Calculate Estimated Progress Hours (H. EST)
-        let hEst = 0;
+        // Calculate Estimated Progress Hours (H. EST) - Use Raw for internal comparison
+        let hEstRaw = 0;
         if (h && ay?.fechaInicioClases) {
           try {
-            hEst = calcularHorasReales(ay.fechaInicioClases, today, h, duracionSesion);
+            hEstRaw = calcularHorasRealesRaw(ay.fechaInicioClases, today, h, duracionSesion);
           } catch (e) {
             console.warn("Error calculating hEst for", a.id, e);
           }
         }
 
         // Calculate Real Hours (H. REAL) and Total Hours
-        let hReal = 0;
+        let hRealRaw = 0;
         let totalHours = 0;
         
         if (p) {
@@ -140,12 +140,13 @@ export default function Syllabuses() {
           
           // Real hours: prefer p.sesiones if available, fallback to theme dates calculation
           if (p.sesiones && p.sesiones.length > 0) {
-            hReal = p.sesiones.reduce((acc, s) => acc + (s.horasReales || 0), 0);
+            hRealRaw = p.sesiones.reduce((acc, s) => acc + (s.horasReales || 0), 0);
           } else if (p.temas) {
             p.temas.forEach(t => {
               if (t.fechaInicio && t.fechaFin && h) {
                 try {
-                  hReal += calcularHorasReales(t.fechaInicio, t.fechaFin, h, duracionSesion);
+                  // Accumulate RAW hours to avoid rounding drift
+                  hRealRaw += calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, h, duracionSesion);
                 } catch (err) { /* ignore */ }
               }
             });
@@ -155,14 +156,13 @@ export default function Syllabuses() {
         // --- NEW CALCULATIONS ---
         let currentTheme = null;
         let realCurrentTheme = null;
-        let totalDev = 0;
+        let totalDevRaw = 0;
         let lastUpdate = p?.updatedAt ? new Date(p.updatedAt.seconds * 1000) : null;
 
         if (p && p.temas) {
-          // 1. Calculate Total Deviation (sum of partials)
+          // 1. Calculate Total Deviation (sum of RAW partials)
           p.temas.forEach(t => {
             if (t.fechaInicio) {
-              // Tracking update: check fechaInicio and fechaFin as fallbacks for lastUpdate
               const dInicio = new Date(t.fechaInicio);
               if (!isNaN(dInicio.getTime()) && (!lastUpdate || dInicio > lastUpdate)) lastUpdate = dInicio;
               
@@ -171,8 +171,8 @@ export default function Syllabuses() {
                 if (!isNaN(dFin.getTime()) && (!lastUpdate || dFin > lastUpdate)) lastUpdate = dFin;
 
                 try {
-                  const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, h, duracionSesion);
-                  totalDev += (hRealTema - (Number(t.horasEstimadas) || 0));
+                  const hRealTemaRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, h, duracionSesion);
+                  totalDevRaw += (hRealTemaRaw - (Number(t.horasEstimadas) || 0));
                 } catch (err) { /* ignore */ }
               }
             }
@@ -182,16 +182,16 @@ export default function Syllabuses() {
           let cumulative = 0;
           for (const t of p.temas) {
             const tHours = Number(t.horasEstimadas) || 0;
-            if (cumulative + tHours > hEst) {
+            if (cumulative + tHours > hEstRaw) {
               currentTheme = {
                 nombre: t.nombre,
-                progress: Math.max(0, Math.min(100, ((hEst - cumulative) / tHours) * 100))
+                progress: Math.max(0, Math.min(100, ((hEstRaw - cumulative) / tHours) * 100))
               };
               break;
             }
             cumulative += tHours;
           }
-          if (!currentTheme && p.temas.length > 0 && hEst >= totalHours && totalHours > 0) {
+          if (!currentTheme && p.temas.length > 0 && hEstRaw >= totalHours && totalHours > 0) {
             currentTheme = { nombre: p.temas[p.temas.length - 1].nombre, progress: 100 };
           }
 
@@ -202,11 +202,11 @@ export default function Syllabuses() {
             if (lastStarted.fechaFin) {
               realCurrentTheme = { nombre: lastStarted.nombre, progress: 100, status: 'Completado' };
             } else {
-              const hRealTema = calcularHorasReales(lastStarted.fechaInicio, today, h, duracionSesion);
+              const hRealTemaRaw = calcularHorasRealesRaw(lastStarted.fechaInicio, today, h, duracionSesion);
               const est = Number(lastStarted.horasEstimadas) || 1;
               realCurrentTheme = { 
                 nombre: lastStarted.nombre, 
-                progress: Math.min(100, (hRealTema / est) * 100),
+                progress: Math.min(100, (hRealTemaRaw / est) * 100),
                 status: 'En curso'
               };
             }
@@ -221,10 +221,10 @@ export default function Syllabuses() {
           asignaturaSigla: a.asignaturaSigla || 'N/A', 
           asignaturaNombre: a.asignaturaNombre || 'Sin nombre', 
           grupoNombre: a.grupoNombre || 'Sin grupo',
-          hEst,
-          hReal,
+          hEst: Math.round(hEstRaw),
+          hReal: Math.round(hRealRaw),
           totalHours,
-          totalDev,
+          totalDev: Math.round(totalDevRaw),
           currentTheme,
           realCurrentTheme,
           lastUpdate,
@@ -425,7 +425,7 @@ export default function Syllabuses() {
                         {row.totalDev > 0 ? `+${row.totalDev}` : row.totalDev}h
                       </div>
                       <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                        {row.hReal}h reales / {row.totalHours}h totales
+                        {row.hReal}h reales / {Math.round(row.totalHours)}h totales
                       </div>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
@@ -527,7 +527,7 @@ export default function Syllabuses() {
                             type="number" 
                             className="input-field" 
                             style={{ padding: '0.4rem', fontSize: '0.85rem', width: '60px', textAlign: 'center' }}
-                            value={tema.horasEstimadas}
+                            value={Math.round(tema.horasEstimadas || 0)}
                             min="1"
                             onChange={(e) => handleThemeChange(index, 'horasEstimadas', Number(e.target.value))}
                           />

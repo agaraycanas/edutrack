@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { calcularHorasReales, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularHorasRealesRaw, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
@@ -224,16 +224,18 @@ export default function SyllabusTracking() {
                 if (!tema) return null;
                 
                 const duracionSesion = academicYear?.duracionSesion || 55;
-                const hReales = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
+                const hRealesRaw = (tema.fechaInicio && tema.fechaFin && horario) 
+                  ? calcularHorasRealesRaw(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
                   : 0;
+                
+                const hRealesDisplay = Math.round(hRealesRaw);
                 
                 const nSesiones = (tema.fechaInicio && tema.fechaFin && horario)
                   ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario, festivos, ausencias)
                   : 0;
                 
                 const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
-                  ? calcularDesviacion(hReales, tema.horasEstimadas)
+                  ? calcularDesviacion(hRealesRaw, tema.horasEstimadas)
                   : null;
 
                 let devColor = 'inherit';
@@ -250,7 +252,7 @@ export default function SyllabusTracking() {
                       <span style={{ fontWeight: '500' }}>{tema.nombre}</span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
-                      <span style={styles.badgeEstimadas}>{tema.horasEstimadas}h</span>
+                      <span style={styles.badgeEstimadas}>{Math.round(tema.horasEstimadas)}h</span>
                     </td>
                     <td style={styles.td}>
                       <input 
@@ -293,7 +295,7 @@ export default function SyllabusTracking() {
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        {tema.fechaInicio && tema.fechaFin ? `${hReales}h` : '-'}
+                        {tema.fechaInicio && tema.fechaFin ? `${hRealesDisplay}h` : '-'}
                       </span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>

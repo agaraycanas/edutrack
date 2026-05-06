@@ -483,8 +483,8 @@ export default function Home() {
                           borderRadius: '8px', 
                           fontSize: '0.9rem',
                           fontWeight: '800',
-                          background: imp.desviacion > 5 ? 'rgba(239, 68, 68, 0.15)' : (imp.desviacion < 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'),
-                          color: imp.desviacion > 5 ? '#ff6b6b' : (imp.desviacion < 0 ? '#34d399' : 'var(--text-secondary)')
+                          background: imp.desviacion > 0 ? 'rgba(239, 68, 68, 0.15)' : (imp.desviacion < 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'),
+                          color: imp.desviacion > 0 ? '#ff6b6b' : (imp.desviacion < 0 ? '#34d399' : 'var(--text-secondary)')
                         }}>
                           {imp.desviacion > 0 ? `+${imp.desviacion}h` : `${imp.desviacion}h`}
                         </span>

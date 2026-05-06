@@ -77,15 +77,27 @@ export default function Users() {
         
         const filtered = allUsers.filter(u => {
           if (activeRole === 'superadmin') return true;
-          if (u.email === currentUser?.email) return true; // Siempre verse a uno mismo
+          if (u.email === currentUser?.email) return true;
 
-          const userRolesInIes = u.roles?.filter(r => r.iesId === activeIesId) || [];
+          const userRolesInIes = u.roles?.filter(r => r.iesId === activeIesId && r.estado === 'activo') || [];
           if (userRolesInIes.length === 0) return false;
 
-          const userMaxRank = Math.max(...userRolesInIes.map(r => RANKS[r.rol] || 0));
-          
-          // Solo ver usuarios con rango inferior al mío
-          return userMaxRank < myRank;
+          // Obtener mi perfil para saber mi departamento si soy Jefe de Depto
+          const myProfile = allUsers.find(u => u.email === currentUser?.email);
+
+          // Un usuario es visible si tiene al menos UN ROL gestionable por mí
+          return userRolesInIes.some(r => {
+            const roleRank = RANKS[r.rol] || 0;
+            
+            // Jefe de Departamento: Puede ver al usuario si tiene un rol de profesor en su departamento
+            if (activeRole === 'jefe_departamento') {
+              const myDept = myProfile?.roles?.find(myR => myR.rol === 'jefe_departamento' && myR.iesId === activeIesId)?.departamento;
+              return roleRank < myRank && r.departamento === myDept;
+            }
+
+            // Para otros roles (como Jefe de Estudios), simplemente ver si tiene algún rol inferior
+            return roleRank < myRank;
+          });
         });
 
         setUsers(filtered);

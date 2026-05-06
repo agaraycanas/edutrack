@@ -62,31 +62,33 @@ export default function Approvals() {
         // 3. Filtrar según jerarquía inteligente
         const filtered = allSolicitudes.filter(sol => {
           if (sol.rol?.toLowerCase() === 'alumno') return false;
-          if (activeRole === 'superadmin') return true;
+          
+          // Obtener los roles del usuario logueado en este IES
+          const myRoles = centerStaff.find(u => u.email === auth.currentUser.email)?.roles?.filter(r => r.iesId === activeIesId && r.estado === 'activo') || [];
+          
+          // Si es superadmin (global o local), ve todo
+          if (activeRole === 'superadmin' || myRoles.some(r => r.rol === 'superadmin')) return true;
+          
           if (sol.iesId !== activeIesId) return false;
 
-          // Jefe de Departamento: Solo ve a sus profesores
-          if (activeRole === 'jefe_departamento') {
-            const myDept = centerStaff.find(u => u.email === auth.currentUser.email)
-              ?.roles?.find(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId)?.departamento;
-            return sol.rol === 'profesor' && sol.departamento === myDept;
-          }
-
-          // Jefe de Estudios:
-          if (activeRole === 'jefe_estudios') {
-            // Ve jefes de departamento
-            if (sol.rol === 'jefe_departamento') return true;
-            
-            // Ve profesores SI no hay jefe de departamento para ese dept
-            if (sol.rol === 'profesor') {
-              const hasJefeDept = centerStaff.some(u => 
-                u.roles?.some(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId && r.departamento === sol.departamento && r.estado === 'activo')
-              );
-              return !hasJefeDept;
+          return myRoles.some(myRole => {
+            // Jefe de Departamento: Solo ve a sus profesores
+            if (myRole.rol === 'jefe_departamento') {
+              return sol.rol === 'profesor' && sol.departamento === myRole.departamento;
             }
-          }
 
-          return false;
+            // Jefe de Estudios:
+            if (myRole.rol === 'jefe_estudios') {
+              if (sol.rol === 'jefe_departamento') return true;
+              if (sol.rol === 'profesor') {
+                const hasJefeDept = centerStaff.some(u => 
+                  u.roles?.some(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId && r.departamento === sol.departamento && r.estado === 'activo')
+                );
+                return !hasJefeDept;
+              }
+            }
+            return false;
+          });
         });
 
         setSolicitudes(filtered);

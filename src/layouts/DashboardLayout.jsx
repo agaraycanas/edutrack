@@ -14,32 +14,57 @@ export default function DashboardLayout({ children }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [centerStaff, setCenterStaff] = useState([]);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const RANKS = {
+    alumno: 20,
+    profesor: 40,
+    jefe_departamento: 60,
+    jefe_estudios: 80,
+    superadmin: 100,
+  };
 
   const fetchProfile = async () => {
     if (auth.currentUser) {
-      const docSnap = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setUserProfile(data);
-        // Si el rol activo no está en sus roles, poner el primero disponible o profesor por defecto
-        if (data.roles && data.roles.length > 0 && !data.roles.some(r => r.rol === activeRole)) {
-          const firstRole = data.roles[0];
-          setActiveRole(firstRole.rol);
-          localStorage.setItem('activeRole', firstRole.rol);
-          localStorage.setItem('activeIesId', firstRole.iesId);
-        } else if (data.roles && data.roles.length > 0) {
-          // Migración: Si no tiene iesIds, lo creamos a partir de sus roles
-          if (!data.iesIds && data.roles) {
-            const ids = [...new Set(data.roles.map(r => r.iesId))].filter(Boolean);
-            await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { iesIds: ids });
-            data.iesIds = ids;
-          }
+      try {
+        const docSnap = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserProfile(data);
 
-          const currentRoleData = data.roles.find(r => r.rol === activeRole);
-          if (currentRoleData) {
-            localStorage.setItem('activeIesId', currentRoleData.iesId);
+          if (data.roles && data.roles.length > 0) {
+            const savedRole = localStorage.getItem('activeRole');
+            const isRoleValid = data.roles.some(r => r.rol === savedRole);
+            
+            // Si no hay rol guardado, o el que hay no es válido, BUSCAMOS EL MÁS RESTRICTIVO
+            if (!savedRole || !isRoleValid) {
+              const sortedRoles = [...data.roles].sort((a, b) => {
+                const rankA = RANKS[a.rol] || 999; // Si no existe, lo ponemos muy alto para que no sea el por defecto
+                const rankB = RANKS[b.rol] || 999;
+                return rankA - rankB;
+              });
+              
+              const mostRestrictive = sortedRoles[0];
+              console.log("Auto-seleccionando rol más restrictivo:", mostRestrictive.rol);
+              
+              setActiveRole(mostRestrictive.rol);
+              localStorage.setItem('activeRole', mostRestrictive.rol);
+              localStorage.setItem('activeIesId', mostRestrictive.iesId);
+            } else {
+              // Mantener el rol que ya tenía si es válido
+              const currentRoleData = data.roles.find(r => r.rol === savedRole);
+              if (currentRoleData) {
+                localStorage.setItem('activeIesId', currentRoleData.iesId);
+              }
+            }
+
+            // Asegurar que iesIds existe
+            if (!data.iesIds) {
+              const ids = [...new Set(data.roles.map(r => r.iesId))].filter(Boolean);
+              await updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { iesIds: ids });
+            }
           }
         }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
       }
     }
   };
@@ -94,25 +119,34 @@ export default function DashboardLayout({ children }) {
       const allSols = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       const filtered = allSols.filter(sol => {
-        if (activeRole === 'superadmin') return true;
-        
-        // Jefe de Departamento: Solo ve a sus profesores
-        if (activeRole === 'jefe_departamento') {
-          const myDept = userProfile?.roles?.find(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId)?.departamento;
-          return sol.rol === 'profesor' && sol.departamento === myDept;
-        }
+        // Un superadmin (global) ve todo
+        if (userProfile?.roles?.some(r => r.rol === 'superadmin')) return true;
 
-        // Jefe de Estudios:
-        if (activeRole === 'jefe_estudios') {
-          if (sol.rol === 'jefe_departamento') return true;
-          if (sol.rol === 'profesor') {
-            const hasJefeDept = centerStaff.some(u => 
-              u.roles?.some(r => r.rol === 'jefe_departamento' && r.iesId === activeIesId && r.departamento === sol.departamento && r.estado === 'activo')
-            );
-            return !hasJefeDept;
+        const activeIesId = localStorage.getItem('activeIesId');
+        if (sol.iesId !== activeIesId) return false;
+
+        // Verificar si alguno de los roles del usuario le permite aprobar esta solicitud
+        return userProfile?.roles?.some(r => {
+          if (r.iesId !== activeIesId || r.estado !== 'activo') return false;
+
+          // Jefe de Departamento: Solo ve a sus profesores
+          if (r.rol === 'jefe_departamento') {
+            return sol.rol === 'profesor' && sol.departamento === r.departamento;
           }
-        }
-        return false;
+
+          // Jefe de Estudios:
+          if (r.rol === 'jefe_estudios') {
+            if (sol.rol === 'jefe_departamento') return true;
+            if (sol.rol === 'profesor') {
+              const hasJefeDept = centerStaff.some(u => 
+                u.roles?.some(ur => ur.rol === 'jefe_departamento' && ur.iesId === activeIesId && ur.departamento === sol.departamento && ur.estado === 'activo')
+              );
+              return !hasJefeDept;
+            }
+          }
+          
+          return false;
+        });
       });
 
       setPendingCount(filtered.length);
