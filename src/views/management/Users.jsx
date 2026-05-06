@@ -269,14 +269,14 @@ export default function Users() {
       {/* Barra de Filtros */}
       <div style={styles.filterBar}>
         <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Filtrar por Rol:</label>
+          <label style={styles.filterLabel}>Rol:</label>
           <select 
             className="input-field" 
             style={styles.filterSelect}
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
           >
-            <option value="all">Todos los roles</option>
+            <option value="all">Todos</option>
             {Object.entries(ROLE_LABELS).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
@@ -284,7 +284,7 @@ export default function Users() {
         </div>
 
         <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Buscar usuario:</label>
+          <label style={styles.filterLabel}>Buscar:</label>
           <div style={{ position: 'relative', flex: 1 }}>
             <input 
               type="text" 
@@ -306,8 +306,8 @@ export default function Users() {
           </div>
         </div>
         
-        <div style={{ marginLeft: 'auto', alignSelf: 'flex-end', paddingBottom: '5px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-          {sortedUsers.length} {sortedUsers.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
+        <div style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          {sortedUsers.length} {sortedUsers.length === 1 ? 'usuario' : 'usuarios'}
         </div>
       </div>
       
@@ -315,12 +315,12 @@ export default function Users() {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={{ ...styles.th, width: '60px' }}>Foto</th>
-              <th style={styles.th}>Nombre</th>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Departamento</th>
+              <th style={{ ...styles.th, width: '45px', textAlign: 'center' }}></th>
+              <th style={styles.th}>NOMBRE Y APELLIDOS</th>
+              <th style={styles.th}>EMAIL</th>
+              <th style={styles.th}>DEPARTAMENTO</th>
               {Object.keys(ROLE_LABELS).map(roleKey => (
-                <th key={roleKey} style={{...styles.th, textAlign: 'center'}}>{ROLE_LABELS[roleKey]}</th>
+                <th key={roleKey} style={{...styles.th, textAlign: 'center', width: '80px'}}>{ROLE_LABELS[roleKey]}</th>
               ))}
             </tr>
           </thead>
@@ -332,9 +332,9 @@ export default function Users() {
               
               return (
                 <tr key={user.id} style={{ ...styles.tr, backgroundColor: isMe ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
-                  <td style={styles.td}>
+                  <td style={{ ...styles.td, textAlign: 'center' }}>
                     <img 
-                      src={user.foto || user.avatar || 'https://via.placeholder.com/48'} 
+                      src={user.foto || user.avatar || 'https://via.placeholder.com/32'} 
                       className="user-avatar-zoom"
                       style={styles.miniAvatar} 
                       alt="" 
@@ -361,8 +361,8 @@ export default function Users() {
                   </td>
                   <td style={styles.td}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <span style={{ fontSize: '0.9rem', color: userDept ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {userDept || 'Sin departamento'}
+                      <span style={{ fontSize: '0.85rem', color: userDept ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                        {userDept || 'Sin depto.'}
                       </span>
                       {canEditDept && (
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -473,11 +473,11 @@ export default function Users() {
 
 const styles = {
   table: { width: '100%', borderCollapse: 'collapse', minWidth: '600px' },
-  th: { padding: '0.8rem 0.5rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', position: 'sticky', top: 0, backgroundColor: 'var(--surface-color)', zIndex: 10, boxShadow: '0 1px 0 var(--border-color)' },
-  td: { padding: '0.8rem 0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' },
+  th: { padding: '0.6rem 0.5rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', position: 'sticky', top: 0, backgroundColor: 'var(--surface-color)', zIndex: 10, boxShadow: '0 1px 0 var(--border-color)' },
+  td: { padding: '0.3rem 0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' },
   tr: { transition: 'background 0.2s' },
-  miniAvatar: { width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', border: '2px solid var(--border-color)', transition: 'transform 0.2s ease, border-color 0.2s ease', cursor: 'pointer' },
-  checkbox: { width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--active-role-color)' },
+  miniAvatar: { width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-color)', transition: 'transform 0.2s ease, border-color 0.2s ease', cursor: 'pointer' },
+  checkbox: { width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--active-role-color)' },
   editBtn: {
     background: 'rgba(255,255,255,0.05)',
     border: '1px solid var(--border-color)',
@@ -492,11 +492,11 @@ const styles = {
   },
   filterBar: {
     display: 'flex',
-    gap: '2rem',
-    marginBottom: '1.5rem',
-    padding: '1.2rem',
+    gap: '1.5rem',
+    marginBottom: '1rem',
+    padding: '0.7rem 1.2rem',
     background: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: '16px',
+    borderRadius: '12px',
     border: '1px solid var(--border-color)',
     alignItems: 'center',
     flexWrap: 'wrap'
@@ -515,17 +515,17 @@ const styles = {
     color: 'var(--text-secondary)'
   },
   filterSelect: {
-    padding: '8px 12px',
-    fontSize: '0.9rem',
+    padding: '6px 10px',
+    fontSize: '0.85rem',
     background: 'var(--surface-color)',
-    borderRadius: '10px'
+    borderRadius: '8px'
   },
   filterInput: {
-    padding: '8px 12px',
+    padding: '6px 10px',
     paddingRight: '30px',
-    fontSize: '0.9rem',
+    fontSize: '0.85rem',
     background: 'var(--surface-color)',
-    borderRadius: '10px',
+    borderRadius: '8px',
     width: '100%'
   },
   clearBtn: {

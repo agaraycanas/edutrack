@@ -25,6 +25,7 @@ export default function Groups() {
   // Filters
   const [filterYear, setFilterYear] = useState('');
   const [filterStudy, setFilterStudy] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -129,12 +130,36 @@ export default function Groups() {
         });
       }
 
-      groupsData.sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true }));
+      // Sorting logic: Study -> Course -> Name
+      groupsData.sort((a, b) => {
+        // First by study name
+        const studyA = a.titulacionNombre || '';
+        const studyB = b.titulacionNombre || '';
+        const studyComp = studyA.localeCompare(studyB);
+        if (studyComp !== 0) return studyComp;
+
+        // Then by course (numeric)
+        const cursoA = parseInt(a.curso) || 0;
+        const cursoB = parseInt(b.curso) || 0;
+        if (cursoA !== cursoB) return cursoA - cursoB;
+
+        // Finally by group name
+        return a.nombre.localeCompare(b.nombre, undefined, { numeric: true });
+      });
       setGroups(groupsData);
     } catch (error) {
       console.error("Error fetching groups:", error);
     }
   };
+
+  const filteredGroups = groups.filter(g => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      g.nombre.toLowerCase().includes(search) ||
+      g.titulacionNombre.toLowerCase().includes(search)
+    );
+  });
 
   const handleOpenForm = (group = null) => {
     if (group) {
@@ -286,53 +311,116 @@ export default function Groups() {
 
       {/* Filters Section */}
       <section className="glass-panel" style={styles.filtersPanel}>
-        <div style={{ ...styles.filterGroup, width: '220px' }}>
-          <label style={styles.filterLabel}>Año Académico</label>
-          <div style={styles.selectWrapper}>
-            <select 
-              className="input-field"
-              value={filterYear}
-              onChange={e => setFilterYear(e.target.value)}
-              style={styles.select}
-            >
-              <option value="">Todos los años</option>
-              {academicYears.map(y => (
-                <option key={y.id} value={y.id}>{y.nombre}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Titulación</label>
-          <div style={styles.selectWrapper}>
-            <select 
-              className="input-field"
-              value={filterStudy}
-              onChange={e => setFilterStudy(e.target.value)}
-              style={styles.select}
-            >
-              <option value="">TODOS LOS CICLOS</option>
-              {studies
-                .filter(s => {
-                  if (activeRole === 'jefe_estudios' || activeRole === 'superadmin') return true;
-                  const myDept = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId)?.departamento;
-                  return s.departamentos?.includes(myDept);
-                })
-                .map(s => (
-                  <option key={s.id} value={s.id}>{s.nombre}</option>
+        <div style={styles.filtersRow}>
+          <div style={{ ...styles.filterGroup, width: '180px' }}>
+            <div style={styles.selectWrapper}>
+              <select 
+                className="input-field"
+                value={filterYear}
+                onChange={e => setFilterYear(e.target.value)}
+                style={styles.select}
+              >
+                <option value="">AÑO ACADÉMICO</option>
+                {academicYears.map(y => (
+                  <option key={y.id} value={y.id}>{y.nombre}</option>
                 ))}
-            </select>
+              </select>
+              {filterYear && (
+                <button 
+                  onClick={() => setFilterYear('')}
+                  style={styles.clearButton}
+                  className="hover-bg-soft"
+                  title="Limpiar filtro"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ ...styles.filterGroup, width: '220px' }}>
+            <div style={styles.selectWrapper}>
+              <select 
+                className="input-field"
+                value={filterStudy}
+                onChange={e => setFilterStudy(e.target.value)}
+                style={styles.select}
+              >
+                <option value="">TODAS LAS TITULACIONES</option>
+                {studies
+                  .filter(s => {
+                    if (activeRole === 'jefe_estudios' || activeRole === 'superadmin') return true;
+                    const myDept = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId)?.departamento;
+                    return s.departamentos?.includes(myDept);
+                  })
+                  .map(s => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+              </select>
+              {filterStudy && (
+                <button 
+                  onClick={() => setFilterStudy('')}
+                  style={styles.clearButton}
+                  className="hover-bg-soft"
+                  title="Limpiar filtro"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ ...styles.filterGroup, flex: 1 }}>
+            <div style={styles.searchWrapper}>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Buscar grupo por nombre o titulación..." 
+                value={searchTerm} 
+                onChange={e => setSearchTerm(e.target.value)}
+                style={styles.searchInput} 
+              />
+              <svg style={styles.searchIcon} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  style={styles.clearButton}
+                  className="hover-bg-soft"
+                  title="Limpiar búsqueda"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Main Content */}
       {/* Main Content Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-          {groups.length} {groups.length === 1 ? 'Grupo encontrado' : 'Grupos encontrados'}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'baseline', 
+        marginBottom: '0.75rem', 
+        padding: '0 0.5rem' 
+      }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: '700', margin: 0, color: 'var(--text-primary)' }}>
+          Listado de Grupos
         </h2>
+        <div style={styles.resultBadge}>
+          <span style={{ fontSize: '1.2rem', fontWeight: '800', marginRight: '6px' }}>{filteredGroups.length}</span>
+          <span style={{ opacity: 0.8, fontSize: '0.85rem', fontWeight: '500' }}>grupos seleccionados</span>
+        </div>
       </div>
 
       <div className="glass-panel" style={{ 
@@ -341,7 +429,8 @@ export default function Groups() {
         overflow: 'hidden',
         borderRadius: '20px',
         background: 'rgba(255, 255, 255, 0.01)',
-        boxShadow: '0 4px 24px -1px rgba(0, 0, 0, 0.2)'
+        boxShadow: '0 4px 24px -1px rgba(0, 0, 0, 0.2)',
+        width: '100%'
       }}>
 
         {loading ? (
@@ -358,78 +447,105 @@ export default function Groups() {
           </div>
         ) : (
           <div className="table-scroll-wrapper">
-            <table className="data-table">
+            <table className="data-table" style={{ minWidth: 'auto', width: 'max-content', tableLayout: 'fixed' }}>
               <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Siglas</th>
-                  <th style={{ textAlign: 'left' }}>Titulación</th>
-                  <th style={{ textAlign: 'left' }}>Curso</th>
-                  <th style={{ textAlign: 'left' }}>Departamento</th>
-                  <th style={{ textAlign: 'left' }}>Año</th>
-                  <th style={{ textAlign: 'right', width: '100px' }}>ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groups.map(group => (
-                  <tr key={group.id}>
-                    <td>
-                      <div style={{ 
-                        width: '40px', 
-                        height: '40px', 
-                        borderRadius: '8px', 
-                        background: 'rgba(99, 102, 241, 0.1)', 
-                        color: 'var(--accent-primary)', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontWeight: '700',
-                        fontSize: '0.85rem',
-                        border: '1px solid rgba(99, 102, 241, 0.2)'
+                  <tr>
+                    <th style={{ textAlign: 'left', width: '80px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GRUPO</th>
+                    <th style={{ textAlign: 'left', width: '90px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
+                    <th style={{ textAlign: 'center', width: '60px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
+                    <th style={{ textAlign: 'left', width: '110px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AÑO</th>
+                    <th style={{ textAlign: 'right', width: '80px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGroups.map((group, index) => {
+                    const study = studies.find(s => s.id === group.iesEstudioId);
+                    const isEven = index % 2 === 0;
+                    const cursoNum = parseInt(group.curso);
+                    
+                    // Colors for different levels
+                    const levelColors = {
+                      1: { bg: 'rgba(99, 102, 241, 0.15)', text: '#a5b4fc', border: 'rgba(99, 102, 241, 0.3)' },
+                      2: { bg: 'rgba(16, 185, 129, 0.15)', text: '#6ee7b7', border: 'rgba(16, 185, 129, 0.3)' },
+                      3: { bg: 'rgba(245, 158, 11, 0.15)', text: '#fcd34d', border: 'rgba(245, 158, 11, 0.3)' },
+                      default: { bg: 'rgba(255, 255, 255, 0.1)', text: '#ccc', border: 'rgba(255, 255, 255, 0.2)' }
+                    };
+                    const color = levelColors[cursoNum] || levelColors.default;
+
+                    return (
+                      <tr key={group.id} style={{ 
+                        background: isEven ? 'transparent' : 'rgba(255,255,255,0.015)',
+                        borderLeft: `2px solid ${color.border.replace('0.3', '0.5')}`
                       }}>
-                        {group.nombre}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: '600' }}>{group.titulacionNombre}</div>
-                    </td>
-                    <td>
-                      <span className="badge badge-accent">
-                        {group.curso}º Curso
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-                        {group.departamento}
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        {group.cursoAcademicoNombre}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          <div style={{ 
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '4px', 
+                            background: color.bg, 
+                            color: color.text, 
+                            display: 'inline-flex', 
+                            alignItems: 'center', 
+                            fontWeight: '700',
+                            fontSize: '0.85rem',
+                            border: `1px solid ${color.border}`
+                          }}>
+                            {group.nombre}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          <div 
+                            style={{ 
+                              fontWeight: '700', 
+                              cursor: 'help',
+                              fontSize: '0.8rem',
+                              color: 'var(--text-primary)',
+                              letterSpacing: '0.01em'
+                            }} 
+                            title={group.titulacionNombre}
+                          >
+                            {group.titulacionNombre?.split(' - ')[0] || group.nombre.replace(/[0-9].*$/, '') || '---'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                          <span style={{ 
+                            fontSize: '0.85rem', 
+                            fontWeight: '800',
+                            color: color.text,
+                            background: color.bg,
+                            padding: '0.05rem 0.35rem',
+                            borderRadius: '4px',
+                            border: `1px solid ${color.border}`
+                          }}>
+                            {group.curso}º
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.4rem 0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                            {group.cursoAcademicoNombre.split(' ')[0]}
+                          </span>
+                        </td>
+                    <td style={{ textAlign: 'right', verticalAlign: 'middle', padding: '0.4rem 0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.25rem' }}>
                         <button 
                           onClick={() => handleOpenForm(group)}
                           className="btn-secondary"
-                          style={{ padding: '0.4rem', minWidth: 'auto' }}
+                          style={{ padding: '0.2rem', minWidth: 'auto', borderRadius: '4px' }}
                           title="Editar grupo"
                         >
-                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
                         <button 
                           onClick={() => handleConfirmDelete(group)}
                           className="btn-delete"
-                          style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
+                          style={{ padding: '0.2rem', minWidth: 'auto', width: '22px', height: '22px', borderRadius: '4px' }}
                           title="Eliminar grupo"
                         >
-                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ); })}
               </tbody>
             </table>
           </div>
@@ -576,32 +692,23 @@ const styles = {
   title: { fontSize: '2.5rem', fontWeight: '800', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' },
   subtitle: { color: 'var(--text-secondary)', fontSize: '1.1rem' },
   newButton: { display: 'flex', alignItems: 'center', padding: '0.85rem 1.5rem', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)' },
-  filtersPanel: { padding: '1.5rem 2rem', marginBottom: '2rem', display: 'flex', gap: '2rem', alignItems: 'flex-end' },
-  filterGroup: { display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1 },
-  filterLabel: { fontSize: '0.85rem', fontWeight: '700', color: 'var(--accent-primary)', textTransform: 'uppercase' },
-  selectWrapper: { position: 'relative' },
-  select: { width: '100%', background: 'rgba(255,255,255,0.05)' },
-  mainPanel: { padding: '2.5rem' },
-  listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' },
-  listTitle: { fontSize: '1.5rem', fontWeight: '700' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' },
-  card: { padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'all 0.3s ease' },
-  cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
-  groupBadge: { width: '50px', height: '50px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '1rem', border: '1px solid rgba(99, 102, 241, 0.2)' },
-  cardActions: { display: 'flex', gap: '0.5rem' },
-  cardInfo: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  titulacionName: { fontSize: '1.1rem', fontWeight: '700', lineHeight: '1.3' },
-  meta: { display: 'flex', gap: '0.75rem', alignItems: 'center' },
-  metaBadge: { padding: '0.25rem 0.5rem', borderRadius: '4px', background: 'rgba(255,255,255,0.05)', fontSize: '0.75rem', fontWeight: '600' },
-  metaYear: { fontSize: '0.85rem', color: 'var(--text-secondary)' },
-  deptInfo: { display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' },
-  centered: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem' },
+  alertDanger: { background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', padding: '1rem', color: '#ef4444' },
+  filtersPanel: { padding: '0.6rem 0.75rem', marginBottom: '1rem', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' },
+  filtersRow: { display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' },
+  filterGroup: { display: 'flex', flexDirection: 'column', gap: '0.3rem' },
+  selectWrapper: { position: 'relative', display: 'flex', alignItems: 'center' },
+  select: { width: '100%', height: '36px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 1.5rem 0 0.5rem', color: 'var(--text-primary)', borderRadius: '8px' },
+  searchWrapper: { position: 'relative', display: 'flex', alignItems: 'center' },
+  searchInput: { width: '100%', height: '36px', paddingLeft: '2.5rem', paddingRight: '2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.85rem', color: 'var(--text-primary)', borderRadius: '8px' },
+  searchIcon: { position: 'absolute', left: '1rem', color: 'rgba(255,255,255,0.4)', pointerEvents: 'none' },
+  selectionCounterRow: { display: 'none' },
+  resultBadge: { background: 'rgba(99, 102, 241, 0.1)', padding: '0.4rem 1rem', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.2)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'baseline', fontWeight: '600' },
+  clearButton: { position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', width: '24px', height: '24px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', zIndex: 2 },
+  centered: { display: 'flex', justifyContent: 'center', padding: '4rem' },
   emptyState: { textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' },
-  emptyIcon: { width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' },
+  emptyIcon: { marginBottom: '1.5rem', opacity: 0.2 },
   form: { display: 'flex', flexDirection: 'column', gap: '1.5rem' },
+  formRow: { display: 'flex', gap: '1.5rem' },
   formField: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  formRow: { display: 'flex', gap: '1rem' },
   label: { fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)' },
-  submitBtn: { width: '100%', padding: '1rem', marginTop: '1rem' },
-  alertDanger: { background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', padding: '1rem', color: '#ef4444' }
 };

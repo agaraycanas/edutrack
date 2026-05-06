@@ -102,7 +102,7 @@ export default function Subjects() {
   };
 
   const fetchSubjects = async () => {
-    if (!activeIesId || !filterStudy) {
+    if (!activeIesId) {
       setSubjects([]);
       return;
     }
@@ -120,7 +120,7 @@ export default function Subjects() {
         where('iesId', '==', activeIesId)
       );
 
-      if (filterStudy !== 'all') {
+      if (filterStudy && filterStudy !== 'all') {
         q = query(q, where('iesEstudioId', '==', filterStudy));
       } else {
         // "Todas" logic: filter by department if not a global role
@@ -144,9 +144,17 @@ export default function Subjects() {
       const snapshot = await getDocs(q);
       const subjectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Sort by level then name
+      // Sort by Titulación -> Curso -> Nombre
       subjectsData.sort((a, b) => {
+        // 1. Titulación (titulacionNombre)
+        const nameA = a.titulacionNombre || '';
+        const nameB = b.titulacionNombre || '';
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        
+        // 2. Curso (nivel)
         if (a.curso !== b.curso) return a.curso - b.curso;
+        
+        // 3. Nombre
         return a.nombre.localeCompare(b.nombre);
       });
 
@@ -378,7 +386,7 @@ export default function Subjects() {
                 setFilterStudy(e.target.value);
                 setFilterLevel('');
               }}
-              style={styles.select}
+              style={{ ...styles.select, paddingRight: filterStudy ? '2.5rem' : '1rem' }}
             >
               <option value="all">Todas</option>
               {studies
@@ -391,6 +399,22 @@ export default function Subjects() {
                   <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
             </select>
+            {filterStudy && filterStudy !== 'all' && (
+              <button 
+                onClick={() => {
+                  setFilterStudy('');
+                  setFilterLevel('');
+                }}
+                style={styles.clearButton}
+                className="hover-bg-soft"
+                title="Limpiar filtro"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -402,13 +426,26 @@ export default function Subjects() {
               value={filterLevel}
               onChange={e => setFilterLevel(e.target.value)}
               disabled={!filterStudy}
-              style={styles.select}
+              style={{ ...styles.select, paddingRight: filterLevel ? '2.5rem' : '1rem' }}
             >
               <option value="">TODOS LOS CURSOS</option>
               {(filterStudy === 'all' ? [1, 2, 3, 4] : selectedStudyForFilter?.cursos)?.map(c => (
                 <option key={c} value={c}>{c}º Curso</option>
               ))}
             </select>
+            {filterLevel && (
+              <button 
+                onClick={() => setFilterLevel('')}
+                style={styles.clearButton}
+                className="hover-bg-soft"
+                title="Limpiar filtro"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -421,31 +458,38 @@ export default function Subjects() {
               placeholder="Nombre, sigla o departamento..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={styles.searchInput}
+              style={{ ...styles.searchInput, paddingRight: search ? '2.5rem' : '1rem' }}
             />
             <svg style={styles.searchIcon} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                style={styles.clearButton}
+                className="hover-bg-soft"
+                title="Limpiar búsqueda"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
+
       </section>
 
       {/* Main Content */}
       {/* Main Content Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 0.5rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>
-          {filterStudy === 'all' ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', padding: '0 0.5rem' }}>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', flex: 1 }}>
+          {(!filterStudy || filterStudy === 'all') ? 'Todas las Asignaturas' : (selectedStudyForFilter?.nombre || 'Selecciona una titulación')}
         </h2>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          {search && (
-            <button 
-              onClick={() => setSearch('')}
-              style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              Limpiar búsqueda
-            </button>
-          )}
-          {filterStudy && subjects.length > 0 && (
-            <span style={styles.countBadge}>
-              {search ? `${filteredSubjects.length} de ${subjects.length}` : subjects.length} asignaturas
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {subjects.length > 0 && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.6rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <strong style={{ fontSize: '1rem', color: 'var(--accent-primary)', marginRight: '4px' }}>{filteredSubjects.length}</strong> seleccionadas
             </span>
           )}
         </div>
@@ -463,14 +507,6 @@ export default function Subjects() {
             <div className="loader"></div>
             <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Cargando asignaturas...</p>
           </div>
-        ) : !filterStudy ? (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>
-              <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M20 17h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2v-6z"></path></svg>
-            </div>
-            <h3>Comienza seleccionando una titulación</h3>
-            <p>Podrás ver y gestionar las materias de cada curso.</p>
-          </div>
         ) : subjects.length === 0 ? (
           <div style={styles.emptyState}>
             <div style={styles.emptyIcon}>
@@ -484,30 +520,30 @@ export default function Subjects() {
           </div>
         ) : (
           <div className="table-scroll-wrapper">
-            <table className="data-table">
+            <table className="data-table" style={{ minWidth: 'auto', width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '1rem 1.5rem', width: '100px' }}>SIGLA</th>
-                  <th style={{ textAlign: 'left', padding: '1rem' }}>NOMBRE DE LA ASIGNATURA</th>
-                  <th style={{ textAlign: 'left', padding: '1rem' }}>TITULACIÓN</th>
-                  <th style={{ textAlign: 'left', padding: '1rem', width: '120px' }}>CURSO</th>
-                  <th style={{ textAlign: 'left', padding: '1rem' }}>DEPARTAMENTO</th>
-                  <th style={{ textAlign: 'right', padding: '1rem 1.5rem', width: '120px' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '60px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SIGLA</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '180px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ASIGNATURA</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '100px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '70px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '110px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DPTO.</th>
+                  <th style={{ textAlign: 'right', padding: '0.5rem 0.6rem', width: '80px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSubjects.map(subject => (
-                  <tr key={subject.id}>
-                    <td style={{ padding: '1rem 1.5rem' }}>
+                  <tr key={subject.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
                       <div style={{ 
-                        width: '45px', 
-                        height: '45px', 
-                        borderRadius: '12px', 
+                        width: '32px', 
+                        height: '32px', 
+                        borderRadius: '8px', 
                         background: 'rgba(99, 102, 241, 0.1)', 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        fontSize: '0.75rem',
+                        fontSize: '0.65rem',
                         fontWeight: '800',
                         color: 'var(--accent-primary)',
                         border: '1px solid rgba(99, 102, 241, 0.2)'
@@ -515,49 +551,106 @@ export default function Subjects() {
                         {subject.sigla || '---'}
                       </div>
                     </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '1rem', color: '#fff' }}>{subject.nombre}</div>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
-                        {subject.titulacionNombre || 'General'}
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        fontSize: '0.75rem', 
+                        color: '#fff', 
+                        lineHeight: '1.1',
+                        maxWidth: '100%',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }} title={subject.nombre}>
+                        {subject.nombre}
                       </div>
                     </td>
-                    <td style={{ padding: '1rem' }}>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                      <div 
+                        title={subject.titulacionNombre || 'General'}
+                        style={{ 
+                          fontSize: '0.65rem', 
+                          color: 'var(--accent-primary)', 
+                          fontWeight: '800',
+                          background: 'rgba(99, 102, 241, 0.1)',
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          display: 'inline-block',
+                          border: '1px solid rgba(99, 102, 241, 0.2)',
+                          cursor: 'help',
+                          maxWidth: '40px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {(() => {
+                          const studyObj = studies.find(s => s.id === subject.iesEstudioId);
+                          if (studyObj?.sigla) return studyObj.sigla;
+                          
+                          const fullName = subject.titulacionNombre || '';
+                          if (fullName.includes(' - ')) return fullName.split(' - ')[0];
+                          const acronym = fullName.match(/[A-Z]/g)?.join('');
+                          if (acronym && acronym.length >= 2) return acronym;
+                          return fullName.substring(0, 4).toUpperCase();
+                        })()}
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
                       <span style={{ 
-                        padding: '4px 10px', 
-                        borderRadius: '6px', 
-                        background: 'rgba(59, 130, 246, 0.15)', 
+                        padding: '1px 4px', 
+                        borderRadius: '3px', 
+                        background: 'rgba(59, 130, 246, 0.12)', 
                         color: '#3b82f6', 
-                        fontSize: '0.75rem', 
+                        fontSize: '0.6rem', 
                         fontWeight: '700' 
                       }}>
-                        {subject.curso}º Curso
+                        {subject.curso}º
                       </span>
                     </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                        {subject.departamento}
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                      <div 
+                        title={subject.departamento}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0.25rem', 
+                          fontSize: '0.7rem', 
+                          color: 'var(--text-secondary)',
+                          maxWidth: '70px',
+                          cursor: 'help'
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span style={{ 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap' 
+                        }}>
+                          {subject.departamento}
+                        </span>
                       </div>
                     </td>
-                    <td style={{ textAlign: 'right', verticalAlign: 'middle' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                    <td style={{ textAlign: 'right', verticalAlign: 'middle', padding: '0.4rem 0.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.2rem' }}>
                         <button 
                           onClick={() => handleOpenForm(subject)}
                           className="btn-secondary"
-                          style={{ padding: '0.4rem', minWidth: 'auto' }}
+                          style={{ padding: '0.3rem', minWidth: 'auto' }}
                           title="Editar asignatura"
                         >
-                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
                         <button 
                           onClick={() => handleConfirmDelete(subject)}
                           className="btn-delete"
-                          style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
+                          style={{ padding: '0.3rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
                           title="Eliminar asignatura"
                         >
-                          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       </div>
                     </td>
@@ -745,7 +838,7 @@ const styles = {
     display: 'flex', alignItems: 'center', padding: '0.85rem 1.5rem', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)'
   },
   filtersPanel: {
-    padding: '1.5rem 2rem', marginBottom: '2rem', display: 'flex', gap: '2rem', alignItems: 'flex-end', border: '1px solid rgba(255,255,255,0.1)'
+    padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', gap: '1.25rem', alignItems: 'flex-end', border: '1px solid rgba(255,255,255,0.1)', flexWrap: 'wrap'
   },
   filterGroup: {
     display: 'flex', flexDirection: 'column', gap: '0.65rem', flex: 1
@@ -804,6 +897,43 @@ const styles = {
   cardBody: {},
   subjectName: {
     fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.75rem', lineHeight: '1.4'
+  },
+  counterRow: {
+    width: '100%',
+    marginTop: '1.5rem',
+    paddingTop: '1.25rem',
+    borderTop: '1px solid rgba(255,255,255,0.08)',
+    display: 'flex',
+    alignItems: 'center'
+  },
+  resultBadge: {
+    background: 'rgba(99, 102, 241, 0.15)',
+    padding: '0.6rem 1.2rem',
+    borderRadius: '10px',
+    border: '1px solid rgba(99, 102, 241, 0.3)',
+    color: 'var(--accent-primary)',
+    display: 'flex',
+    alignItems: 'center',
+    fontWeight: '700',
+    letterSpacing: '0.02em'
+  },
+  clearButton: {
+    position: 'absolute',
+    right: '8px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    zIndex: 2
   },
   subjectMeta: {
     display: 'flex', gap: '1rem', flexWrap: 'wrap'

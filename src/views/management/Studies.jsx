@@ -32,6 +32,7 @@ export default function Studies() {
   const [customStudyModal, setCustomStudyModal] = useState(false);
   const [customStudyData, setCustomStudyData] = useState({
     nombre: '',
+    sigla: '',
     tipo: 'FP Grado Superior',
     cursos: 2
   });
@@ -125,6 +126,7 @@ export default function Studies() {
         iesId: activeIesId,
         titulacionId: study.id,
         nombre: study.nombre,
+        sigla: study.sigla || study.siglas || '',
         cursos: study.cursos || study.niveles || [1, 2],
         tipo: study.tipo || 'General',
         departamentos: selectedDepartments,
@@ -224,6 +226,7 @@ export default function Studies() {
         iesId: activeIesId,
         titulacionId: `custom_${Date.now()}`,
         nombre: customStudyData.nombre,
+        sigla: customStudyData.sigla.toUpperCase().trim(),
         cursos: cursosArr,
         tipo: customStudyData.tipo,
         departamentos: selectedDepartments,
@@ -379,18 +382,18 @@ export default function Studies() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '1.25rem 1.5rem' }}>Titulación</th>
-                  <th style={{ textAlign: 'left' }}>Tipo</th>
-                  <th style={{ textAlign: 'left' }}>Departamentos</th>
-                  <th style={{ textAlign: 'left' }}>Cursos</th>
-                  <th style={{ textAlign: 'right', width: '120px', paddingRight: '1.5rem' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '0.7rem 0.6rem' }}>TITULACIÓN</th>
+                  <th style={{ textAlign: 'left' }}>TIPO</th>
+                  <th style={{ textAlign: 'left' }}>DEPARTAMENTOS</th>
+                  <th style={{ textAlign: 'left' }}>CURSOS</th>
+                  <th style={{ textAlign: 'right', width: '100px', paddingRight: '0.6rem' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {iesEstudios.map(study => (
-                  <tr key={study.id}>
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '1.05rem', color: '#fff' }}>{study.nombre}</div>
+                  <tr>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#fff' }}>{study.nombre}</div>
                     </td>
                     <td>
                       <span style={{ 
@@ -423,22 +426,23 @@ export default function Studies() {
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         {study.cursos?.map(curso => (
                           <button 
                             key={curso} 
                             onClick={() => handleCourseClick(study, curso)}
                             className="badge-interactive"
                             style={{ 
-                              width: '32px', 
-                              height: '32px', 
+                              width: '24px', 
+                              height: '24px', 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center', 
-                              borderRadius: '10px',
+                              borderRadius: '6px',
                               background: 'rgba(99, 102, 241, 0.15)',
                               color: 'var(--accent-primary)',
                               border: '1px solid rgba(99, 102, 241, 0.3)',
+                              fontSize: '0.8rem',
                               fontWeight: '700',
                               cursor: 'pointer',
                               transition: 'all 0.2s ease'
@@ -449,25 +453,25 @@ export default function Studies() {
                         ))}
                       </div>
                     </td>
-                    <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '1.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem' }}>
+                    <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '0.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
                         {(activeRole === 'jefe_estudios' || activeRole === 'superadmin') && (
                           <>
                             <button 
                               onClick={() => openEditDepartments(study)}
                               className="btn-secondary"
-                              style={{ padding: '0.5rem', minWidth: 'auto', borderRadius: '8px' }}
+                              style={{ padding: '0.4rem', minWidth: 'auto', borderRadius: '6px' }}
                               title="Editar departamentos"
                             >
-                              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
                             <button 
                               onClick={() => requestDelete(study)}
                               className="btn-delete"
-                              style={{ padding: '0.5rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px' }}
+                              style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px' }}
                               title="Desvincular titulación"
                             >
-                              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                             </button>
                           </>
                         )}
@@ -685,6 +689,17 @@ export default function Studies() {
               placeholder="Ej: Curso de Especialización en IA..."
               value={customStudyData.nombre}
               onChange={e => setCustomStudyData({...customStudyData, nombre: e.target.value})}
+              required
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Sigla (Ej: DAM, ASIR, DAW...)</label>
+            <input 
+              type="text" 
+              className="input-field"
+              placeholder="Ej: DAM"
+              value={customStudyData.sigla}
+              onChange={e => setCustomStudyData({...customStudyData, sigla: e.target.value.toUpperCase()})}
               required
             />
           </div>

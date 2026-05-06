@@ -282,38 +282,38 @@ export default function Departments() {
           ) : (
           <div className="table-scroll-wrapper">
             <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '60px' }}></th>
-                <th>Nombre del Departamento</th>
-                <th>Responsable / Jefe</th>
-                <th style={{ textAlign: 'center', width: '100px' }}>Acciones</th>
-              </tr>
-            </thead>
+              <thead>
+                <tr>
+                  <th style={{ width: '50px', padding: '0.5rem 0.6rem' }}></th>
+                  <th style={{ padding: '0.5rem 0.6rem', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nombre del Departamento</th>
+                  <th style={{ padding: '0.5rem 0.6rem', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Responsable / Jefe</th>
+                  <th style={{ textAlign: 'right', width: '100px', padding: '0.5rem 0.6rem', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
+                </tr>
+              </thead>
             <tbody>
-              {departments.map(dept => {
-                const head = getDeptHead(dept.nombre);
-                return (
-                  <tr key={dept.id}>
-                    <td>
+                {departments.map(dept => {
+                  const head = getDeptHead(dept.nombre);
+                  return (
+                    <tr key={dept.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <td style={{ padding: '0.4rem 0.6rem' }}>
                       <div style={styles.deptIcon}>
                         <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                       </div>
                     </td>
-                    <td>
-                      <span style={{ fontWeight: '600' }}>{dept.nombre}</span>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                      <span style={{ fontWeight: '600', fontSize: '0.85rem' }}>{dept.nombre}</span>
                     </td>
-                    <td>
+                    <td style={{ padding: '0.4rem 0.6rem' }}>
                       {head ? (
                         <div style={styles.headInfo}>
                           <img src={head.foto || 'https://via.placeholder.com/24'} style={styles.headAvatar} alt="" />
                           <span style={styles.headName}>{head.nombre} {head.apellidos}</span>
                         </div>
                       ) : (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sin asignar</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sin asignar</span>
                       )}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                         <button 
                           onClick={() => openEditModal(dept)} 
