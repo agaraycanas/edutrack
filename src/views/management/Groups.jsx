@@ -265,7 +265,8 @@ export default function Groups() {
   const selectedStudyForForm = studies.find(s => s.id === formData.iesEstudioId);
 
   return (
-    <div className="animate-fade-in" style={styles.container}>
+    <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '2rem' }}>
+
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <div style={styles.headerText}>
@@ -334,7 +335,15 @@ export default function Groups() {
         </h2>
       </div>
 
-      <div className="glass-panel" style={{ padding: '0', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+      <div className="glass-panel" style={{ 
+        padding: '0', 
+        border: '1px solid rgba(255,255,255,0.08)', 
+        overflow: 'hidden',
+        borderRadius: '20px',
+        background: 'rgba(255, 255, 255, 0.01)',
+        boxShadow: '0 4px 24px -1px rgba(0, 0, 0, 0.2)'
+      }}>
+
         {loading ? (
           <div style={styles.centered}>
             <div className="loader"></div>

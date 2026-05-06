@@ -1,0 +1,305 @@
+[
+  {
+    "asignatura": "Sistemas informáticos",
+    "grupo": "w1",
+    "temas": [
+      {
+        "id": 1,
+        "nombre": "Sistemas de almacenamiento de datos",
+        "horasEstimadas": 6,
+        "completado": true,
+        "fechaInicio": "2025-09-15",
+        "fechaFin": "2025-09-29",
+        "observaciones": ""
+      },
+      {
+        "id": 2,
+        "nombre": "Procesos de diseño de bases de datos",
+        "horasEstimadas": 24,
+        "completado": true,
+        "fechaInicio": "2025-09-30",
+        "fechaFin": "2025-10-16",
+        "observaciones": ""
+      },
+      {
+        "id": 3,
+        "nombre": "Bases de datos relacionales. Normalización",
+        "horasEstimadas": 16,
+        "completado": true,
+        "fechaInicio": "2025-10-20",
+        "fechaFin": "2025-11-05",
+        "observaciones": ""
+      },
+      {
+        "id": 4,
+        "nombre": "Lenguaje de descripción de datos. DDL",
+        "horasEstimadas": 24,
+        "completado": true,
+        "fechaInicio": "2025-11-06",
+        "fechaFin": "2025-12-05",
+        "observaciones": ""
+      },
+      {
+        "id": 5,
+        "nombre": "Lenguaje de manipulación de datos. DML",
+        "horasEstimadas": 34,
+        "completado": true,
+        "fechaInicio": "2025-12-09",
+        "fechaFin": "2026-01-29",
+        "observaciones": ""
+      },
+      {
+        "id": 6,
+        "nombre": "Lenguaje de control de datos (DCL) y optimización",
+        "horasEstimadas": 12,
+        "completado": true,
+        "fechaInicio": "2026-01-30",
+        "fechaFin": "2026-03-02",
+        "observaciones": ""
+      },
+      {
+        "id": 7,
+        "nombre": "Programación en bases de datos relacionales",
+        "horasEstimadas": 32,
+        "completado": false,
+        "fechaInicio": null,
+        "fechaFin": null,
+        "observaciones": ""
+      },
+      {
+        "id": 8,
+        "nombre": "Bases de datos no relacionales",
+        "horasEstimadas": 12,
+        "completado": true,
+        "fechaInicio": "2026-03-03",
+        "fechaFin": "2026-03-17",
+        "observaciones": ""
+      }
+    ]
+  },
+  {
+    "asignatura": "Sistemas informáticos",
+    "grupo": "m1d",
+    "temas": [
+      {
+        "id": 1,
+        "nombre": "Sistemas informáticos. Representación de la información.",
+        "horasEstimadas": 12,
+        "completado": true,
+        "fechaInicio": "2025-09-15",
+        "fechaFin": "2025-09-29",
+        "observaciones": ""
+      },
+      {
+        "id": 2,
+        "nombre": "Funcionamiento Sistemas Informáticos. Máquinas Virtuales",
+        "horasEstimadas": 12,
+        "completado": true,
+        "fechaInicio": "2025-10-01",
+        "fechaFin": "2025-10-21",
+        "observaciones": ""
+      },
+      {
+        "id": 3,
+        "nombre": "Linux y Windows Básico y Sistemas de Ficheros",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2025-10-22",
+        "fechaFin": "2025-11-05",
+        "observaciones": ""
+      },
+      {
+        "id": 4,
+        "nombre": "Sistemas de Almacenamiento en Windows y Linux",
+        "horasEstimadas": 20,
+        "completado": true,
+        "fechaInicio": "2025-11-06",
+        "fechaFin": "2025-12-05",
+        "observaciones": ""
+      },
+      {
+        "id": 5,
+        "nombre": "Administración de Sistemas Operativos Windows y Linux",
+        "horasEstimadas": 30,
+        "completado": true,
+        "fechaInicio": "2025-12-09",
+        "fechaFin": "2026-01-29",
+        "observaciones": ""
+      },
+      {
+        "id": 6,
+        "nombre": "Automatización de Tareas. Scripting en Windows y Linux",
+        "horasEstimadas": 24,
+        "completado": true,
+        "fechaInicio": "2026-01-30",
+        "fechaFin": "2026-03-02",
+        "observaciones": ""
+      },
+      {
+        "id": 7,
+        "nombre": "Sistemas Operativos en Red",
+        "horasEstimadas": 22,
+        "completado": false,
+        "fechaInicio": null,
+        "fechaFin": null,
+        "observaciones": ""
+      },
+      {
+        "id": 8,
+        "nombre": "Configuración IP de Sistemas Informáticos",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2026-03-03",
+        "fechaFin": "2026-03-17",
+        "observaciones": ""
+      },
+      {
+        "id": 9,
+        "nombre": "Redes IP ",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2026-03-18",
+        "fechaFin": "2026-04-09",
+        "observaciones": ""
+      }
+    ]
+  },
+  {
+    "asignatura": "Desarrollo de interfaces",
+    "grupo": "m2d",
+    "temas": [
+      {
+        "id": 1,
+        "nombre": "Confección de interfaces de usuario",
+        "horasEstimadas": 20,
+        "completado": true,
+        "fechaInicio": "2025-09-15",
+        "fechaFin": "2025-10-20",
+        "observaciones": ""
+      },
+      {
+        "id": 2,
+        "nombre": "Generación de interfaces a partir de documentos XML",
+        "horasEstimadas": 15,
+        "completado": true,
+        "fechaInicio": "2025-10-21",
+        "fechaFin": "2025-11-18",
+        "observaciones": ""
+      },
+      {
+        "id": 3,
+        "nombre": "Creación de componentes visuales",
+        "horasEstimadas": 15,
+        "completado": true,
+        "fechaInicio": "2025-11-19",
+        "fechaFin": "2025-12-18",
+        "observaciones": ""
+      },
+      {
+        "id": 4,
+        "nombre": "Usabilidad",
+        "horasEstimadas": 15,
+        "completado": true,
+        "fechaInicio": "2025-12-19",
+        "fechaFin": "2026-01-27",
+        "observaciones": ""
+      },
+      {
+        "id": 5,
+        "nombre": "Confección de informes",
+        "horasEstimadas": 6,
+        "completado": true,
+        "fechaInicio": "2026-01-29",
+        "fechaFin": "2026-02-11",
+        "observaciones": ""
+      },
+      {
+        "id": 6,
+        "nombre": "Documentación de aplicaciones",
+        "horasEstimadas": 6,
+        "completado": true,
+        "fechaInicio": "2026-02-12",
+        "fechaFin": "2026-02-19",
+        "observaciones": ""
+      },
+      {
+        "id": 7,
+        "nombre": "Distribución de aplicaciones",
+        "horasEstimadas": 4,
+        "completado": true,
+        "fechaInicio": "2026-02-20",
+        "fechaFin": "2026-02-23",
+        "observaciones": ""
+      },
+      {
+        "id": 8,
+        "nombre": "Realización de pruebas",
+        "horasEstimadas": 4,
+        "completado": true,
+        "fechaInicio": "2026-02-24",
+        "fechaFin": "2026-03-04",
+        "observaciones": ""
+      }
+    ]
+  },
+  {
+    "asignatura": "Fundamentos de las Bases de datos",
+    "grupo": "s1a",
+    "temas": [
+      {
+        "id": 1,
+        "nombre": "Almacenamiento de la información",
+        "horasEstimadas": 5,
+        "completado": true,
+        "fechaInicio": "2025-09-15",
+        "fechaFin": "2025-10-14",
+        "observaciones": ""
+      },
+      {
+        "id": 2,
+        "nombre": "Bases de datos relacionales",
+        "horasEstimadas": 5,
+        "completado": true,
+        "fechaInicio": "2025-10-21",
+        "fechaFin": "2025-11-17",
+        "observaciones": ""
+      },
+      {
+        "id": 3,
+        "nombre": "Interpretación de diagramas E/R",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2025-11-18",
+        "fechaFin": "2026-01-14",
+        "observaciones": ""
+      },
+      {
+        "id": 4,
+        "nombre": "Lenguaje de definición de datos. DDL",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2026-01-15",
+        "fechaFin": "2026-02-18",
+        "observaciones": ""
+      },
+      {
+        "id": 5,
+        "nombre": "Lenguaje de manipulación de datos. DML",
+        "horasEstimadas": 10,
+        "completado": true,
+        "fechaInicio": "2026-02-19",
+        "fechaFin": "2026-03-24",
+        "observaciones": ""
+      },
+      {
+        "id": 6,
+        "nombre": "Realización de consultas",
+        "horasEstimadas": 12,
+        "completado": true,
+        "fechaInicio": "2026-03-25",
+        "fechaFin": "2026-04-14",
+        "observaciones": ""
+      }
+    ]
+  }
+]

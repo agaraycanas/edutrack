@@ -15,7 +15,13 @@ export default function Login() {
 
   useEffect(() => {
     if (location.state?.error) {
-      setError(location.state.error);
+      if (location.state.error === 'unregistered') {
+        setError('Tu cuenta de EducaMadrid no está registrada en EduTrack. Por favor, pulsa en "Registrarse" para crear tu perfil antes de entrar.');
+      } else if (location.state.error === 'dominio') {
+        setError('Acceso denegado: Solo se permiten correos de @educa.madrid.org');
+      } else {
+        setError(location.state.error);
+      }
     }
   }, [location.state]);
 
@@ -35,7 +41,11 @@ export default function Login() {
         return;
       }
       
-      navigate('/home');
+      if (isSignUp) {
+        navigate('/register');
+      } else {
+        navigate('/home');
+      }
     } catch (err) {
       console.error("Error Google Auth:", err);
       setError(`Fallo de Auth Google: ${err.message || err.code}`);

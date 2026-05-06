@@ -136,3 +136,76 @@ export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesi
 export const calcularDesviacion = (horasReales, horasEstimadas) => {
   return horasReales - horasEstimadas;
 };
+
+/**
+ * Calcula todas las métricas de una programación de forma centralizada.
+ * 
+ * @param {Array} temas Lista de temas [{ fechaInicio, fechaFin, horasEstimadas, nombre }]
+ * @param {Object} horario Patrón horario
+ * @param {Object} academicYear Configuración del curso { fechaInicioClases, duracionSesion }
+ * @param {Array} festivos Lista de festivos
+ * @param {Array} ausencias Lista de ausencias
+ * @param {String} todayIso Fecha de referencia (hoy) en formato YYYY-MM-DD
+ * @returns {Object} { desviacion, progreso, temaActual, lastUpdate }
+ */
+export const calcularMetricasSeguimiento = (temas, horario, academicYear, festivos = [], ausencias = [], todayIso = new Date().toISOString().split('T')[0]) => {
+  if (!academicYear || !horario) {
+    return { desviacion: 0, progreso: 0, temaActual: 'Sin configuración', lastUpdate: null };
+  }
+
+  const duracionSesion = academicYear.duracionSesion || 55;
+  const fechaInicioClases = academicYear.fechaInicioClases;
+  
+  // 1. Horas lectivas que deberían haber transcurrido hasta hoy según el horario
+  let horasTranscurridasHoy = 0;
+  try {
+    horasTranscurridasHoy = calcularHorasReales(fechaInicioClases, todayIso, horario, duracionSesion, festivos, ausencias);
+  } catch (e) {}
+
+  // 2. Cálculo de desviación acumulada y progreso
+  let totalDev = 0;
+  let totalHours = 0;
+  let currentThemeName = 'No iniciado';
+  let cumulativeEstimadas = 0;
+  let lastUpdate = null;
+
+  temas.forEach(t => {
+    const hEst = Number(t.horasEstimadas) || 0;
+    totalHours += hEst;
+
+    if (t.fechaInicio && t.fechaFin) {
+      try {
+        const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
+        totalDev += (hRealTema - hEst);
+        
+        // Seguimiento de la última actualización
+        const dFin = new Date(t.fechaFin);
+        if (!lastUpdate || dFin > lastUpdate) lastUpdate = dFin;
+        if (t.updatedAt) {
+           const dUpd = t.updatedAt.seconds ? new Date(t.updatedAt.seconds * 1000) : new Date(t.updatedAt);
+           if (!lastUpdate || dUpd > lastUpdate) lastUpdate = dUpd;
+        }
+      } catch (err) {}
+    }
+
+    // Identificar tema actual basado en horas lectivas transcurridas vs acumulado de estimadas
+    if (currentThemeName === 'No iniciado' && cumulativeEstimadas + hEst > horasTranscurridasHoy) {
+      currentThemeName = t.nombre || t.titulo || 'Tema ' + (t.id || t.n);
+    }
+    cumulativeEstimadas += hEst;
+  });
+
+  // Si todas las horas lectivas han pasado el total, el tema actual es el último
+  if (currentThemeName === 'No iniciado' && totalHours > 0 && horasTranscurridasHoy >= totalHours) {
+    currentThemeName = 'Temario completado';
+  }
+
+  const progreso = totalHours > 0 ? Math.min(100, Math.round((horasTranscurridasHoy / totalHours) * 100)) : 0;
+
+  return { 
+    desviacion: totalDev, 
+    progreso, 
+    temaActual: currentThemeName, 
+    lastUpdate 
+  };
+};

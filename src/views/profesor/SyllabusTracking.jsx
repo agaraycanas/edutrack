@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { calcularHorasReales, calcularDesviacion, contarSesiones } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
@@ -25,17 +25,11 @@ export default function SyllabusTracking() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
 
-  const totalDesviacion = useMemo(() => {
-    return temas.reduce((acc, tema) => {
-      if (tema && tema.fechaInicio && tema.fechaFin && horario) {
-        const duracionSesion = academicYear?.duracionSesion || 55;
-        const hReales = calcularHorasReales(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias);
-        const estimadas = Number(tema.horasEstimadas) || 0;
-        return acc + (hReales - estimadas);
-      }
-      return acc;
-    }, 0);
+  const metrics = useMemo(() => {
+    return calcularMetricasSeguimiento(temas, horario, academicYear, festivos, ausencias);
   }, [temas, horario, academicYear, festivos, ausencias]);
+
+  const totalDesviacion = metrics.desviacion;
 
   useEffect(() => {
     fetchData();
@@ -72,7 +66,7 @@ export default function SyllabusTracking() {
         where('imparticionId', '==', id)
       );
       const snapTemas = await getDocs(qTemas);
-      const temasData = snapTemas.docs
+      let temasData = snapTemas.docs
         .map(d => ({
           _docId: d.id,
           id: d.data().n,
@@ -83,6 +77,7 @@ export default function SyllabusTracking() {
           observaciones: d.data().observaciones || '',
         }))
         .sort((a, b) => a.id - b.id);
+      
       setTemas(temasData);
       setProgramacion({ source: 'ies_programacion_temas' });
 

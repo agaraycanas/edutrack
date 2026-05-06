@@ -30,10 +30,10 @@ export default function TeachingAssignments() {
   const [groups, setGroups] = useState([]);
   const [professors, setProfessors] = useState([]);
 
-  // Filters
-  const [filterYear, setFilterYear] = useState('');
-  const [filterStudy, setFilterStudy] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  // Filters (initialized from localStorage if available)
+  const [filterYear, setFilterYear] = useState(localStorage.getItem('teachingFilterYear') || '');
+  const [filterStudy, setFilterStudy] = useState(localStorage.getItem('teachingFilterStudy') || '');
+  const [searchTerm, setSearchTerm] = useState(localStorage.getItem('teachingSearchTerm') || '');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -63,10 +63,14 @@ export default function TeachingAssignments() {
   }, [activeIesId, activeRole]);
 
   useEffect(() => {
-    if (activeIesId) {
+    if (activeIesId && userDept) {
       fetchAssignments();
     }
-  }, [filterYear, filterStudy]);
+    // Persist filters
+    localStorage.setItem('teachingFilterYear', filterYear);
+    localStorage.setItem('teachingFilterStudy', filterStudy);
+    localStorage.setItem('teachingSearchTerm', searchTerm);
+  }, [filterYear, filterStudy, searchTerm, userDept]);
 
   // When study changes in form, fetch relevant subjects and groups
   useEffect(() => {
@@ -96,7 +100,7 @@ export default function TeachingAssignments() {
       const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
       yearsData.sort((a, b) => b.añoInicio - a.añoInicio);
       setAcademicYears(yearsData);
-      if (yearsData.length > 0) setFilterYear(yearsData[0].id);
+      if (yearsData.length > 0 && !filterYear) setFilterYear(yearsData[0].id);
 
       // 3. Fetch Studies of this Dept
       const qStudies = query(collection(db, 'ies_estudios'), where('iesId', '==', activeIesId));
@@ -104,7 +108,9 @@ export default function TeachingAssignments() {
       const studiesData = snapStudies.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(s => s.departamentos?.includes(myDept));
       setStudies(studiesData);
-      if (studiesData.length > 0) setFilterStudy(studiesData[0].id);
+      
+      // Default to "TODOS LOS CICLOS" if not already set by localStorage
+      if (!filterStudy) setFilterStudy('');
 
       // 4. Fetch Professors of this Dept
       // Note: We need a complex filter here, or fetch all and filter in memory if the list is small

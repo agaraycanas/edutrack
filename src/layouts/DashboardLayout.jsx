@@ -344,7 +344,7 @@ export default function DashboardLayout({ children }) {
       height: '36px'
     },
     pageContent: {
-      padding: '1.5rem',
+      padding: '1.5rem 1.5rem 0.5rem 1.5rem',
       flex: 1,
       overflowX: 'auto',
       overflowY: 'auto',

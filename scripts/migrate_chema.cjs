@@ -15,8 +15,8 @@ const asigMap = {
     "w1": { id: "xmf7v27QoPkNVjdOVZQk", sigla: "SI", study: "0JKS51nEBzvL05ZkEqdP", studyName: "DAW - Desarrollo de Aplicaciones Web" },
     "m1d": { id: "EWz8CuRywf9LRXXF1U6A", sigla: "SI", study: "aiSkVWbNBLK6PPhWKdEh", studyName: "DAM - Desarrollo de Aplicaciones Multiplataforma" }
   },
-  "Sistemas de gestión empresarial": {
-    "m2d": { id: "2xlW3fmxmvBJEPX1PHXv", sigla: "SGE", study: "aiSkVWbNBLK6PPhWKdEh", studyName: "DAM - Desarrollo de Aplicaciones Multiplataforma" }
+  "Desarrollo de interfaces": {
+    "m2d": { id: "2xiNqZ4KdQfmSriXQtOG", sigla: "DI", study: "aiSkVWbNBLK6PPhWKdEh", studyName: "DAM - Desarrollo de Aplicaciones Multiplataforma" }
   },
   "Fundamentos de las Bases de datos": {
     "s1a": { id: "OCsPQU0Ww21yRgpaAL2F", sigla: "fBD", study: "IRCwWmikBP6CKKipMQUl", studyName: "SMR - Sistemas Microinformáticos y Redes" }

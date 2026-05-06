@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { calcularHorasReales } from '../../utils/timeCalculations';
+import { calcularHorasReales, calcularMetricasSeguimiento } from '../../utils/timeCalculations';
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
@@ -127,6 +127,12 @@ export default function Home() {
         const academicYearsSnap = await getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId)));
         const academicYears = academicYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+        const festivosSnap = await getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId)));
+        const allFestivos = festivosSnap.docs.map(d => d.data());
+
+        const ausenciasSnap = await getDocs(collection(db, 'profesor_ausencias'));
+        const allAusencias = ausenciasSnap.docs.map(d => d.data());
+
         let dData = { 
           imparticiones: [], 
           profesoresCount: 0, 
@@ -163,49 +169,13 @@ export default function Home() {
             });
             return { temas, lastUpdate };
           }
-          // Fallback: profesor_programaciones (legacy)
-          const pSnap = await getDoc(doc(db, 'profesor_programaciones', impId));
-          if (pSnap.exists()) {
-            const pData = pSnap.data();
-            const lastUpdate = pData.updatedAt ? new Date(pData.updatedAt.seconds * 1000) : null;
-            return { temas: pData.temas || [], lastUpdate };
-          }
           return { temas: [], lastUpdate: null };
         };
 
         // Helper to calculate metrics for an imparticion
-        const getImparticionMetrics = (imp, temas, lastUpdate, horario, ay) => {
-          if (!ay) return { desviacion: 0, progreso: 0, temaActual: 'Sin programación', lastUpdate: null };
-          
-          const duracionSesion = ay.duracionSesion || 55;
-          let hEst = 0;
-          try {
-            hEst = calcularHorasReales(ay.fechaInicioClases, todayIso, horario, duracionSesion);
-          } catch(e) {}
-
-          const totalHours = temas.reduce((acc, t) => acc + (Number(t.horasEstimadas) || 0), 0);
-          let totalDev = 0;
-          let currentThemeName = 'No iniciado';
-          let cumulative = 0;
-
-          temas.forEach(t => {
-            if (t.fechaInicio && t.fechaFin && horario) {
-              try {
-                const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, horario, duracionSesion);
-                totalDev += (hRealTema - (Number(t.horasEstimadas) || 0));
-                const dFin = new Date(t.fechaFin);
-                if (!lastUpdate || dFin > lastUpdate) lastUpdate = dFin;
-              } catch (err) {}
-            }
-            const tHours = Number(t.horasEstimadas) || 0;
-            if (currentThemeName === 'No iniciado' && cumulative + tHours > hEst) {
-              currentThemeName = t.nombre;
-            }
-            cumulative += tHours;
-          });
-
-          const progreso = totalHours > 0 ? Math.min(100, Math.round((hEst / totalHours) * 100)) : 0;
-          return { desviacion: totalDev, progreso, temaActual: currentThemeName, lastUpdate };
+        const getImparticionMetrics = (imp, temas, horario, ay, profAusencias = []) => {
+          const metrics = calcularMetricasSeguimiento(temas, horario, ay, allFestivos, profAusencias, todayIso);
+          return { ...imp, ...metrics };
         };
 
         if (activeRole === 'profesor') {
@@ -213,14 +183,15 @@ export default function Home() {
           const snapI = await getDocs(qI);
           const assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           
-          const metricsPromises = assigns.map(async (imp) => {
-            const { temas, lastUpdate } = await fetchTemas(imp.id);
-            const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
-            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-            
-            const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
-            return { ...imp, ...metrics };
-          });
+            const metricsPromises = assigns.map(async (imp) => {
+              const { temas, lastUpdate } = await fetchTemas(imp.id);
+              const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
+              const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
+              const myAusencias = allAusencias.filter(a => a.userId === user.uid);
+              
+              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, myAusencias);
+              return { ...imp, ...metrics };
+            });
           
           dData.imparticiones = await Promise.all(metricsPromises);
         }
@@ -246,8 +217,9 @@ export default function Home() {
               const { temas, lastUpdate } = await fetchTemas(imp.id);
               const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
               const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
+              const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
               
-              const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
+              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, profAusencias);
               return { 
                 ...imp, 
                 ...metrics, 
@@ -293,7 +265,8 @@ export default function Home() {
             const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
             const prof = allUsers.find(u => u.id === imp.usuarioId);
             
-            const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
+            const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
+            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, profAusencias);
             
             if (metrics.desviacion > 5) countAlerts++;
             totalProgreso += metrics.progreso;

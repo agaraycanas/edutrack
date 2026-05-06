@@ -77,8 +77,7 @@ export function ProtectedRoute({ children }) {
   if (!userProfile && location.pathname !== '/register' && location.pathname !== '/onboarding') {
     // Si no tiene perfil, es que se acaba de registrar con Firebase pero no ha completado el proceso de EduTrack
     // O está esperando aprobación del primer rol.
-    // Para simplificar, si no hay perfil lo mandamos a login para que se registre o reintente
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location, error: 'unregistered' }} replace />;
   }
 
   return children;
