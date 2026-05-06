@@ -142,9 +142,40 @@ export default function Home() {
           ausenciasHoyCentro: 0
         };
 
+        // Fetch temas for an imparticion from the standard collection
+        const fetchTemas = async (impId) => {
+          // Primary source: ies_programacion_temas
+          const qT = query(collection(db, 'ies_programacion_temas'), where('imparticionId', '==', impId));
+          const snapT = await getDocs(qT);
+          if (!snapT.empty) {
+            const temas = snapT.docs.map(d => ({
+              nombre: d.data().titulo || '',
+              horasEstimadas: d.data().horas ?? 0,
+              fechaInicio: d.data().fechaInicio || '',
+              fechaFin: d.data().fechaFin || '',
+              updatedAt: d.data().updatedAt || null,
+            }));
+            // Compute lastUpdate from the most recent updatedAt or fechaFin
+            let lastUpdate = null;
+            temas.forEach(t => {
+              const d = t.updatedAt ? new Date(t.updatedAt.seconds * 1000) : (t.fechaFin ? new Date(t.fechaFin) : null);
+              if (d && (!lastUpdate || d > lastUpdate)) lastUpdate = d;
+            });
+            return { temas, lastUpdate };
+          }
+          // Fallback: profesor_programaciones (legacy)
+          const pSnap = await getDoc(doc(db, 'profesor_programaciones', impId));
+          if (pSnap.exists()) {
+            const pData = pSnap.data();
+            const lastUpdate = pData.updatedAt ? new Date(pData.updatedAt.seconds * 1000) : null;
+            return { temas: pData.temas || [], lastUpdate };
+          }
+          return { temas: [], lastUpdate: null };
+        };
+
         // Helper to calculate metrics for an imparticion
-        const getImparticionMetrics = (imp, prog, horario, ay) => {
-          if (!prog || !ay) return { desviacion: 0, progreso: 0, temaActual: 'Sin programación', lastUpdate: null };
+        const getImparticionMetrics = (imp, temas, lastUpdate, horario, ay) => {
+          if (!ay) return { desviacion: 0, progreso: 0, temaActual: 'Sin programación', lastUpdate: null };
           
           const duracionSesion = ay.duracionSesion || 55;
           let hEst = 0;
@@ -152,39 +183,29 @@ export default function Home() {
             hEst = calcularHorasReales(ay.fechaInicioClases, todayIso, horario, duracionSesion);
           } catch(e) {}
 
-          let totalHours = prog.temas?.reduce((acc, t) => acc + (t.horasEstimadas || 0), 0) || 0;
+          const totalHours = temas.reduce((acc, t) => acc + (Number(t.horasEstimadas) || 0), 0);
           let totalDev = 0;
           let currentThemeName = 'No iniciado';
           let cumulative = 0;
-          let lastUpdate = prog.updatedAt ? new Date(prog.updatedAt.seconds * 1000) : null;
 
-          if (prog.temas) {
-            prog.temas.forEach(t => {
-              if (t.fechaInicio && t.fechaFin && horario) {
-                try {
-                  const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, horario, duracionSesion);
-                  totalDev += (hRealTema - (Number(t.horasEstimadas) || 0));
-                  
-                  const dFin = new Date(t.fechaFin);
-                  if (!lastUpdate || dFin > lastUpdate) lastUpdate = dFin;
-                } catch (err) {}
-              }
-              
-              const tHours = Number(t.horasEstimadas) || 0;
-              if (currentThemeName === 'No iniciado' && cumulative + tHours > hEst) {
-                currentThemeName = t.nombre;
-              }
-              cumulative += tHours;
-            });
-          }
+          temas.forEach(t => {
+            if (t.fechaInicio && t.fechaFin && horario) {
+              try {
+                const hRealTema = calcularHorasReales(t.fechaInicio, t.fechaFin, horario, duracionSesion);
+                totalDev += (hRealTema - (Number(t.horasEstimadas) || 0));
+                const dFin = new Date(t.fechaFin);
+                if (!lastUpdate || dFin > lastUpdate) lastUpdate = dFin;
+              } catch (err) {}
+            }
+            const tHours = Number(t.horasEstimadas) || 0;
+            if (currentThemeName === 'No iniciado' && cumulative + tHours > hEst) {
+              currentThemeName = t.nombre;
+            }
+            cumulative += tHours;
+          });
 
           const progreso = totalHours > 0 ? Math.min(100, Math.round((hEst / totalHours) * 100)) : 0;
-          return {
-            desviacion: totalDev,
-            progreso,
-            temaActual: currentThemeName,
-            lastUpdate
-          };
+          return { desviacion: totalDev, progreso, temaActual: currentThemeName, lastUpdate };
         };
 
         if (activeRole === 'profesor') {
@@ -193,11 +214,11 @@ export default function Home() {
           const assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           
           const metricsPromises = assigns.map(async (imp) => {
-            const pSnap = await getDoc(doc(db, 'profesor_programaciones', imp.id));
+            const { temas, lastUpdate } = await fetchTemas(imp.id);
             const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
             const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
             
-            const metrics = getImparticionMetrics(imp, pSnap.data(), hSnap.data(), ay);
+            const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
             return { ...imp, ...metrics };
           });
           
@@ -222,11 +243,11 @@ export default function Home() {
               const imp = { id: docSnap.id, ...docSnap.data() };
               const profDoc = deptProfs.find(p => p.id === imp.usuarioId);
               const prof = profDoc?.data();
-              const pSnap = await getDoc(doc(db, 'profesor_programaciones', imp.id));
+              const { temas, lastUpdate } = await fetchTemas(imp.id);
               const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
               const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
               
-              const metrics = getImparticionMetrics(imp, pSnap.data(), hSnap.data(), ay);
+              const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
               return { 
                 ...imp, 
                 ...metrics, 
@@ -267,21 +288,19 @@ export default function Home() {
           const deptMap = {}; // { deptName: { totalProg: 0, count: 0 } }
           
           const globalMetricsPromises = allAssigns.map(async (imp) => {
-            const pSnap = await getDoc(doc(db, 'profesor_programaciones', imp.id));
+            const { temas, lastUpdate } = await fetchTemas(imp.id);
             const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
             const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
             const prof = allUsers.find(u => u.id === imp.usuarioId);
             
-            const pData = pSnap.data();
-            const metrics = getImparticionMetrics(imp, pData, hSnap.data(), ay);
+            const metrics = getImparticionMetrics(imp, temas, lastUpdate, hSnap.data(), ay);
             
             if (metrics.desviacion > 5) countAlerts++;
             totalProgreso += metrics.progreso;
 
             // Inactivity check (> 7 days)
-            if (pData?.updatedAt) {
-              const lastUp = pData.updatedAt.toDate();
-              const diffDays = (now.getTime() - lastUp.getTime()) / (1000 * 3600 * 24);
+            if (lastUpdate) {
+              const diffDays = (now.getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24);
               if (diffDays > 7) countInactivos++;
             } else {
               countInactivos++; // Never updated

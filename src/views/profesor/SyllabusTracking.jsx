@@ -54,7 +54,6 @@ export default function SyllabusTracking() {
         setAssignment(assignmentData);
         
         if (assignmentData.cursoAcademicoLabel) {
-          // 1.1 Fetch Academic Year details
           const qYear = query(
             collection(db, 'cursos_academicos'),
             where('iesId', '==', assignmentData.iesId || activeIesId),
@@ -67,39 +66,47 @@ export default function SyllabusTracking() {
         }
       }
 
-      // 2. Fetch Programación
-      const pSnap = await getDoc(doc(db, 'profesor_programaciones', id));
-      if (pSnap.exists()) {
-        const pData = pSnap.data();
-        setProgramacion(pData);
-        setTemas(pData.temas || []);
-      } else {
-        setModal({ isOpen: true, title: 'Error', message: 'No se encontró la programación.' });
-      }
+      // 2. Fetch temas from ies_programacion_temas (ordered by n)
+      const qTemas = query(
+        collection(db, 'ies_programacion_temas'),
+        where('imparticionId', '==', id)
+      );
+      const snapTemas = await getDocs(qTemas);
+      const temasData = snapTemas.docs
+        .map(d => ({
+          _docId: d.id,
+          id: d.data().n,
+          nombre: d.data().titulo || '',
+          horasEstimadas: d.data().horas ?? 0,
+          fechaInicio: d.data().fechaInicio || '',
+          fechaFin: d.data().fechaFin || '',
+          observaciones: d.data().observaciones || '',
+        }))
+        .sort((a, b) => a.id - b.id);
+      setTemas(temasData);
+      setProgramacion({ source: 'ies_programacion_temas' });
 
       // 3. Fetch Horario
       const hSnap = await getDoc(doc(db, 'profesor_horarios', id));
       if (hSnap.exists()) {
         setHorario(hSnap.data());
       } else {
-        // Si no hay horario, intentamos ver si hay un horario general del profesor
-        // pero lo ideal es que cada impartición tenga el suyo.
         console.warn("No hay horario para la impartición:", id);
       }
 
-      // 4. Fetch Festivos (del centro)
+      // 4. Fetch Festivos
       if (activeIesId) {
         const qFestivos = query(collection(db, 'festivos'), where('iesId', '==', activeIesId));
         const snapFestivos = await getDocs(qFestivos);
-        setFestivos(snapFestivos.docs.map(doc => doc.data()));
+        setFestivos(snapFestivos.docs.map(d => d.data()));
       }
 
-      // 5. Fetch Ausencias (del profesor asignado)
+      // 5. Fetch Ausencias
       const targetUserId = assignmentData?.usuarioId || auth.currentUser?.uid;
       if (targetUserId) {
         const qAusencias = query(collection(db, 'profesor_ausencias'), where('userId', '==', targetUserId));
         const snapAusencias = await getDocs(qAusencias);
-        setAusencias(snapAusencias.docs.map(doc => doc.data()));
+        setAusencias(snapAusencias.docs.map(d => d.data()));
       }
 
     } catch (error) {
@@ -120,11 +127,26 @@ export default function SyllabusTracking() {
   const saveChanges = async () => {
     setIsProcessing(true);
     try {
-      const progRef = doc(db, 'profesor_programaciones', id);
-      await updateDoc(progRef, {
-        temas: temas,
-        updatedAt: serverTimestamp()
-      });
+      if (programacion?.source === 'ies_programacion_temas') {
+        // Guardar en cada documento individual de ies_programacion_temas
+        const promises = temas.map(tema =>
+          tema._docId
+            ? updateDoc(doc(db, 'ies_programacion_temas', tema._docId), {
+                fechaInicio: tema.fechaInicio || '',
+                fechaFin: tema.fechaFin || '',
+                observaciones: tema.observaciones || '',
+                updatedAt: serverTimestamp()
+              })
+            : Promise.resolve()
+        );
+        await Promise.all(promises);
+      } else {
+        // Legado: guardar en profesor_programaciones
+        await updateDoc(doc(db, 'profesor_programaciones', id), {
+          temas: temas,
+          updatedAt: serverTimestamp()
+        });
+      }
       setModal({ isOpen: true, title: 'Éxito', message: 'Seguimiento guardado correctamente.' });
     } catch (error) {
       console.error("Error saving tracking:", error);

@@ -28,3 +28,9 @@ dist-ssr
 scripts/serviceAccountKey.json
 .env
 
+# Temporary/Work files
+backups/
+scratch/
+migration_plan.json
+normalization_plan.md
+

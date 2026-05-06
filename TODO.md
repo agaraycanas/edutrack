@@ -12,3 +12,8 @@
 - [ ] Implementar flujo completo de aprobaciones de usuarios.
 - [ ] Lógica de auto-asignación para Superadmin.
 - [ ] Refinar vinculación de asignaturas a grupos.
+
+## 📊 Normalización de Datos
+- [ ] Completar normalización de Chema (horas reales y formatos).
+- [ ] Estandarizar colecciones `ies_programacion_temas` y `profesor_programaciones`.
+- [ ] Asegurar formato ISO "YYYY-MM-DD" en todas las fechas de la DB.
