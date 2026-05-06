@@ -16,6 +16,7 @@ export default function SyllabusTracking() {
   const [horario, setHorario] = useState(null);
   const [assignment, setAssignment] = useState(null);
   const [academicYear, setAcademicYear] = useState(null);
+  const [teacher, setTeacher] = useState(null);
   
   // Array of temas
   const [temas, setTemas] = useState([]);
@@ -104,6 +105,14 @@ export default function SyllabusTracking() {
         setAusencias(snapAusencias.docs.map(d => d.data()));
       }
 
+      // 6. Fetch Teacher Info (especially for readOnly display)
+      if (assignmentData?.usuarioId) {
+        const uSnap = await getDoc(doc(db, 'usuarios', assignmentData.usuarioId));
+        if (uSnap.exists()) {
+          setTeacher(uSnap.data());
+        }
+      }
+
     } catch (error) {
       console.error("Error fetching tracking data:", error);
       setModal({ isOpen: true, title: 'Error', message: 'Ocurrió un error al cargar los datos.' });
@@ -182,7 +191,7 @@ export default function SyllabusTracking() {
               </h1>
             </div>
             <p style={styles.subtitle}>
-              {assignment?.asignaturaSigla} - {assignment?.grupoNombre} ({assignment?.cursoAcademicoLabel})
+              {assignment?.asignaturaSigla} - {assignment?.grupoNombre} {isReadOnly && teacher && ` - ${teacher.nombre} ${teacher.apellidos || ''}`} ({assignment?.cursoAcademicoLabel})
             </p>
           </div>
           {!isReadOnly && (
