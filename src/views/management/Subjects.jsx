@@ -520,15 +520,15 @@ export default function Subjects() {
           </div>
         ) : (
           <div className="table-scroll-wrapper">
-            <table className="data-table" style={{ minWidth: 'auto', width: '100%', tableLayout: 'fixed' }}>
+            <table className="data-table" style={{ minWidth: '450px', width: '100%', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '60px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SIGLA</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '180px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ASIGNATURA</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '100px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '70px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '110px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DPTO.</th>
-                  <th style={{ textAlign: 'right', padding: '0.5rem 0.6rem', width: '80px', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.8rem', width: '10%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SIGLA</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.8rem', width: '25%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ASIGNATURA</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.8rem', width: '20%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.8rem', width: '10%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem 0.8rem', width: '20%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DPTO.</th>
+                  <th style={{ textAlign: 'right', padding: '0.5rem 0.8rem', width: '15%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
@@ -628,7 +628,8 @@ export default function Subjects() {
                         <span style={{ 
                           overflow: 'hidden', 
                           textOverflow: 'ellipsis', 
-                          whiteSpace: 'nowrap' 
+                          whiteSpace: 'nowrap',
+                          display: 'block'
                         }}>
                           {subject.departamento}
                         </span>

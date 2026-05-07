@@ -591,20 +591,20 @@ export default function TeachingAssignments() {
           <div style={styles.emptyState}>No hay imparticiones que coincidan con la búsqueda.</div>
         ) : (
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh', width: '100%' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: '500px', tableLayout: 'fixed' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: '450px', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '35%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PROFESOR</th>
-                  <th style={{ textAlign: 'center', padding: '0.5rem 0.6rem', width: '15%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ASIG.</th>
-                  <th style={{ textAlign: 'left', padding: '0.5rem 0.6rem', width: '20%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GRUPO</th>
-                  <th style={{ textAlign: 'right', padding: '0.5rem 0.6rem', width: '30%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '35%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig.</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '25%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grupo</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '25%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAssignments.map(a => (
                   <tr key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                    <td style={{ padding: '0.4rem 0.6rem' }}>
-                      <div style={styles.profInfoCell}>
+                    <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
+                      <div style={{ ...styles.profInfoCell, width: '100%' }}>
                         {professors.find(p => p.id === a.usuarioId)?.foto ? (
                           <img 
                             src={professors.find(p => p.id === a.usuarioId).foto} 
@@ -614,26 +614,45 @@ export default function TeachingAssignments() {
                         ) : (
                           <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
                         )}
-                        )}
-                        <span style={{ fontWeight: '600', fontSize: '0.8rem' }}>
+                        <span style={{ fontWeight: '600', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }} title={a.profesorNombre}>
                           {a.profesorNombre}
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center' }}>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'left', overflow: 'hidden' }}>
                       <span 
                         className="badge badge-accent" 
-                        style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--active-role-color)', cursor: 'help', fontSize: '0.65rem', padding: '0.15rem 0.35rem' }}
+                        style={{ 
+                          background: 'rgba(255,255,255,0.05)', 
+                          color: 'var(--active-role-color)', 
+                          cursor: 'help', 
+                          fontSize: '0.7rem', 
+                          padding: '0.2rem 0.5rem',
+                          display: 'inline-block',
+                          maxWidth: '100%',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
                         title={a.asignaturaNombre}
                       >
                         {a.asignaturaSigla}
                       </span>
                     </td>
-                    <td style={{ padding: '0.4rem 0.6rem' }}>
-                      <div style={{ fontWeight: '600', fontSize: '0.8rem', color: '#94a3b8' }}>{a.grupoNombre}</div>
+                    <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        fontSize: '0.85rem', 
+                        color: '#94a3b8', 
+                        whiteSpace: 'nowrap', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis' 
+                      }} title={a.grupoNombre}>
+                        {a.grupoNombre}
+                      </div>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '0.4rem 0.6rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                    <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>
                         <button 
                           onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
                           className="btn-secondary"
@@ -838,7 +857,7 @@ const styles = {
   filterLabel: { fontSize: '0.8rem', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' },
   select: { width: '100%', cursor: 'pointer', fontSize: '0.9rem' },
   mainPanel: { padding: '1.5rem', borderRadius: '20px' },
-  profInfoCell: { display: 'flex', gap: '0.5rem', alignItems: 'center' },
+  profInfoCell: { display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 },
   avatarMini: { width: '28px', height: '28px', borderRadius: '6px', background: 'var(--active-role-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '0.8rem', color: '#fff', objectFit: 'cover' },
   codeLabel: { fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.5rem', borderRadius: '4px' },
   emptyState: { textAlign: 'center', padding: '4rem', color: '#94a3b8', fontSize: '1.1rem', fontStyle: 'italic' },

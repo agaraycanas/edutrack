@@ -379,23 +379,25 @@ export default function Studies() {
           </div>
         ) : (
           <div className="table-scroll-wrapper">
-            <table className="data-table">
+            <table className="data-table" style={{ tableLayout: 'fixed', width: '100%', minWidth: '700px' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.7rem 0.6rem' }}>TITULACIÓN</th>
-                  <th style={{ textAlign: 'left' }}>TIPO</th>
-                  <th style={{ textAlign: 'left' }}>DEPARTAMENTOS</th>
-                  <th style={{ textAlign: 'left' }}>CURSOS</th>
-                  <th style={{ textAlign: 'right', width: '100px', paddingRight: '0.6rem' }}>ACCIONES</th>
+                  <th style={{ textAlign: 'left', padding: '0.7rem 0.8rem', width: '30%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
+                  <th style={{ textAlign: 'left', width: '15%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TIPO</th>
+                  <th style={{ textAlign: 'left', width: '25%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DEPARTAMENTOS</th>
+                  <th style={{ textAlign: 'left', width: '15%', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSOS</th>
+                  <th style={{ textAlign: 'right', width: '15%', minWidth: '120px', paddingRight: '0.8rem', fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {iesEstudios.map(study => (
-                  <tr>
-                    <td style={{ padding: '0.4rem 0.6rem' }}>
-                      <div style={{ fontWeight: '700', fontSize: '0.95rem', color: '#fff' }}>{study.nombre}</div>
+                  <tr key={study.id}>
+                    <td style={{ padding: '0.6rem 0.8rem', overflow: 'hidden' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.9rem', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={study.nombre}>
+                        {study.nombre}
+                      </div>
                     </td>
-                    <td>
+                    <td style={{ padding: '0.6rem 0.8rem', overflow: 'hidden' }}>
                       <span style={{ 
                         padding: '4px 10px', 
                         borderRadius: '6px', 
@@ -403,13 +405,18 @@ export default function Studies() {
                         fontSize: '0.75rem',
                         fontWeight: '600',
                         color: 'var(--text-secondary)',
-                        border: '1px solid rgba(255,255,255,0.1)'
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'inline-block',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
                       }}>
                         {study.tipo}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <td style={{ padding: '0.6rem 0.8rem', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'nowrap', overflow: 'hidden' }}>
                         {study.departamentos?.map(dept => (
                           <span key={dept} style={{ 
                             fontSize: '0.75rem', 
@@ -418,14 +425,15 @@ export default function Studies() {
                             background: 'rgba(16, 185, 129, 0.1)', 
                             color: '#10b981',
                             fontWeight: '600',
-                            border: '1px solid rgba(16, 185, 129, 0.2)'
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            whiteSpace: 'nowrap'
                           }}>
                             {dept}
                           </span>
                         )) || <em style={{ fontSize: '0.8rem', opacity: 0.5 }}>Sin asignar</em>}
                       </div>
                     </td>
-                    <td>
+                    <td style={{ padding: '0.6rem 0.8rem' }}>
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                         {study.cursos?.map(curso => (
                           <button 

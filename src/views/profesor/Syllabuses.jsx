@@ -21,6 +21,8 @@ export default function Syllabuses() {
   const [programaciones, setProgramaciones] = useState([]);
   const [horarios, setHorarios] = useState([]);
   const [academicYears, setAcademicYears] = useState([]);
+  const [festivos, setFestivos] = useState([]);
+  const [ausencias, setAusencias] = useState([]);
   const [selectedYear, setSelectedYear] = useState('all');
   const [isLocked, setIsLocked] = useState(false);
   const navigate = useNavigate();
@@ -94,7 +96,28 @@ export default function Syllabuses() {
       const snapYears = await getDocs(qYears);
       setAcademicYears(snapYears.docs.map(d => ({ id: d.id, ...d.data() })));
 
-      // 5. Fetch Lock State for the teacher's department
+      // 5. Fetch Festivos
+      const qFestivos = query(collection(db, 'festivos'), where('iesId', '==', iesId));
+      const snapFestivos = await getDocs(qFestivos);
+      setFestivos(snapFestivos.docs.map(d => d.data()));
+
+      // 6. Fetch Ausencias
+      const qAusencias = query(collection(db, 'profesor_ausencias'), where('userId', '==', uid));
+      const snapAusencias = await getDocs(qAusencias);
+      setAusencias(snapAusencias.docs.map(d => d.data()));
+
+      // 7. Fetch themes from ies_programacion_temas for all assignments
+      const qThemes = query(
+        collection(db, 'ies_programacion_temas'),
+        where('imparticionId', 'in', assignmentsData.map(a => a.id).slice(0, 30)) // Firebase limit for 'in'
+      );
+      let themesData = [];
+      if (assignmentsData.length > 0) {
+        const snapThemes = await getDocs(qThemes);
+        themesData = snapThemes.docs.map(d => ({ _docId: d.id, ...d.data() }));
+      }
+
+      // 8. Fetch Lock State for the teacher's department
       if (assignmentsData.length > 0) {
         const dept = assignmentsData[0].departamento;
         if (dept) {
@@ -105,6 +128,35 @@ export default function Syllabuses() {
           }
         }
       }
+
+      // Merge programaciones from ies_programacion_temas into the state
+      // We wrap them to match the p.temas structure expected by existing logic
+      const groupedThemes = themesData.reduce((acc, t) => {
+        if (!acc[t.imparticionId]) acc[t.imparticionId] = { temas: [] };
+        acc[t.imparticionId].temas.push({
+          id: t.n,
+          nombre: t.titulo,
+          horasEstimadas: t.horas,
+          fechaInicio: t.fechaInicio,
+          fechaFin: t.fechaFin,
+          observaciones: t.observaciones
+        });
+        return acc;
+      }, {});
+
+      // Combine legacy and new programaciones
+      const combinedProgs = [...progsData];
+      Object.keys(groupedThemes).forEach(impId => {
+        const existing = combinedProgs.find(p => p.imparticionId === impId || p.id === impId);
+        if (!existing) {
+          combinedProgs.push({
+            id: impId,
+            imparticionId: impId,
+            temas: groupedThemes[impId].temas.sort((a, b) => a.id - b.id)
+          });
+        }
+      });
+      setProgramaciones(combinedProgs);
 
     } catch (error) {
       console.error("Error fetching syllabuses data:", error);
@@ -124,106 +176,44 @@ export default function Syllabuses() {
     // so the teacher sees what assignments need a programming.
     return assignments.map(a => {
       try {
-        // Support matching by imparticionId field OR by document ID (legacy)
         const p = programaciones.find(prog => prog.imparticionId === a.id || prog.id === a.id);
         const h = horarios.find(hor => hor.id === a.id);
-        
-        // Find academic year metadata
         const ay = academicYears.find(year => year.id === a.cursoAcademicoId || year.nombre === a.cursoAcademicoLabel);
         
-        const duracionSesion = ay?.duracionSesion || 55;
-        const today = new Date().toISOString().split('T')[0];
+        // Use centralized library metrics (DRY)
+        const metrics = calcularMetricasSeguimiento(
+          p?.temas || [], 
+          h, 
+          ay, 
+          festivos, 
+          ausencias, 
+          undefined, 
+          p?.updatedAt
+        );
 
-        // Calculate Estimated Progress Hours (H. EST) - Use Raw for internal comparison
-        let hEstRaw = 0;
-        if (h && ay?.fechaInicioClases) {
-          try {
-            hEstRaw = calcularHorasRealesRaw(ay.fechaInicioClases, today, h, duracionSesion);
-          } catch (e) {
-            console.warn("Error calculating hEst for", a.id, e);
-          }
-        }
+        // Calculate Total Hours from themes
+        const totalHours = p?.temas?.reduce((acc, t) => acc + (Number(t.horasEstimadas) || 0), 0) || 0;
 
-        // Calculate Real Hours (H. REAL) and Total Hours
-        let hRealRaw = 0;
-        let totalHours = 0;
-        
-        if (p) {
-          // Total hours from themes
-          totalHours = p.temas?.reduce((acc, t) => acc + (t.horasEstimadas || 0), 0) || 0;
-          
-          // Real hours: prefer p.sesiones if available, fallback to theme dates calculation
-          if (p.sesiones && p.sesiones.length > 0) {
-            hRealRaw = p.sesiones.reduce((acc, s) => acc + (s.horasReales || 0), 0);
-          } else if (p.temas) {
-            p.temas.forEach(t => {
-              if (t.fechaInicio && t.fechaFin && h) {
-                try {
-                  // Accumulate RAW hours to avoid rounding drift
-                  hRealRaw += calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, h, duracionSesion);
-                } catch (err) { /* ignore */ }
-              }
-            });
-          }
-        }
+        // Find Theoretical Current Theme from metrics
+        // (The library already calculates currentThemeName, we can map it back or just use the name)
+        const currentTheme = metrics.temaActual !== 'No iniciado' && metrics.temaActual !== 'Temario completado' 
+          ? { nombre: metrics.temaActual, progress: metrics.progreso } 
+          : null;
 
-        // --- NEW CALCULATIONS ---
-        let currentTheme = null;
+        // Find Real Current Theme (last started theme)
         let realCurrentTheme = null;
-        let totalDevRaw = 0;
-        let lastUpdate = p?.updatedAt ? new Date(p.updatedAt.seconds * 1000) : null;
-
-        if (p && p.temas) {
-          // 1. Calculate Total Deviation (sum of RAW partials)
-          p.temas.forEach(t => {
-            if (t.fechaInicio) {
-              const dInicio = new Date(t.fechaInicio);
-              if (!isNaN(dInicio.getTime()) && (!lastUpdate || dInicio > lastUpdate)) lastUpdate = dInicio;
-              
-              if (t.fechaFin) {
-                const dFin = new Date(t.fechaFin);
-                if (!isNaN(dFin.getTime()) && (!lastUpdate || dFin > lastUpdate)) lastUpdate = dFin;
-
-                try {
-                  const hRealTemaRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, h, duracionSesion);
-                  totalDevRaw += (hRealTemaRaw - (Number(t.horasEstimadas) || 0));
-                } catch (err) { /* ignore */ }
-              }
-            }
-          });
-
-          // 2. Find Theoretical Current Theme
-          let cumulative = 0;
-          for (const t of p.temas) {
-            const tHours = Number(t.horasEstimadas) || 0;
-            if (cumulative + tHours > hEstRaw) {
-              currentTheme = {
-                nombre: t.nombre,
-                progress: Math.max(0, Math.min(100, ((hEstRaw - cumulative) / tHours) * 100))
-              };
-              break;
-            }
-            cumulative += tHours;
-          }
-          if (!currentTheme && p.temas.length > 0 && hEstRaw >= totalHours && totalHours > 0) {
-            currentTheme = { nombre: p.temas[p.temas.length - 1].nombre, progress: 100 };
-          }
-
-          // 3. Find Real Current Theme
+        if (p?.temas) {
           const startedThemes = p.temas.filter(t => t.fechaInicio);
           if (startedThemes.length > 0) {
             const lastStarted = startedThemes[startedThemes.length - 1];
-            if (lastStarted.fechaFin) {
-              realCurrentTheme = { nombre: lastStarted.nombre, progress: 100, status: 'Completado' };
-            } else {
-              const hRealTemaRaw = calcularHorasRealesRaw(lastStarted.fechaInicio, today, h, duracionSesion);
-              const est = Number(lastStarted.horasEstimadas) || 1;
-              realCurrentTheme = { 
-                nombre: lastStarted.nombre, 
-                progress: Math.min(100, (hRealTemaRaw / est) * 100),
-                status: 'En curso'
-              };
-            }
+            const themeMetrics = metrics.metricasPorTema?.find(m => m.id === lastStarted.id);
+            const est = Number(lastStarted.horasEstimadas) || 1;
+            
+            realCurrentTheme = { 
+              nombre: lastStarted.nombre, 
+              progress: lastStarted.fechaFin ? 100 : Math.min(100, ((themeMetrics?.hReal || 0) / est) * 100),
+              status: lastStarted.fechaFin ? 'Completado' : 'En curso'
+            };
           }
         }
 
@@ -235,13 +225,16 @@ export default function Syllabuses() {
           asignaturaSigla: a.asignaturaSigla || 'N/A', 
           asignaturaNombre: a.asignaturaNombre || 'Sin nombre', 
           grupoNombre: a.grupoNombre || 'Sin grupo',
-          hEst: Math.round(hEstRaw),
-          hReal: Math.round(hRealRaw),
+          hEst: Math.round(totalHours * (metrics.progreso / 100)), // Approximate theoretical hours
+          hReal: p?.temas?.reduce((acc, t) => {
+            const tm = metrics.metricasPorTema?.find(m => m.id === t.id);
+            return acc + (tm?.hReal || 0);
+          }, 0) || 0,
           totalHours,
-          totalDev: Math.round(totalDevRaw),
+          totalDev: metrics.desviacion,
           currentTheme,
           realCurrentTheme,
-          lastUpdate,
+          lastUpdate: metrics.lastUpdate,
           progRef: p,
           hasProgramming: !!p,
           temas: p?.temas || []
@@ -257,7 +250,7 @@ export default function Syllabuses() {
         };
       }
     });
-  }, [assignments, programaciones, horarios, academicYears]);
+  }, [assignments, programaciones, horarios, academicYears, festivos, ausencias]);
 
   const handleEdit = (row) => {
     setEditingRow(row);

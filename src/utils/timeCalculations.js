@@ -179,7 +179,7 @@ export const calcularDesviacion = (horasReales, horasEstimadas) => {
  */
 export const calcularMetricasSeguimiento = (temas, horario, academicYear, festivos = [], ausencias = [], todayIso = new Date().toISOString().split('T')[0], baseUpdatedAt = null) => {
   if (!academicYear || !horario) {
-    return { desviacion: 0, progreso: 0, temaActual: 'Sin configuración', lastUpdate: null };
+    return { desviacion: 0, progreso: 0, temaActual: 'Sin configuración', lastUpdate: null, metricasPorTema: [] };
   }
 
   const duracionSesion = academicYear.duracionSesion || 55;
@@ -199,15 +199,21 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   
   // La fecha de última actualización SOLO se basa en las fechas de los temas (calendario)
   let lastUpdate = null;
-
-  temas.forEach(t => {
+  
+  const metricasPorTema = temas.map(t => {
     const hEst = Number(t.horasEstimadas) || 0;
     totalHours += hEst;
 
+    let hRealRaw = 0;
+    let nSesiones = 0;
+    let desviacion = null;
+
     if (t.fechaInicio && t.fechaFin) {
       try {
-        const hRealTemaRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
-        totalDevRaw += (hRealTemaRaw - hEst);
+        hRealRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
+        nSesiones = contarSesiones(t.fechaInicio, t.fechaFin, horario, festivos, ausencias);
+        desviacion = calcularDesviacion(hRealRaw, hEst);
+        totalDevRaw += (hRealRaw - hEst);
       } catch (err) {}
     }
 
@@ -223,6 +229,13 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
       currentThemeName = t.nombre || t.titulo || 'Tema ' + (t.id || t.n);
     }
     cumulativeEstimadas += hEst;
+
+    return {
+      id: t.id,
+      hReal: Math.round(hRealRaw),
+      nSesiones,
+      desviacion
+    };
   });
 
   // Si todas las horas lectivas han pasado el total, el tema actual es el último
@@ -236,6 +249,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     desviacion: Math.round(totalDevRaw), 
     progreso, 
     temaActual: currentThemeName, 
-    lastUpdate 
+    lastUpdate,
+    metricasPorTema
   };
 };
+

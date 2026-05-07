@@ -16,6 +16,8 @@ Este fichero sigue el rastro de los usuarios migrados desde el sistema legacy a 
 | Marcos Martínez Rus | marcos.martinezrus | Marcos | Completado |
 | Carmelo Torres Plata | carmelo.torresplata | Carmelo | Completado |
 | Antonio Villegas Valera | avv978 | Antonio | Completado |
+| Begoña Ballesteros Vadillo | bballesterosvadillo | Bego | Completado |
+
 
 ## Mapeos de Username
 - Alberto: `agaraycanas`
@@ -30,3 +32,5 @@ Este fichero sigue el rastro de los usuarios migrados desde el sistema legacy a 
 - Marcos Martínez Rus: `marcos.martinezrus` (Legacy: `Marcos`)
 - Carmelo Torres Plata: `carmelo.torresplata` (Legacy: `Carmelo`)
 - Antonio Villegas Valera: `avv978` (Legacy: `Antonio`)
+- Begoña Ballesteros Vadillo: `bballesterosvadillo` (Legacy: `Bego`)
+

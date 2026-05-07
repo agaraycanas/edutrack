@@ -38,7 +38,11 @@ export default function Home() {
     deptStats: [],
     inactivosCount: 0,
     ausenciasHoyCentro: 0,
-    gruposCount: 0
+    gruposCount: 0,
+    estudiosCount: 0,
+    asignaturasCount: 0,
+    academicYearsCount: 0,
+    festivosCount: 0
   });
   const [status, setStatus] = useState({
     isHoliday: false,
@@ -82,7 +86,7 @@ export default function Home() {
       
       try {
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user || !activeIesId) return;
 
         const now = new Date();
         now.setHours(0, 0, 0, 0);
@@ -98,7 +102,18 @@ export default function Home() {
           return t >= s.getTime() && t <= e.getTime();
         };
 
-        // 1. Fetch Today Status (Holidays & Absences)
+        // 1. Parallel fetch top-level common data
+        const [academicYearsSnap, festivosSnap, ausenciasSnap] = await Promise.all([
+          getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId))),
+          getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId))),
+          getDocs(query(collection(db, 'profesor_ausencias'), where('iesId', '==', activeIesId)))
+        ]);
+
+        const academicYears = academicYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const allFestivos = festivosSnap.docs.map(d => d.data());
+        const allAusencias = ausenciasSnap.docs.map(d => d.data());
+
+        // 2. Fetch Today Status for the logged-in user
         let newStatus = {
           isHoliday: false,
           holidayName: '',
@@ -107,34 +122,18 @@ export default function Home() {
           isWeekend: [0, 6].includes(now.getDay())
         };
 
-        if (activeIesId) {
-          const qF = query(collection(db, 'festivos'), where('iesId', '==', activeIesId));
-          const snapF = await getDocs(qF);
-          const holidayFound = snapF.docs.find(doc => isTodayInRange(doc.data()));
-          if (holidayFound) {
-            newStatus.isHoliday = true;
-            newStatus.holidayName = holidayFound.data().nombre;
-          }
+        const holidayFound = allFestivos.find(f => isTodayInRange(f));
+        if (holidayFound) {
+          newStatus.isHoliday = true;
+          newStatus.holidayName = holidayFound.nombre;
         }
 
-        const qA = query(collection(db, 'profesor_ausencias'), where('userId', '==', user.uid));
-        const snapA = await getDocs(qA);
-        const absenceFound = snapA.docs.find(doc => isTodayInRange(doc.data()));
+        const absenceFound = allAusencias.find(a => a.userId === user.uid && isTodayInRange(a));
         if (absenceFound) {
           newStatus.isAbsence = true;
-          newStatus.absenceReason = absenceFound.data().motivo;
+          newStatus.absenceReason = absenceFound.motivo;
         }
         setStatus(newStatus);
-
-        // 2. Common Data for calculations
-        const academicYearsSnap = await getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId)));
-        const academicYears = academicYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        const festivosSnap = await getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId)));
-        const allFestivos = festivosSnap.docs.map(d => d.data());
-
-        const ausenciasSnap = await getDocs(collection(db, 'profesor_ausencias'));
-        const allAusencias = ausenciasSnap.docs.map(d => d.data());
 
         let dData = { 
           imparticiones: [], 
@@ -148,46 +147,85 @@ export default function Home() {
           topDelays: [],
           deptStats: [],
           inactivosCount: 0,
-          ausenciasHoyCentro: 0,
-          gruposCount: 0
-        };
-
-        // Fetch temas for an imparticion from the standard collection
-        const fetchTemas = async (impId) => {
-          // Primary source: ies_programacion_temas
-          const qT = query(collection(db, 'ies_programacion_temas'), where('imparticionId', '==', impId));
-          const snapT = await getDocs(qT);
-          if (!snapT.empty) {
-            const temas = snapT.docs.map(d => ({
-              nombre: d.data().titulo || '',
-              horasEstimadas: d.data().horas ?? 0,
-              fechaInicio: d.data().fechaInicio || '',
-              fechaFin: d.data().fechaFin || '',
-              updatedAt: d.data().updatedAt || null,
-            }));
-            return { temas };
-          }
-          return { temas: [] };
+          ausenciasHoyCentro: allAusencias.filter(a => isTodayInRange(a)).length,
+          gruposCount: 0,
+          estudiosCount: 0,
+          asignaturasCount: 0,
+          academicYearsCount: academicYears.length,
+          festivosCount: allFestivos.length
         };
 
         // Helper to sort imparticiones consistently
         const sortImparticiones = (list) => {
           return [...list].sort((a, b) => {
-            // Primary sort: Date (oldest update first)
             const dateA = a.lastUpdate ? a.lastUpdate.getTime() : 0;
             const dateB = b.lastUpdate ? b.lastUpdate.getTime() : 0;
-            
             if (dateA !== dateB) {
-              // If one doesn't have a date (0), it's "never updated", should be at the top
               if (dateA === 0) return -1;
               if (dateB === 0) return 1;
               return dateA - dateB;
             }
-            
-            // Secondary sort: highest deviation first
             const devA = parseFloat(a.desviacion) || 0;
             const devB = parseFloat(b.desviacion) || 0;
             return devB - devA;
+          });
+        };
+
+        // Fetch multiple imparticiones metrics efficiently
+        const getMetricsForAssignments = async (assigns, usersList = []) => {
+          if (assigns.length === 0) return [];
+
+          // Bulk fetch ALL temas for the IES
+          const temasSnap = await getDocs(query(collection(db, 'ies_programacion_temas'), where('iesId', '==', activeIesId)));
+          const temasMap = {};
+          temasSnap.docs.forEach(d => {
+            const data = d.data();
+            if (!temasMap[data.imparticionId]) temasMap[data.imparticionId] = [];
+            temasMap[data.imparticionId].push({
+              nombre: data.titulo || '',
+              horasEstimadas: data.horas ?? 0,
+              fechaInicio: data.fechaInicio || '',
+              fechaFin: data.fechaFin || '',
+              updatedAt: data.updatedAt || null,
+            });
+          });
+
+          // Fetch Schedules in batches of 30 if possible, or just parallelize getDoc for now
+          // Given center size, parallel getDoc is okay if we optimize everything else, 
+          // but batching is better.
+          const ids = assigns.map(a => a.id);
+          const schedulesMap = {};
+          
+          const batchSize = 30;
+          const schedulePromises = [];
+          for (let i = 0; i < ids.length; i += batchSize) {
+            const chunk = ids.slice(i, i + batchSize);
+            schedulePromises.push(
+              getDocs(query(collection(db, 'profesor_horarios'), where('imparticionId', 'in', chunk)))
+            );
+          }
+          const scheduleSnaps = await Promise.all(schedulePromises);
+          scheduleSnaps.forEach(snap => {
+            snap.docs.forEach(d => {
+              schedulesMap[d.data().imparticionId] = d.data();
+            });
+          });
+
+          return assigns.map(imp => {
+            const temas = temasMap[imp.id] || [];
+            const horario = schedulesMap[imp.id];
+            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
+            const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
+            const metrics = getImparticionMetrics(imp, temas, horario, ay, allFestivos, profAusencias);
+            
+            const prof = usersList.find(u => u.id === imp.usuarioId);
+            return { 
+              ...imp, 
+              ...metrics, 
+              profNombre: prof ? `${prof.nombre} ${prof.apellidos || ''}` : (imp.profesorNombre || 'Profesor'),
+              profDisplayName: prof ? formatShortName(prof.nombre, prof.apellidos) : (imp.profesorNombre || 'Profesor'),
+              profFoto: prof?.foto || prof?.avatar || imp.profFoto
+            };
           });
         };
 
@@ -195,148 +233,83 @@ export default function Home() {
           const qI = query(collection(db, 'ies_imparticiones'), where('usuarioId', '==', user.uid), where('iesId', '==', activeIesId));
           const snapI = await getDocs(qI);
           const assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          
-          const metricsPromises = assigns.map(async (imp) => {
-            const { temas } = await fetchTemas(imp.id);
-            const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
-            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-            const myAusencias = allAusencias.filter(a => a.userId === user.uid);
-            
-            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, myAusencias);
-            return { ...imp, ...metrics };
-          });
-          
-          const unsorted = await Promise.all(metricsPromises);
-          dData.imparticiones = sortImparticiones(unsorted);
+          const results = await getMetricsForAssignments(assigns, [{ id: user.uid, email: user.email }]);
+          dData.imparticiones = sortImparticiones(results);
         }
 
         if (activeRole === 'jefe_departamento') {
-          const userSnap = await getDocs(query(collection(db, 'usuarios'), where('email', '==', user.email)));
+          const [userSnap, snapAllUsers] = await Promise.all([
+            getDocs(query(collection(db, 'usuarios'), where('email', '==', user.email))),
+            getDocs(query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId)))
+          ]);
+          
           const userData = userSnap.docs[0]?.data();
           const myDept = userData?.roles?.find(r => r.iesId === activeIesId && r.rol === 'jefe_departamento')?.departamento;
 
           if (myDept) {
-            const qProf = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
-            const snapProf = await getDocs(qProf);
-            const deptProfs = snapProf.docs.filter(d => d.data().roles?.some(r => r.iesId === activeIesId && r.departamento === myDept));
+            const allUsers = snapAllUsers.docs.map(d => ({ id: d.id, ...d.data() }));
+            const deptProfs = allUsers.filter(u => u.roles?.some(r => r.iesId === activeIesId && r.departamento === myDept));
             dData.profesoresCount = deptProfs.length;
 
             const qDeptI = query(collection(db, 'ies_imparticiones'), where('iesId', '==', activeIesId), where('departamento', '==', myDept));
             const snapDeptI = await getDocs(qDeptI);
+            const assigns = snapDeptI.docs.map(d => ({ id: d.id, ...d.data() }));
             
-            // Calculate unique groups for this department
-            const uniqueGroups = new Set();
-            snapDeptI.docs.forEach(docSnap => {
-              const data = docSnap.data();
-              if (data.grupoId) uniqueGroups.add(data.grupoId);
-              else if (data.grupoNombre) uniqueGroups.add(data.grupoNombre);
-            });
+            const uniqueGroups = new Set(assigns.map(a => a.grupoId || a.grupoNombre));
             dData.gruposCount = uniqueGroups.size;
             
-            const metricsPromises = snapDeptI.docs.map(async (docSnap) => {
-              const imp = { id: docSnap.id, ...docSnap.data() };
-              const profDoc = deptProfs.find(p => p.id === imp.usuarioId);
-              const prof = profDoc?.data();
-              const { temas } = await fetchTemas(imp.id);
-              const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
-              const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-              const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
-              
-              const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, profAusencias);
-              return { 
-                ...imp, 
-                ...metrics, 
-
-                profFoto: prof?.foto || prof?.avatar,
-                profNombre: prof?.nombre || 'Profesor',
-                profApellidos: prof?.apellidos || '',
-                profDisplayName: formatShortName(prof?.nombre, prof?.apellidos)
-              };
-            });
-            
-            const unsorted = await Promise.all(metricsPromises);
-            dData.imparticiones = sortImparticiones(unsorted);
+            const results = await getMetricsForAssignments(assigns, deptProfs);
+            dData.imparticiones = sortImparticiones(results);
           }
         }
 
         if (activeRole === 'jefe_estudios' || activeRole === 'superadmin') {
-          const deptsSnap = await getDocs(query(collection(db, 'departamentos'), where('iesId', '==', activeIesId)));
-          const depts = deptsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          dData.departamentosCount = depts.length;
+          const [deptsSnap, studiesSnap, subjectsSnap, groupsSnap, academicYearsSnap, festivosSnap] = await Promise.all([
+            getDocs(query(collection(db, 'departamentos'), where('iesId', '==', activeIesId))),
+            getDocs(query(collection(db, 'ies_estudios'), where('iesId', '==', activeIesId))),
+            getDocs(query(collection(db, 'ies_asignaturas'), where('iesId', '==', activeIesId))),
+            getDocs(query(collection(db, 'ies_grupos'), where('iesId', '==', activeIesId))),
+            getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId))),
+            getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId)))
+          ]);
 
-          const qAllI = query(collection(db, 'ies_imparticiones'), where('iesId', '==', activeIesId));
-          const snapAllI = await getDocs(qAllI);
-          const allAssigns = snapAllI.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Calculate current academic year boundaries for filtering
+          const now = new Date();
+          const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+          const startDateStr = `${currentYearStart}-09-01`;
+          const endDateStr = `${currentYearStart + 1}-08-31`;
 
-          // Fetch all teachers to get names/photos and check absences
-          const qAllU = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
-          const snapAllU = await getDocs(qAllU);
-          const allUsers = snapAllU.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Find current academic year document ID
+          const currentYearDoc = academicYearsSnap.docs.find(d => d.data().añoInicio === currentYearStart);
+          const currentYearId = currentYearDoc ? currentYearDoc.id : null;
 
-          const qAusHoy = query(collection(db, 'profesor_ausencias'), where('iesId', '==', activeIesId));
-          const snapAus = await getDocs(qAusHoy);
-          dData.ausenciasHoyCentro = snapAus.docs.filter(doc => isTodayInRange(doc.data())).length;
-
-          let totalProgreso = 0;
-          let countAlerts = 0;
-          let countInactivos = 0;
-          const deptMap = {}; // { deptName: { totalProg: 0, count: 0 } }
-          
-          const globalMetricsPromises = allAssigns.map(async (imp) => {
-            const { temas } = await fetchTemas(imp.id);
-            const hSnap = await getDoc(doc(db, 'profesor_horarios', imp.id));
-            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-            const prof = allUsers.find(u => u.id === imp.usuarioId);
-            
-            const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
-            const metrics = getImparticionMetrics(imp, temas, hSnap.data(), ay, allFestivos, profAusencias);
-            
-            if (metrics.desviacion > 5) countAlerts++;
-            totalProgreso += metrics.progreso;
-
-            // Inactivity check (> 7 days)
-            if (metrics.lastUpdate) {
-              const diffDays = (now.getTime() - metrics.lastUpdate.getTime()) / (1000 * 3600 * 24);
-              if (diffDays > 7) countInactivos++;
-            } else {
-              countInactivos++; // Never updated
+          // Refine Festivos count: Deduplicate and filter by current academic year
+          const uniqueFestivos = new Set();
+          festivosSnap.docs.forEach(doc => {
+            const d = doc.data();
+            if (d.startDate >= startDateStr && d.startDate <= endDateStr) {
+              // Deduplicate by date and name
+              uniqueFestivos.add(`${d.startDate}_${d.nombre}`);
             }
-
-            // Dept stats
-            const dName = imp.departamento || 'Sin asignar';
-            if (!deptMap[dName]) deptMap[dName] = { totalProg: 0, count: 0 };
-            deptMap[dName].totalProg += metrics.progreso;
-            deptMap[dName].count += 1;
-
-              return { 
-                ...imp, 
-                ...metrics, 
-                profNombre: prof ? `${prof.nombre} ${prof.apellidos || ''}` : 'Desconocido',
-                profDisplayName: prof ? formatShortName(prof.nombre, prof.apellidos) : 'Desconocido',
-                profFoto: prof?.foto || prof?.avatar 
-              };
           });
 
-          const allMetrics = await Promise.all(globalMetricsPromises);
-          
-          dData.alertasCount = countAlerts;
-          dData.inactivosCount = countInactivos;
-          dData.progresoGlobal = allAssigns.length > 0 ? Math.round(totalProgreso / allAssigns.length) : 0;
-          
-          dData.topDelays = allMetrics
-            .filter(m => m.desviacion > 0)
-            .sort((a, b) => b.desviacion - a.desviacion)
-            .slice(0, 5);
+          const currentYearGroups = groupsSnap.docs.filter(doc => {
+            const d = doc.data();
+            // Count groups for current year strictly by academic year ID
+            return d.cursoAcademicoId === currentYearId;
+          });
 
-          dData.deptStats = Object.keys(deptMap).map(name => ({
-            name,
-            avgProgreso: Math.round(deptMap[name].totalProg / deptMap[name].count)
-          })).sort((a, b) => b.avgProgreso - a.avgProgreso);
-
+          dData.departamentosCount = deptsSnap.size;
+          dData.estudiosCount = studiesSnap.size;
+          dData.asignaturasCount = subjectsSnap.size;
+          dData.gruposCount = currentYearGroups.length;
+          dData.academicYearsCount = academicYearsSnap.size;
+          dData.festivosCount = uniqueFestivos.size;
+          
           if (activeRole === 'superadmin') {
+            const snapIes = await getDocs(collection(db, 'ies'));
             const snapU = await getDocs(collection(db, 'usuarios'));
             dData.totalUsuarios = snapU.docs.length;
-            const snapIes = await getDocs(collection(db, 'ies'));
             dData.totalIes = snapIes.docs.length;
           }
         }
@@ -357,6 +330,25 @@ export default function Home() {
 
   return (
     <div className="animate-fade-in">
+      <style>{`
+        @media (max-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+          }
+          .bubble-card {
+            padding: 1.25rem !important;
+          }
+          .bubble-number {
+            font-size: 1.8rem !important;
+          }
+        }
+      `}</style>
       <div className="glass-panel" style={{ marginBottom: '2rem', padding: '2.5rem', borderLeft: '6px solid var(--accent-primary)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: '700' }}>
@@ -552,123 +544,71 @@ export default function Home() {
       )}
 
       {(activeRole === 'jefe_estudios' || activeRole === 'superadmin') && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div style={styles.grid}>
-            <div className="glass-panel card-hover" style={styles.card} onClick={() => navigate('/management/approvals')}>
-              <h3 style={styles.cardTitle}>Solicitudes de Acceso</h3>
-              <p style={{...styles.cardNumber, color: dashboardData.pendientesCount > 0 ? 'var(--accent-primary)' : 'var(--text-primary)'}}>
-                {dashboardData.pendientesCount}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dashboardData.pendientesCount > 0 ? '#fbbf24' : '#10b981' }}></span>
-                Pendientes de aprobación
-              </div>
-            </div>
+        <div className="dashboard-grid" style={styles.bubbleGrid}>
+          {/* 1. Departamentos */}
 
-            <div className="glass-panel" style={styles.card}>
-              <h3 style={styles.cardTitle}>Alertas Críticas</h3>
-              <p style={{...styles.cardNumber, color: dashboardData.alertasCount > 0 ? '#ef4444' : '#10b981'}}>
-                {dashboardData.alertasCount}
-              </p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Imparticiones con {'>'}5h retraso</p>
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/departments')}>
+            <div style={{...styles.statIcon, background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
-
-            <div className="glass-panel" style={styles.card}>
-              <h3 style={styles.cardTitle}>Seguimiento Inactivo</h3>
-              <p style={{...styles.cardNumber, color: dashboardData.inactivosCount > (dashboardData.profesoresCount * 0.2) ? '#f59e0b' : 'var(--text-primary)'}}>
-                {dashboardData.inactivosCount}
-              </p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Profesores sin actualizar en {'>'}7 días</p>
-            </div>
-
-            <div className="glass-panel" style={styles.card}>
-              <h3 style={styles.cardTitle}>Ausencias Hoy</h3>
-              <p style={{...styles.cardNumber, color: dashboardData.ausenciasHoyCentro > 0 ? '#fbbf24' : 'var(--text-primary)'}}>
-                {dashboardData.ausenciasHoyCentro}
-              </p>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Profesores ausentes en el centro</p>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.departamentosCount}</p>
+              <h3 style={styles.bubbleTitle}>Departamentos</h3>
             </div>
           </div>
 
-          <div style={styles.adminFlexGrid}>
-            <div className="glass-panel" style={{ padding: '2rem', borderRadius: '24px', flex: 1.5 }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem' }}>Top 5 Retrasos (Críticos)</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {dashboardData.topDelays.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem' }}>No hay imparticiones con retraso significativo.</p>
-                ) : (
-                  dashboardData.topDelays.map(imp => (
-                    <div 
-                      key={imp.id} 
-                      className="card-hover"
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '1rem', 
-                        padding: '1rem', 
-                        background: 'rgba(255,255,255,0.03)', 
-                        borderRadius: '16px',
-                        cursor: 'pointer' 
-                      }}
-                      onClick={() => {
-                        const mainContent = document.getElementById('main-content');
-                        if (mainContent) sessionStorage.setItem('home_scroll_pos', mainContent.scrollTop);
-                        navigate(`/profesor/programaciones/${imp.id}/seguimiento?readOnly=true`);
-                      }}
-                    >
-                       <img 
-                        src={imp.profFoto && imp.profFoto !== 'undefined' && imp.profFoto !== '' ? imp.profFoto : `https://ui-avatars.com/api/?name=${encodeURIComponent(imp.profNombre)}&background=6366f1&color=fff&size=128`} 
-                        style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', background: 'var(--bg-secondary)' }} 
-                        alt=""
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(imp.profNombre)}&background=6366f1&color=fff&size=128`;
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', fontSize: '0.95rem' }}>{imp.profDisplayName || imp.profNombre}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{imp.asignaturaSigla} - {imp.grupoNombre}</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ color: '#ef4444', fontWeight: '900', fontSize: '1.1rem' }}>+{imp.desviacion}h</div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Desviación</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+          {/* 2. Estudios */}
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/studies')}>
+            <div style={{...styles.statIcon, background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
             </div>
-
-            <div className="glass-panel" style={{ padding: '2rem', borderRadius: '24px', flex: 1 }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem' }}>Progreso por Departamento</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                {dashboardData.deptStats.map(dept => (
-                  <div key={dept.name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                      <span style={{ fontWeight: '600' }}>{dept.name}</span>
-                      <span style={{ fontWeight: '800', color: 'var(--accent-primary)' }}>{dept.avgProgreso}%</span>
-                    </div>
-                    <div style={{...styles.progressBarBg, height: '4px'}}>
-                      <div style={{...styles.progressBarFill, width: `${dept.avgProgreso}%`}} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.estudiosCount}</p>
+              <h3 style={styles.bubbleTitle}>Estudios</h3>
             </div>
           </div>
 
-          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '1rem' }}>Resumen Ejecutivo del Centro</h3>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '3rem', flexWrap: 'wrap' }}>
-              <div>
-                <p style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--accent-primary)' }}>{dashboardData.progresoGlobal}%</p>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Progreso Medio</p>
-              </div>
-              <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
-              <div>
-                <p style={{ fontSize: '2rem', fontWeight: '900', color: dashboardData.alertasCount > 0 ? '#ef4444' : '#10b981' }}>{dashboardData.alertasCount}</p>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Alertas Críticas</p>
-              </div>
+          {/* 3. Asignaturas */}
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/subjects')}>
+            <div style={{...styles.statIcon, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            </div>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.asignaturasCount}</p>
+              <h3 style={styles.bubbleTitle}>Asignaturas</h3>
+            </div>
+          </div>
+
+          {/* 4. Cursos Académicos */}
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/academic-years')}>
+            <div style={{...styles.statIcon, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            </div>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.academicYearsCount}</p>
+              <h3 style={styles.bubbleTitle}>Cursos Académicos</h3>
+            </div>
+          </div>
+
+          {/* 5. Grupos */}
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/groups')}>
+            <div style={{...styles.statIcon, background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </div>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.gruposCount}</p>
+              <h3 style={styles.bubbleTitle}>Grupos</h3>
+            </div>
+          </div>
+
+          {/* 6. Festivos */}
+          <div className="glass-panel card-hover" style={styles.bubbleCard} onClick={() => navigate('/holidays')}>
+            <div style={{...styles.statIcon, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            </div>
+            <div>
+              <p style={styles.bubbleNumber}>{dashboardData.festivosCount}</p>
+              <h3 style={styles.bubbleTitle}>Festivos</h3>
             </div>
           </div>
         </div>
@@ -687,8 +627,15 @@ export default function Home() {
 const styles = {
   grid: {
     display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+  },
+  bubbleGrid: {
+    display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '2rem',
+    gap: '1.5rem',
+    marginBottom: '2rem',
   },
   adminFlexGrid: {
     display: 'flex',
@@ -785,5 +732,30 @@ const styles = {
     height: '100%',
     background: 'linear-gradient(90deg, var(--accent-primary), #818cf8)',
     borderRadius: '10px'
+  },
+  bubbleCard: {
+    padding: '2rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.5rem',
+    borderRadius: '24px',
+    cursor: 'pointer',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+  },
+  bubbleNumber: {
+    fontSize: '2.2rem',
+    fontWeight: '900',
+    color: 'var(--text-primary)',
+    lineHeight: '1',
+    marginBottom: '0.2rem'
+  },
+  bubbleTitle: {
+    fontSize: '0.8rem',
+    color: 'var(--text-secondary)',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
   }
 };

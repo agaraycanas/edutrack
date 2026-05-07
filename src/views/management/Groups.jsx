@@ -447,14 +447,14 @@ export default function Groups() {
           </div>
         ) : (
           <div className="table-scroll-wrapper">
-            <table className="data-table" style={{ minWidth: 'auto', width: 'max-content', tableLayout: 'fixed' }}>
+            <table className="data-table" style={{ minWidth: '450px', width: '100%', tableLayout: 'fixed' }}>
               <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', width: '80px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GRUPO</th>
-                    <th style={{ textAlign: 'left', width: '90px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
-                    <th style={{ textAlign: 'center', width: '60px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
-                    <th style={{ textAlign: 'left', width: '110px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AÑO</th>
-                    <th style={{ textAlign: 'right', width: '80px', padding: '0.5rem 0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
+                    <th style={{ textAlign: 'left', width: '15%', padding: '0.5rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GRUPO</th>
+                    <th style={{ textAlign: 'left', width: '30%', padding: '0.5rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TITULACIÓN</th>
+                    <th style={{ textAlign: 'center', width: '15%', padding: '0.5rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CURSO</th>
+                    <th style={{ textAlign: 'left', width: '20%', padding: '0.5rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AÑO ACADÉMICO</th>
+                    <th style={{ textAlign: 'right', width: '20%', padding: '0.5rem 0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ACCIONES</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -499,11 +499,14 @@ export default function Groups() {
                               cursor: 'help',
                               fontSize: '0.8rem',
                               color: 'var(--text-primary)',
-                              letterSpacing: '0.01em'
+                              letterSpacing: '0.01em',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
                             }} 
                             title={group.titulacionNombre}
                           >
-                            {group.titulacionNombre?.split(' - ')[0] || group.nombre.replace(/[0-9].*$/, '') || '---'}
+                            {group.titulacionNombre || '---'}
                           </div>
                         </td>
                         <td style={{ padding: '0.4rem 0.5rem', textAlign: 'center' }}>

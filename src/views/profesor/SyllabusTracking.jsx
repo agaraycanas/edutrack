@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { calcularHorasReales, calcularHorasRealesRaw, calcularDesviacion, contarSesiones, calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
+import { calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
 
 export default function SyllabusTracking() {
@@ -242,20 +242,16 @@ export default function SyllabusTracking() {
               temas.map((tema, index) => {
                 if (!tema) return null;
                 
-                const duracionSesion = academicYear?.duracionSesion || 55;
-                const hRealesRaw = (tema.fechaInicio && tema.fechaFin && horario) 
-                  ? calcularHorasRealesRaw(tema.fechaInicio, tema.fechaFin, horario, duracionSesion, festivos, ausencias) 
-                  : 0;
-                
-                const hRealesDisplay = Math.round(hRealesRaw);
-                
-                const nSesiones = (tema.fechaInicio && tema.fechaFin && horario)
-                  ? contarSesiones(tema.fechaInicio, tema.fechaFin, horario, festivos, ausencias)
-                  : 0;
-                
-                const desviacion = (tema.fechaInicio && tema.fechaFin && horario)
-                  ? calcularDesviacion(hRealesRaw, tema.horasEstimadas)
-                  : null;
+                // Use metrics from the library (DRY)
+                const temaMetrics = metrics.metricasPorTema?.find(m => m.id === tema.id) || {
+                  hReal: 0,
+                  nSesiones: 0,
+                  desviacion: null
+                };
+
+                const hRealesDisplay = temaMetrics.hReal;
+                const nSesiones = temaMetrics.nSesiones;
+                const desviacion = temaMetrics.desviacion;
 
                 let devColor = 'inherit';
                 if (desviacion !== null) {
@@ -352,7 +348,8 @@ export default function SyllabusTracking() {
                   </tr>
                 );
               })
-            )}
+            )
+}
           </tbody>
         </table>
       </div>
