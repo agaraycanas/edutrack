@@ -25,22 +25,27 @@ function padDate(dateStr) {
   return dateStr;
 }
 
-async function migratePastor() {
+async function migrateVicente() {
   const iesId = 'ies_rey_fernando';
-  const pastorId = 'UhIIfgCMP2TyIwybjJkRdqpGdzH2';
+  const vicenteId = '4XHxo00U6qVnE92bVLBx';
   const cursoAcademicoId = 'NIaDSaiG7RPsIgWgjNj7'; 
   const cursoAcademicoLabel = '2025-2026';
 
   const groupMapping = {
-    's1b': { id: 'zLS6dPRowEZvpJQz6Lqh', nombre: 'SMR1B', estudioId: 'IRCwWmikBP6CKKipMQUl' }
+    'm1v': { id: 'XSP1IFtHq7g4J2JxB0Yo', nombre: 'DAM1V', estudioId: 'aiSkVWbNBLK6PPhWKdEh' },
+    'm2v': { id: 'Sx8acrtPcUmY2rhBZdJy', nombre: 'DAM2V', estudioId: 'aiSkVWbNBLK6PPhWKdEh' }
   };
 
   const subjectsMapping = {
-    'Montaje y mantenimiento de equipos': { sigla: 'MME', id: '18Hk4ZEKHKNvYzDqaCWx' }
+    'Bases de datos': { sigla: 'BD', id: 'gdMAobfiMAxKrGhAxHZC' },
+    'Entornos de desarrollo': { sigla: 'ED', id: 'PY8KPS52CIh7kgXw4RLX' },
+    'Lenguajes de marcas': { sigla: 'LM', id: 'NIU8w80WO5TR4re5iOW7' },
+    'Acceso a datos': { sigla: 'AD', id: 'G3i8320IgJk45o0kLKdp' },
+    'Programación de móviles y dispositivos multimedia': { sigla: 'PMDM', id: 'TBfAYvIAla7U1vuPH4JI' }
   };
 
-  console.log('--- CLEANING PREVIOUS DATA FOR JESUS PASTOR ---');
-  const impSnap = await db.collection('ies_imparticiones').where('usuarioId', '==', pastorId).get();
+  console.log('--- CLEANING PREVIOUS DATA FOR VICENTE ---');
+  const impSnap = await db.collection('ies_imparticiones').where('usuarioId', '==', vicenteId).get();
   for (const doc of impSnap.docs) {
     const impId = doc.id;
     await db.collection('ies_imparticiones').doc(impId).delete();
@@ -56,7 +61,7 @@ async function migratePastor() {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
   const progXml = fs.readFileSync('legacy/programaciones/dat/programaciones.xml', 'utf-8');
   const progData = parser.parse(progXml);
-  const segXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Pse.xml', 'utf-8');
+  const segXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Vicente.xml', 'utf-8');
   const segData = parser.parse(segXml);
 
   const trackingMap = {};
@@ -75,19 +80,19 @@ async function migratePastor() {
     for (const curso of cursos) {
       const asigs = Array.isArray(curso.asignatura) ? curso.asignatura : [curso.asignatura];
       for (const asig of asigs) {
-        if (asig.grupo && (asig.grupo.profe === 'Pse' || asig.grupo.nif === 'Pse')) {
+        if (asig.grupo && (asig.grupo.profe === 'Vicente' || asig.grupo.nif === 'Vicente')) {
           const groupInfo = groupMapping[asig.grupo.id];
           if (!groupInfo) continue;
           const subInfo = subjectsMapping[asig.nombre];
           if (!subInfo) continue;
 
           console.log(`Migrating ${asig.nombre} for ${groupInfo.nombre}...`);
-          const impId = `${cursoAcademicoLabel.replace('-', '')}_${groupInfo.nombre}_${subInfo.sigla}_JP`.replace(/\s+/g, '');
+          const impId = `${cursoAcademicoLabel.replace('-', '')}_${groupInfo.nombre}_${subInfo.sigla}_VIC`.replace(/\s+/g, '');
 
           await db.collection('ies_imparticiones').doc(impId).set({
             iesId,
-            usuarioId: pastorId,
-            profesorNombre: 'Jesús Pastor Fernández',
+            usuarioId: vicenteId,
+            profesorNombre: 'Vicente',
             cursoAcademicoId,
             cursoAcademicoLabel,
             iesEstudioId: groupInfo.estudioId,
@@ -111,7 +116,7 @@ async function migratePastor() {
 
           await db.collection('profesor_horarios').doc(impId).set({
             imparticionId: impId,
-            usuarioId: pastorId,
+            usuarioId: vicenteId,
             patron: patron
           });
 
@@ -148,7 +153,7 @@ async function migratePastor() {
 
           await db.collection('profesor_programaciones').doc(impId).set({
             imparticionId: impId,
-            usuarioId: pastorId,
+            usuarioId: vicenteId,
             temas: temasFirestore,
             updatedAt: FieldValue.serverTimestamp()
           });
@@ -158,8 +163,8 @@ async function migratePastor() {
   }
 }
 
-migratePastor().then(() => {
-  console.log('--- JESUS PASTOR MIGRATION COMPLETED SUCCESSFULLY ---');
+migrateVicente().then(() => {
+  console.log('--- VICENTE MIGRATION COMPLETED SUCCESSFULLY ---');
   process.exit(0);
 }).catch(err => {
   console.error('Migration failed:', err);

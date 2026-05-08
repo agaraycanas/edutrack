@@ -5,6 +5,11 @@ const { XMLParser } = require('fast-xml-parser');
 
 const serviceAccount = require('./serviceAccountKey.json');
 
+if (!serviceAccount) {
+    console.error('Service account key not found');
+    process.exit(1);
+}
+
 initializeApp({
   credential: cert(serviceAccount)
 });
@@ -25,22 +30,25 @@ function padDate(dateStr) {
   return dateStr;
 }
 
-async function migratePastor() {
+async function migrateBea() {
   const iesId = 'ies_rey_fernando';
-  const pastorId = 'UhIIfgCMP2TyIwybjJkRdqpGdzH2';
-  const cursoAcademicoId = 'NIaDSaiG7RPsIgWgjNj7'; 
+  const beaId = 'YvKPsLWNUDKhgip5Svex';
+  const cursoAcademicoId = 'NIaDSaiG7RPsIgWgjNj7'; // 2025-2026
   const cursoAcademicoLabel = '2025-2026';
 
   const groupMapping = {
-    's1b': { id: 'zLS6dPRowEZvpJQz6Lqh', nombre: 'SMR1B', estudioId: 'IRCwWmikBP6CKKipMQUl' }
+    's1a': { id: '0WpywoWJcxS07E39U9tg', nombre: 'SMR1A', estudioId: 'IRCwWmikBP6CKKipMQUl' },
+    's1b': { id: 'zLS6dPRowEZvpJQz6Lqh', nombre: 'SMR1B', estudioId: 'IRCwWmikBP6CKKipMQUl' },
+    'w2': { id: 'UmyCsrcSy5miFHzZuh83', nombre: 'DAW2', estudioId: '0JKS51nEBzvL05ZkEqdP' }
   };
 
   const subjectsMapping = {
-    'Montaje y mantenimiento de equipos': { sigla: 'MME', id: '18Hk4ZEKHKNvYzDqaCWx' }
+    'Redes locales': { sigla: 'RL', id: 'COZ2tYZqYcRSTq3esmsf' },
+    'Despliegue de aplicaciones web': { sigla: 'DESP', id: 'tzh7r5H15FoLFJnwNlqZ' }
   };
 
-  console.log('--- CLEANING PREVIOUS DATA FOR JESUS PASTOR ---');
-  const impSnap = await db.collection('ies_imparticiones').where('usuarioId', '==', pastorId).get();
+  console.log('--- CLEANING PREVIOUS DATA FOR BEA ---');
+  const impSnap = await db.collection('ies_imparticiones').where('usuarioId', '==', beaId).get();
   for (const doc of impSnap.docs) {
     const impId = doc.id;
     await db.collection('ies_imparticiones').doc(impId).delete();
@@ -56,7 +64,7 @@ async function migratePastor() {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
   const progXml = fs.readFileSync('legacy/programaciones/dat/programaciones.xml', 'utf-8');
   const progData = parser.parse(progXml);
-  const segXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Pse.xml', 'utf-8');
+  const segXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Bea.xml', 'utf-8');
   const segData = parser.parse(segXml);
 
   const trackingMap = {};
@@ -75,19 +83,19 @@ async function migratePastor() {
     for (const curso of cursos) {
       const asigs = Array.isArray(curso.asignatura) ? curso.asignatura : [curso.asignatura];
       for (const asig of asigs) {
-        if (asig.grupo && (asig.grupo.profe === 'Pse' || asig.grupo.nif === 'Pse')) {
+        if (asig.grupo && (asig.grupo.profe === 'Bea' || asig.grupo.nif === 'Bea')) {
           const groupInfo = groupMapping[asig.grupo.id];
           if (!groupInfo) continue;
           const subInfo = subjectsMapping[asig.nombre];
           if (!subInfo) continue;
 
           console.log(`Migrating ${asig.nombre} for ${groupInfo.nombre}...`);
-          const impId = `${cursoAcademicoLabel.replace('-', '')}_${groupInfo.nombre}_${subInfo.sigla}_JP`.replace(/\s+/g, '');
+          const impId = `${cursoAcademicoLabel.replace('-', '')}_${groupInfo.nombre}_${subInfo.sigla}_BEA`.replace(/\s+/g, '');
 
           await db.collection('ies_imparticiones').doc(impId).set({
             iesId,
-            usuarioId: pastorId,
-            profesorNombre: 'Jesús Pastor Fernández',
+            usuarioId: beaId,
+            profesorNombre: 'Beatriz',
             cursoAcademicoId,
             cursoAcademicoLabel,
             iesEstudioId: groupInfo.estudioId,
@@ -111,7 +119,7 @@ async function migratePastor() {
 
           await db.collection('profesor_horarios').doc(impId).set({
             imparticionId: impId,
-            usuarioId: pastorId,
+            usuarioId: beaId,
             patron: patron
           });
 
@@ -148,7 +156,7 @@ async function migratePastor() {
 
           await db.collection('profesor_programaciones').doc(impId).set({
             imparticionId: impId,
-            usuarioId: pastorId,
+            usuarioId: beaId,
             temas: temasFirestore,
             updatedAt: FieldValue.serverTimestamp()
           });
@@ -158,8 +166,8 @@ async function migratePastor() {
   }
 }
 
-migratePastor().then(() => {
-  console.log('--- JESUS PASTOR MIGRATION COMPLETED SUCCESSFULLY ---');
+migrateBea().then(() => {
+  console.log('--- BEA MIGRATION COMPLETED SUCCESSFULLY ---');
   process.exit(0);
 }).catch(err => {
   console.error('Migration failed:', err);
