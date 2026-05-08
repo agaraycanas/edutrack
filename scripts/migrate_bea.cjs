@@ -5,171 +5,140 @@ const { XMLParser } = require('fast-xml-parser');
 
 const serviceAccount = require('./serviceAccountKey.json');
 
-if (!serviceAccount) {
-    console.error('Service account key not found');
-    process.exit(1);
-}
-
 initializeApp({
   credential: cert(serviceAccount)
 });
 
 const db = getFirestore();
 
-function padDate(dateStr) {
-  if (!dateStr) return '';
-  if (dateStr.includes('-')) {
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      const y = parts[0];
-      const m = parts[1].padStart(2, '0');
-      const d = parts[2].padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
+const MAPPINGS = {
+  iesId: 'ies_rey_fernando',
+  cursoAcademicoId: 'NIaDSaiG7RPsIgWgjNj7',
+  profesorId: 'lDAyZWxvl0gIUjVrtjiWMo76iUD2',
+  grupos: {
+    'w2': 'UmyCsrcSy5miFHzZuh83',
+    's1a': '0WpywoWJcxS07E39U9tg',
+    's1b': 'zLS6dPRowEZvpJQz6Lqh'
+  },
+  asignaturas: {
+    'Despliegue de aplicaciones web': 'tzh7r5H15FoLFJnwNlqZ',
+    'Redes locales': 'COZ2tYZqYcRSTq3esmsf',
+    'Aplicaciones ofimáticas': 'ehoxP5n2Yj88JkUwlDts'
   }
-  return dateStr;
-}
+};
 
-async function migrateBea() {
-  const iesId = 'ies_rey_fernando';
-  const beaId = 'YvKPsLWNUDKhgip5Svex';
-  const cursoAcademicoId = 'NIaDSaiG7RPsIgWgjNj7'; // 2025-2026
-  const cursoAcademicoLabel = '2025-2026';
+async function migrate() {
+  console.log('Starting FIXED migration for Beatriz López Méndez (blopezmendez)...');
 
-  const groupMapping = {
-    's1a': { id: '0WpywoWJcxS07E39U9tg', nombre: 'SMR1A', estudioId: 'IRCwWmikBP6CKKipMQUl' },
-    's1b': { id: 'zLS6dPRowEZvpJQz6Lqh', nombre: 'SMR1B', estudioId: 'IRCwWmikBP6CKKipMQUl' },
-    'w2': { id: 'UmyCsrcSy5miFHzZuh83', nombre: 'DAW2', estudioId: '0JKS51nEBzvL05ZkEqdP' }
-  };
+  // 1. Cleanup
+  console.log('Cleaning up existing imparticiones and topics...');
+  const imparticionesRef = db.collection('ies_imparticiones');
+  const existingImparticiones = await imparticionesRef
+    .where('iesId', '==', MAPPINGS.iesId)
+    .where('cursoAcademicoId', '==', MAPPINGS.cursoAcademicoId)
+    .where('profesorId', '==', MAPPINGS.profesorId)
+    .get();
 
-  const subjectsMapping = {
-    'Redes locales': { sigla: 'RL', id: 'COZ2tYZqYcRSTq3esmsf' },
-    'Despliegue de aplicaciones web': { sigla: 'DESP', id: 'tzh7r5H15FoLFJnwNlqZ' }
-  };
+  const batch = db.batch();
+  existingImparticiones.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
+  console.log(`Deleted ${existingImparticiones.size} existing imparticiones.`);
 
-  console.log('--- CLEANING PREVIOUS DATA FOR BEA ---');
-  const impSnap = await db.collection('ies_imparticiones').where('usuarioId', '==', beaId).get();
-  for (const doc of impSnap.docs) {
-    const impId = doc.id;
-    await db.collection('ies_imparticiones').doc(impId).delete();
-    await db.collection('profesor_horarios').doc(impId).delete();
-    await db.collection('profesor_programaciones').doc(impId).delete();
-    const temasSnap = await db.collection('ies_programacion_temas').where('imparticionId', '==', impId).get();
-    for (const tDoc of temasSnap.docs) {
-      await db.collection('ies_programacion_temas').doc(tDoc.id).delete();
-    }
-  }
+  const topicsRef = db.collection('ies_programacion_temas');
+  const existingTopics = await topicsRef
+    .where('iesId', '==', MAPPINGS.iesId)
+    .where('cursoAcademicoId', '==', MAPPINGS.cursoAcademicoId)
+    .where('profesorId', '==', MAPPINGS.profesorId)
+    .get();
+  
+  const topicBatch = db.batch();
+  existingTopics.forEach(doc => topicBatch.delete(doc.ref));
+  await topicBatch.commit();
+  console.log(`Deleted ${existingTopics.size} existing topics.`);
 
-  console.log('--- PARSING XML DATA ---');
+  // 2. Parse programaciones.xml
+  console.log('Parsing legacy programaciones.xml...');
+  const xmlData = fs.readFileSync('legacy/programaciones/dat/programaciones.xml', 'utf8');
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
-  const progXml = fs.readFileSync('legacy/programaciones/dat/programaciones.xml', 'utf-8');
-  const progData = parser.parse(progXml);
-  const segXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Bea.xml', 'utf-8');
-  const segData = parser.parse(segXml);
+  const jsonObj = parser.parse(xmlData);
 
-  const trackingMap = {};
-  if (segData.seguimiento && segData.seguimiento.asignatura) {
-    const asigs = Array.isArray(segData.seguimiento.asignatura) ? segData.seguimiento.asignatura : [segData.seguimiento.asignatura];
-    asigs.forEach(a => {
-      const key = `${a.grupo}_${a.nombre}`;
-      trackingMap[key] = Array.isArray(a.tema) ? a.tema : [a.tema];
-    });
-  }
-
-  const depts = Array.isArray(progData.programacion.departamento) ? progData.programacion.departamento : [progData.programacion.departamento];
-
+  const depts = Array.isArray(jsonObj.programacion.departamento) ? jsonObj.programacion.departamento : [jsonObj.programacion.departamento];
+  
   for (const dept of depts) {
     const cursos = Array.isArray(dept.curso) ? dept.curso : [dept.curso];
     for (const curso of cursos) {
       const asigs = Array.isArray(curso.asignatura) ? curso.asignatura : [curso.asignatura];
       for (const asig of asigs) {
         if (asig.grupo && (asig.grupo.profe === 'Bea' || asig.grupo.nif === 'Bea')) {
-          const groupInfo = groupMapping[asig.grupo.id];
-          if (!groupInfo) continue;
-          const subInfo = subjectsMapping[asig.nombre];
-          if (!subInfo) continue;
+          const asignaturaId = MAPPINGS.asignaturas[asig.nombre];
+          const grupoId = MAPPINGS.grupos[asig.grupo.id];
 
-          console.log(`Migrating ${asig.nombre} for ${groupInfo.nombre}...`);
-          const impId = `${cursoAcademicoLabel.replace('-', '')}_${groupInfo.nombre}_${subInfo.sigla}_BEA`.replace(/\s+/g, '');
-
-          await db.collection('ies_imparticiones').doc(impId).set({
-            iesId,
-            usuarioId: beaId,
-            profesorNombre: 'Beatriz',
-            cursoAcademicoId,
-            cursoAcademicoLabel,
-            iesEstudioId: groupInfo.estudioId,
-            departamento: 'Informática y Comunicaciones',
-            asignaturaId: subInfo.id,
-            asignaturaNombre: asig.nombre,
-            asignaturaSigla: subInfo.sigla,
-            grupoId: groupInfo.id,
-            grupoNombre: groupInfo.nombre,
-            label: impId,
-            createdAt: FieldValue.serverTimestamp()
-          });
-
-          const patron = {
-            lunes: parseInt(asig.grupo.Mon || 0),
-            martes: parseInt(asig.grupo.Tue || 0),
-            miercoles: parseInt(asig.grupo.Wed || 0),
-            jueves: parseInt(asig.grupo.Thu || 0),
-            viernes: parseInt(asig.grupo.Fri || 0)
-          };
-
-          await db.collection('profesor_horarios').doc(impId).set({
-            imparticionId: impId,
-            usuarioId: beaId,
-            patron: patron
-          });
-
-          const segTemas = trackingMap[`${asig.grupo.id}_${asig.nombre}`] || [];
-          const temasFirestore = [];
-          if (asig.tema) {
-            const temasXml = Array.isArray(asig.tema) ? asig.tema : [asig.tema];
-            for (const t of temasXml) {
-              const segTema = segTemas.find(st => String(st.n) === String(t.n));
-              const temaData = {
-                imparticionId: impId,
-                n: parseInt(t.n),
-                titulo: t.titulo,
-                horas: parseInt(t.horas),
-                fechaInicio: segTema && segTema.fini ? padDate(segTema.fini) : null,
-                fechaFin: segTema && segTema.ffin ? padDate(segTema.ffin) : null,
-                observaciones: segTema && segTema.comentario ? segTema.comentario : '',
-                completado: !!(segTema && segTema.fini && segTema.ffin),
-                updatedAt: FieldValue.serverTimestamp()
-              };
-              const temaDocId = `${impId}_T${t.n}`;
-              await db.collection('ies_programacion_temas').doc(temaDocId).set(temaData);
-              temasFirestore.push({
-                id: parseInt(t.n),
-                nombre: temaData.titulo,
-                horasEstimadas: temaData.horas,
-                fechaInicio: temaData.fechaInicio,
-                fechaFin: temaData.fechaFin,
-                completado: temaData.completado,
-                observaciones: temaData.observaciones
-              });
-            }
+          if (asignaturaId && grupoId) {
+            console.log(`Adding imparticion: ${asig.nombre} for group ${asig.grupo.id}`);
+            await imparticionesRef.add({
+              iesId: MAPPINGS.iesId,
+              cursoAcademicoId: MAPPINGS.cursoAcademicoId,
+              profesorId: MAPPINGS.profesorId,
+              iesAsignaturaId: asignaturaId,
+              iesGrupoId: grupoId,
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp()
+            });
+          } else {
+            console.warn(`Missing mapping for Asignatura: ${asig.nombre} or Grupo: ${asig.grupo.id}`);
           }
+        }
+      }
+    }
+  }
 
-          await db.collection('profesor_programaciones').doc(impId).set({
-            imparticionId: impId,
-            usuarioId: beaId,
-            temas: temasFirestore,
+  // 3. Parse seguimiento-Bea.xml
+  console.log('Parsing legacy seguimiento-Bea.xml...');
+  const trackingXml = fs.readFileSync('legacy/programaciones/dat/seguimiento-Bea.xml', 'utf8');
+  const trackingObj = parser.parse(trackingXml);
+
+  if (trackingObj.seguimiento && trackingObj.seguimiento.asignatura) {
+    const asigs = Array.isArray(trackingObj.seguimiento.asignatura) ? trackingObj.seguimiento.asignatura : [trackingObj.seguimiento.asignatura];
+    
+    for (const asig of asigs) {
+      const asignaturaId = MAPPINGS.asignaturas[asig.nombre];
+      const grupoId = MAPPINGS.grupos[asig.grupo];
+
+      if (!asignaturaId || !grupoId) {
+        console.warn(`Skipping tracking for ${asig.nombre} / ${asig.grupo} due to missing mapping.`);
+        continue;
+      }
+
+      console.log(`Migrating tracking for ${asig.nombre} (${asig.grupo})...`);
+      const temas = Array.isArray(asig.tema) ? asig.tema : (asig.tema ? [asig.tema] : []);
+      
+      for (const tema of temas) {
+        if (tema.ffin) { // Using ffin from attributes
+          await topicsRef.add({
+            iesId: MAPPINGS.iesId,
+            cursoAcademicoId: MAPPINGS.cursoAcademicoId,
+            profesorId: MAPPINGS.profesorId,
+            iesAsignaturaId: asignaturaId,
+            iesGrupoId: grupoId,
+            nombre: `Tema ${tema.n}`,
+            numero: parseInt(tema.n),
+            fechaInicio: tema.fini || null,
+            fechaFin: tema.ffin,
+            comentario: tema.comentario || '',
+            completado: true,
+            createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp()
           });
         }
       }
     }
   }
+
+  console.log('Migration for Beatriz completed successfully.');
+  process.exit(0);
 }
 
-migrateBea().then(() => {
-  console.log('--- BEA MIGRATION COMPLETED SUCCESSFULLY ---');
-  process.exit(0);
-}).catch(err => {
+migrate().catch(err => {
   console.error('Migration failed:', err);
   process.exit(1);
 });
