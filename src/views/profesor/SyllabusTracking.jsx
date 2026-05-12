@@ -68,17 +68,23 @@ export default function SyllabusTracking() {
       );
       const snapTemas = await getDocs(qTemas);
       let temasData = snapTemas.docs
-        .map(d => ({
-          _docId: d.id,
-          id: d.data().n,
-          nombre: d.data().titulo || '',
-          horasEstimadas: d.data().horas ?? 0,
-          fechaInicio: d.data().fechaInicio || '',
-          fechaFin: d.data().fechaFin || '',
-          observaciones: d.data().observaciones || '',
-          updatedAt: d.data().updatedAt || null,
-        }))
-        .sort((a, b) => a.id - b.id);
+        .map(d => {
+          const data = d.data();
+          return {
+            _docId: d.id,
+            id: data.n,
+            nombre: data.titulo || data.nombre || '',
+            horasEstimadas: data.horas ?? 0,
+            fechaInicio: data.fechaInicio || '',
+            fechaFin: data.fechaFin || '',
+            observaciones: data.observaciones || '',
+            updatedAt: data.updatedAt || null,
+          };
+        })
+        // Filtrar temas que no tengan número (fantasmales)
+        .filter(t => t.id !== undefined && t.id !== null)
+        .sort((a, b) => Number(a.id) - Number(b.id));
+
       
       setTemas(temasData);
       setProgramacion({ source: 'ies_programacion_temas' });
@@ -122,12 +128,13 @@ export default function SyllabusTracking() {
     }
   };
 
-  const handleDateChange = (index, field, value) => {
-    if (!temas[index]) return;
-    const newTemas = [...temas];
-    newTemas[index] = { ...newTemas[index], [field]: value };
+  const handleDateChange = (docId, field, value) => {
+    const newTemas = temas.map(t => 
+      t._docId === docId ? { ...t, [field]: value } : t
+    );
     setTemas(newTemas);
   };
+
 
   const saveChanges = async () => {
     setIsProcessing(true);
@@ -239,11 +246,12 @@ export default function SyllabusTracking() {
                 <td colSpan="9" style={styles.emptyState}>No hay temas definidos.</td>
               </tr>
             ) : (
-              temas.map((tema, index) => {
+              temas.map((tema) => {
                 if (!tema) return null;
                 
                 // Use metrics from the library (DRY)
-                const temaMetrics = metrics.metricasPorTema?.find(m => m.id === tema.id) || {
+                const temaMetrics = metrics.metricasPorTema?.find(m => Number(m.id) === Number(tema.id)) || {
+
                   hReal: 0,
                   nSesiones: 0,
                   desviacion: null
@@ -259,7 +267,8 @@ export default function SyllabusTracking() {
                 }
 
                 return (
-                  <tr key={index} style={styles.tr}>
+                  <tr key={tema._docId} style={styles.tr}>
+
                     <td style={styles.td}>
                       <span style={{ fontWeight: 'bold', color: '#94a3b8' }}>{tema.id}</span>
                     </td>
@@ -281,7 +290,7 @@ export default function SyllabusTracking() {
                             maxWidth: '95px'
                           }}
                           value={tema.fechaInicio || ''}
-                          onChange={(e) => handleDateChange(index, 'fechaInicio', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId, 'fechaInicio', e.target.value)}
                         />
                       )}
                     </td>
@@ -300,7 +309,7 @@ export default function SyllabusTracking() {
                             maxWidth: '95px'
                           }}
                           value={tema.fechaFin || ''}
-                          onChange={(e) => handleDateChange(index, 'fechaFin', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId, 'fechaFin', e.target.value)}
                         />
                       )}
                     </td>
@@ -341,10 +350,11 @@ export default function SyllabusTracking() {
                             minWidth: '200px'
                           }}
                           value={tema.observaciones || ''}
-                          onChange={(e) => handleDateChange(index, 'observaciones', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId, 'observaciones', e.target.value)}
                         />
                       )}
                     </td>
+
                   </tr>
                 );
               })

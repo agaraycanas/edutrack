@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { calcularHorasReales, calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
+import { calcularHorasReales, normalizeDate } from '../../utils/timeCalculations';
+import { loadMetricsForAssignments } from '../../utils/metricsLoader';
+
 
 const formatShortName = (nombre, apellidos) => {
   const name = nombre || '';
@@ -110,8 +112,17 @@ export default function Home() {
         ]);
 
         const academicYears = academicYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        academicYears.sort((a, b) => (b.añoInicio || 0) - (a.añoInicio || 0));
+
+        // Find current academic year based on date
+        const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const currentYearDoc = academicYears.find(y => y.añoInicio === currentYearStart) || academicYears[0];
+        const currentYearId = currentYearDoc ? currentYearDoc.id : null;
+        const currentYearLabel = currentYearDoc ? currentYearDoc.nombre : null;
+
         const allFestivos = festivosSnap.docs.map(d => d.data());
         const allAusencias = ausenciasSnap.docs.map(d => d.data());
+
 
         // 2. Fetch Today Status for the logged-in user
         let newStatus = {
@@ -175,59 +186,20 @@ export default function Home() {
         const getMetricsForAssignments = async (assigns, usersList = []) => {
           if (assigns.length === 0) return [];
 
-          // Bulk fetch ALL temas for the IES
-          const temasSnap = await getDocs(query(collection(db, 'ies_programacion_temas'), where('iesId', '==', activeIesId)));
-          const temasMap = {};
-          temasSnap.docs.forEach(d => {
-            const data = d.data();
-            if (!temasMap[data.imparticionId]) temasMap[data.imparticionId] = [];
-            temasMap[data.imparticionId].push({
-              nombre: data.titulo || '',
-              horasEstimadas: data.horas ?? 0,
-              fechaInicio: data.fechaInicio || '',
-              fechaFin: data.fechaFin || '',
-              updatedAt: data.updatedAt || null,
-            });
-          });
+          const currentYear = academicYears[0]; // Assuming current year is first
+          const results = await loadMetricsForAssignments(activeIesId, assigns, currentYear);
 
-          // Fetch Schedules in batches of 30 if possible, or just parallelize getDoc for now
-          // Given center size, parallel getDoc is okay if we optimize everything else, 
-          // but batching is better.
-          const ids = assigns.map(a => a.id);
-          const schedulesMap = {};
-          
-          const batchSize = 30;
-          const schedulePromises = [];
-          for (let i = 0; i < ids.length; i += batchSize) {
-            const chunk = ids.slice(i, i + batchSize);
-            schedulePromises.push(
-              getDocs(query(collection(db, 'profesor_horarios'), where('imparticionId', 'in', chunk)))
-            );
-          }
-          const scheduleSnaps = await Promise.all(schedulePromises);
-          scheduleSnaps.forEach(snap => {
-            snap.docs.forEach(d => {
-              schedulesMap[d.data().imparticionId] = d.data();
-            });
-          });
-
-          return assigns.map(imp => {
-            const temas = temasMap[imp.id] || [];
-            const horario = schedulesMap[imp.id];
-            const ay = academicYears.find(y => y.id === imp.cursoAcademicoId || y.nombre === imp.cursoAcademicoLabel);
-            const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
-            const metrics = getImparticionMetrics(imp, temas, horario, ay, allFestivos, profAusencias);
-            
+          return results.map(imp => {
             const prof = usersList.find(u => u.id === imp.usuarioId);
             return { 
               ...imp, 
-              ...metrics, 
               profNombre: prof ? `${prof.nombre} ${prof.apellidos || ''}` : (imp.profesorNombre || 'Profesor'),
               profDisplayName: prof ? formatShortName(prof.nombre, prof.apellidos) : (imp.profesorNombre || 'Profesor'),
               profFoto: prof?.foto || prof?.avatar || imp.profFoto
             };
           });
         };
+
 
         if (activeRole === 'profesor') {
           const qI = query(collection(db, 'ies_imparticiones'), where('usuarioId', '==', user.uid), where('iesId', '==', activeIesId));
@@ -248,15 +220,31 @@ export default function Home() {
 
           if (myDept) {
             const allUsers = snapAllUsers.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Only count professors that have a role in this department in the current IES
             const deptProfs = allUsers.filter(u => u.roles?.some(r => r.iesId === activeIesId && r.departamento === myDept));
             dData.profesoresCount = deptProfs.length;
 
-            const qDeptI = query(collection(db, 'ies_imparticiones'), where('iesId', '==', activeIesId), where('departamento', '==', myDept));
-            const snapDeptI = await getDocs(qDeptI);
-            const assigns = snapDeptI.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Important: Filter imparticiones by current academic year
+            let qDeptI = query(
+
+              collection(db, 'ies_imparticiones'), 
+              where('iesId', '==', activeIesId), 
+              where('departamento', '==', myDept)
+            );
             
-            const uniqueGroups = new Set(assigns.map(a => a.grupoId || a.grupoNombre));
-            dData.gruposCount = uniqueGroups.size;
+            const snapDeptI = await getDocs(qDeptI);
+            let assigns = snapDeptI.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            // Filter by year ID (primary) or label (backup)
+            if (currentYearId) {
+              assigns = assigns.filter(a => a.cursoAcademicoId === currentYearId || a.cursoAcademicoLabel === currentYearLabel);
+            }
+
+            // Use grupoNombre to deduplicate, as group IDs might be inconsistent or duplicated across years/migrations
+            const uniqueGroupNames = new Set(assigns.map(a => a.grupoNombre).filter(name => !!name));
+            dData.gruposCount = uniqueGroupNames.size;
+
+
             
             const results = await getMetricsForAssignments(assigns, deptProfs);
             dData.imparticiones = sortImparticiones(results);
@@ -264,24 +252,19 @@ export default function Home() {
         }
 
         if (activeRole === 'jefe_estudios' || activeRole === 'superadmin') {
-          const [deptsSnap, studiesSnap, subjectsSnap, groupsSnap, academicYearsSnap, festivosSnap] = await Promise.all([
+          const [deptsSnap, studiesSnap, subjectsSnap, groupsSnap, festivosSnap] = await Promise.all([
             getDocs(query(collection(db, 'departamentos'), where('iesId', '==', activeIesId))),
             getDocs(query(collection(db, 'ies_estudios'), where('iesId', '==', activeIesId))),
             getDocs(query(collection(db, 'ies_asignaturas'), where('iesId', '==', activeIesId))),
             getDocs(query(collection(db, 'ies_grupos'), where('iesId', '==', activeIesId))),
-            getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId))),
             getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId)))
           ]);
 
-          // Calculate current academic year boundaries for filtering
-          const now = new Date();
-          const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+          // Calculate current academic year boundaries for festivos
           const startDateStr = `${currentYearStart}-09-01`;
           const endDateStr = `${currentYearStart + 1}-08-31`;
 
-          // Find current academic year document ID
-          const currentYearDoc = academicYearsSnap.docs.find(d => d.data().añoInicio === currentYearStart);
-          const currentYearId = currentYearDoc ? currentYearDoc.id : null;
+
 
           // Refine Festivos count: Deduplicate and filter by current academic year
           const uniqueFestivos = new Set();
@@ -303,7 +286,8 @@ export default function Home() {
           dData.estudiosCount = studiesSnap.size;
           dData.asignaturasCount = subjectsSnap.size;
           dData.gruposCount = currentYearGroups.length;
-          dData.academicYearsCount = academicYearsSnap.size;
+          dData.academicYearsCount = academicYears.length;
+
           dData.festivosCount = uniqueFestivos.size;
           
           if (activeRole === 'superadmin') {

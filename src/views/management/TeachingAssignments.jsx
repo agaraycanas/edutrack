@@ -16,6 +16,10 @@ import {
   setDoc
 } from 'firebase/firestore';
 import Modal from '../../components/common/Modal';
+import { normalizeDate } from '../../utils/timeCalculations';
+import { loadMetricsForAssignments } from '../../utils/metricsLoader';
+
+
 
 
 const getFirstSurname = (apellidos) => {
@@ -91,11 +95,12 @@ export default function TeachingAssignments() {
   }, [activeIesId, activeRole]);
 
   useEffect(() => {
-    if (activeIesId && userDept && filterYear) {
+    if (activeIesId && userDept && filterYear && academicYears.length > 0) {
       fetchAssignments();
       fetchLockState();
     }
-  }, [filterYear, userDept, activeIesId]);
+  }, [filterYear, userDept, activeIesId, academicYears.length]);
+
 
   useEffect(() => {
     localStorage.setItem('teachingFilterYear', filterYear);
@@ -215,8 +220,8 @@ export default function TeachingAssignments() {
   };
 
   const fetchAssignments = async () => {
-    if (!activeIesId || !filterYear || !userDept) return;
-    setAssignments([]); // Clear to avoid showing stale data during fetch
+    if (!activeIesId || !filterYear || !userDept || academicYears.length === 0) return;
+    setAssignments([]); 
     try {
       const q = query(
         collection(db, 'ies_imparticiones'),
@@ -226,11 +231,18 @@ export default function TeachingAssignments() {
       );
 
       const snap = await getDocs(q);
-      setAssignments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const rawAssigns = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const ay = academicYears.find(y => y.id === filterYear);
+      const assignmentsWithMetrics = await loadMetricsForAssignments(activeIesId, rawAssigns, ay);
+
+      setAssignments(assignmentsWithMetrics);
     } catch (error) {
       console.error("Error fetching assignments:", error);
     }
   };
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -462,12 +474,13 @@ export default function TeachingAssignments() {
       return true;
     })
     .sort((a, b) => {
-      // Sort by group name first (e.g. DAW1D, DAW2D)
+      // Sort by group name first (e.g. DAW2D)
       const groupCompare = (a.grupoNombre || '').localeCompare(b.grupoNombre || '');
       if (groupCompare !== 0) return groupCompare;
-      // Then by subject initials (e.g. LM, PROG)
-      return (a.asignaturaSigla || '').localeCompare(b.asignaturaSigla || '');
+      // Then by subject name (alphabetical)
+      return (a.asignaturaNombre || '').localeCompare(b.asignaturaNombre || '');
     });
+
 
   if (loading) return <div style={styles.loading}>Cargando panel de imparticiones...</div>;
 
@@ -591,15 +604,17 @@ export default function TeachingAssignments() {
           <div style={styles.emptyState}>No hay imparticiones que coincidan con la búsqueda.</div>
         ) : (
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh', width: '100%' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: '450px', tableLayout: 'fixed' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: '650px', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '35%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig.</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '25%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grupo</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '25%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '30%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '20%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig./Grupo</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desviación</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>F. Últ. Act.</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '20%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredAssignments.map(a => (
                   <tr key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
@@ -620,36 +635,25 @@ export default function TeachingAssignments() {
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'left', overflow: 'hidden' }}>
-                      <span 
-                        className="badge badge-accent" 
-                        style={{ 
-                          background: 'rgba(255,255,255,0.05)', 
-                          color: 'var(--active-role-color)', 
-                          cursor: 'help', 
-                          fontSize: '0.7rem', 
-                          padding: '0.2rem 0.5rem',
-                          display: 'inline-block',
-                          maxWidth: '100%',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                        title={a.asignaturaNombre}
-                      >
-                        {a.asignaturaSigla}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{a.asignaturaSigla}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{a.grupoNombre}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                      <span style={{ 
+                        padding: '0.3rem 0.6rem', 
+                        borderRadius: '6px', 
+                        fontSize: '0.85rem',
+                        fontWeight: '800',
+                        background: a.desviacion > 0 ? 'rgba(239, 68, 68, 0.15)' : (a.desviacion < 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'),
+                        color: a.desviacion > 0 ? '#ff6b6b' : (a.desviacion < 0 ? '#34d399' : 'var(--text-secondary)')
+                      }}>
+                        {a.desviacion > 0 ? `+${a.desviacion}h` : `${a.desviacion}h`}
                       </span>
                     </td>
-                    <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
-                      <div style={{ 
-                        fontWeight: '600', 
-                        fontSize: '0.85rem', 
-                        color: '#94a3b8', 
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis' 
-                      }} title={a.grupoNombre}>
-                        {a.grupoNombre}
-                      </div>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      {a.lastUpdate ? a.lastUpdate.toLocaleDateString() : 'Nunca'}
                     </td>
                     <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>
@@ -681,6 +685,7 @@ export default function TeachingAssignments() {
                   </tr>
                 ))}
               </tbody>
+
             </table>
           </div>
         )}
