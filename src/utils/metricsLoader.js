@@ -38,6 +38,7 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
         horasEstimadas: data.horas ?? 0,
         fechaInicio: data.fechaInicio || '',
         fechaFin: data.fechaFin || '',
+        observaciones: data.observaciones || '',
         updatedAt: data.updatedAt || null
       });
     });
@@ -84,7 +85,8 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
       
       return { 
         ...imp, 
-        ...metrics 
+        ...metrics,
+        temas
       };
     });
   } catch (error) {

@@ -15,6 +15,7 @@ import Schedules from '../views/profesor/Schedules'
 import Syllabuses from '../views/profesor/Syllabuses'
 import SyllabusTracking from '../views/profesor/SyllabusTracking'
 import Absences from '../views/profesor/Absences'
+import GenerateSummary from '../views/management/GenerateSummary'
 import DashboardLayout from '../layouts/DashboardLayout'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 
@@ -39,6 +40,7 @@ export function GlobalRouter() {
           <Route path="/groups" element={<Groups />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/teaching-assignments" element={<TeachingAssignments />} />
+          <Route path="/management/resumen" element={<GenerateSummary />} />
           <Route path="/holidays" element={<Holidays />} />
           
           {/* Profesor Routes */}
