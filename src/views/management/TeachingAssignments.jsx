@@ -617,7 +617,11 @@ export default function TeachingAssignments() {
 
               <tbody>
                 {filteredAssignments.map(a => (
-                  <tr key={a.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <tr 
+                    key={a.id} 
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
+                    onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
+                  >
                     <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
                       <div style={{ ...styles.profInfoCell, width: '100%' }}>
                         {professors.find(p => p.id === a.usuarioId)?.foto ? (
@@ -658,7 +662,10 @@ export default function TeachingAssignments() {
                     <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>
                         <button 
-                          onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`);
+                          }}
                           className="btn-secondary"
                           style={{ padding: '0.4rem', minWidth: 'auto' }}
                           title="Ver seguimiento"
@@ -670,7 +677,10 @@ export default function TeachingAssignments() {
                           </svg>
                         </button>
                         <button 
-                          onClick={() => setDeleteConfirm({ isOpen: true, assignment: a })} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ isOpen: true, assignment: a });
+                          }} 
                           className="btn-delete"
                           style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
                           title="Eliminar"
