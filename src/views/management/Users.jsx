@@ -37,6 +37,7 @@ export default function Users() {
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   
   const [deptModal, setDeptModal] = useState({ isOpen: false, user: null, newDept: '' });
+  const [emailModal, setEmailModal] = useState({ isOpen: false, user: null, newEmail: '' });
   const [filterRole, setFilterRole] = useState('all');
   const [filterText, setFilterText] = useState('');
   
@@ -75,6 +76,20 @@ export default function Users() {
         const querySnapshot = await getDocs(q);
         const allUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
+        // Auto-normalización de correos de prueba @example.com a @educa.madrid.org
+        for (const u of allUsers) {
+          if (u.email && u.email.endsWith('@example.com')) {
+            const fixedEmail = u.email.replace('@example.com', '@educa.madrid.org');
+            try {
+              await updateDoc(doc(db, 'usuarios', u.id), { email: fixedEmail });
+              u.email = fixedEmail;
+              console.log(`Email normalizado en Firestore: ${u.nombre} -> ${fixedEmail}`);
+            } catch (err) {
+              console.warn("No se pudo auto-actualizar email en Firestore:", err);
+            }
+          }
+        }
+
         const filtered = allUsers.filter(u => {
           if (activeRole === 'superadmin') return true;
           if (u.email === currentUser?.email) return true;
@@ -172,13 +187,6 @@ export default function Users() {
     }
   };
 
-  const checkUserActivity = async (userId, dept) => {
-    // TODO: Implementar cuando existan las colecciones de grupos, horarios, faltas, etc.
-    // De momento devolvemos false para permitir el cambio, pero dejamos el aviso.
-    console.log(`Checking activity for ${userId} in ${dept}`);
-    return false; 
-  };
-
   const handleDeptEditRequest = async (user) => {
     const userDept = user.roles?.find(r => r.iesId === activeIesId)?.departamento || '';
     setDeptModal({ isOpen: true, user, newDept: userDept });
@@ -204,6 +212,26 @@ export default function Users() {
     } catch (error) {
       console.error("Error updating department:", error);
       setModal({ isOpen: true, title: 'Error', message: 'No se pudo actualizar el departamento.' });
+    }
+  };
+
+  const handleEmailEditRequest = (user) => {
+    setEmailModal({ isOpen: true, user, newEmail: user.email || '' });
+  };
+
+  const executeEmailChange = async () => {
+    const { user, newEmail } = emailModal;
+    if (!user || !newEmail.trim()) return;
+
+    try {
+      const userRef = doc(db, 'usuarios', user.id);
+      await updateDoc(userRef, { email: newEmail.trim() });
+      setUsers(users.map(u => u.id === user.id ? { ...u, email: newEmail.trim() } : u));
+      setEmailModal({ isOpen: false, user: null, newEmail: '' });
+      setModal({ isOpen: true, title: 'Éxito', message: 'Correo electrónico actualizado correctamente.' });
+    } catch (error) {
+      console.error("Error updating email:", error);
+      setModal({ isOpen: true, title: 'Error', message: 'No se pudo actualizar el correo electrónico.' });
     }
   };
 
@@ -328,6 +356,7 @@ export default function Users() {
             {sortedUsers.map(user => {
               const userDept = user.roles?.find(r => r.iesId === activeIesId)?.departamento || '';
               const canEditDept = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
+              const canEditEmail = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
               const isMe = user.email === currentUser?.email;
               
               return (
@@ -348,16 +377,30 @@ export default function Users() {
                   <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
                     {user.apellidos}, {user.nombre} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
                   </td>
-                  <td style={{ ...styles.td, color: 'var(--text-secondary)', fontSize: '0.85rem' }} title={user.email}>
-                    {user.email?.includes('@educa.madrid.org') ? (
-                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                        {user.email.split('@')[0]}
+                  <td style={styles.td}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }} title={user.email}>
+                        {user.email?.includes('@educa.madrid.org') ? (
+                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                            {user.email.split('@')[0]}
+                          </span>
+                        ) : (
+                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                            {user.email}
+                          </span>
+                        )}
                       </span>
-                    ) : (
-                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                        {user.email}
-                      </span>
-                    )}
+                      {canEditEmail && (
+                        <button 
+                          onClick={() => handleEmailEditRequest(user)} 
+                          className="btn-icon" 
+                          title="Editar Email"
+                          style={{ borderRadius: '8px' }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td style={styles.td}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
@@ -408,6 +451,50 @@ export default function Users() {
         title={modal.title}
       >
         {typeof modal.message === 'string' ? <p>{modal.message}</p> : modal.message}
+      </Modal>
+
+      {/* Modal de Cambio de Email */}
+      <Modal
+        isOpen={emailModal.isOpen}
+        onClose={() => setEmailModal({ isOpen: false, user: null, newEmail: '' })}
+        title="Modificar Correo Electrónico"
+        footer={
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              className="btn-primary" 
+              style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+              onClick={() => setEmailModal({ isOpen: false, user: null, newEmail: '' })}
+            >
+              Cancelar
+            </button>
+            <button 
+              className="btn-primary" 
+              style={{ background: 'var(--accent-primary)' }}
+              onClick={executeEmailChange}
+            >
+              Guardar Email
+            </button>
+          </div>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div>
+            <p style={{ marginBottom: '1rem', fontWeight: '600' }}>
+              Usuario: <span style={{ color: 'var(--accent-primary)' }}>{emailModal.user?.nombre} {emailModal.user?.apellidos}</span>
+            </p>
+            
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Correo electrónico:
+            </label>
+            <input 
+              type="email"
+              className="input-field"
+              value={emailModal.newEmail}
+              onChange={(e) => setEmailModal({ ...emailModal, newEmail: e.target.value })}
+              placeholder="ejemplo@educa.madrid.org"
+            />
+          </div>
+        </div>
       </Modal>
 
       {/* Modal de Cambio de Departamento */}

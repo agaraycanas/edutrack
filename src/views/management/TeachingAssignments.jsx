@@ -52,6 +52,8 @@ export default function TeachingAssignments() {
   const [subjects, setSubjects] = useState([]);
   const [groups, setGroups] = useState([]);
   const [professors, setProfessors] = useState([]);
+  const [profSearch, setProfSearch] = useState('');
+  const [assignedSubjectIds, setAssignedSubjectIds] = useState([]);
 
   // Filters (initialized from localStorage if available)
   const [filterYear, setFilterYear] = useState(() => {
@@ -108,15 +110,43 @@ export default function TeachingAssignments() {
     localStorage.setItem('teachingSearchTerm', searchTerm);
   }, [filterYear, filterStudy, searchTerm]);
 
-  // When study changes in form, fetch relevant subjects and groups
+  // When study or academic year changes in form, fetch relevant subjects and groups
   useEffect(() => {
-    if (formData.iesEstudioId) {
-      fetchSubjectsAndGroups(formData.iesEstudioId);
+    if (formData.iesEstudioId && formData.cursoAcademicoId) {
+      fetchSubjectsAndGroups(formData.iesEstudioId, formData.cursoAcademicoId);
+    } else if (formData.iesEstudioId) {
+      fetchSubjectsAndGroups(formData.iesEstudioId, null);
+      setGroups([]);
     } else {
       setSubjects([]);
       setGroups([]);
     }
-  }, [formData.iesEstudioId]);
+  }, [formData.iesEstudioId, formData.cursoAcademicoId]);
+
+  // When group or academic year changes in form, fetch which subjects are already assigned
+  useEffect(() => {
+    const fetchAssignedForGroup = async () => {
+      if (!formData.grupoId || !formData.cursoAcademicoId || !activeIesId) {
+        setAssignedSubjectIds([]);
+        return;
+      }
+      try {
+        const qAssigned = query(
+          collection(db, 'ies_imparticiones'),
+          where('iesId', '==', activeIesId),
+          where('cursoAcademicoId', '==', formData.cursoAcademicoId),
+          where('grupoId', '==', formData.grupoId)
+        );
+        const snap = await getDocs(qAssigned);
+        const ids = snap.docs.map(d => d.data().asignaturaId).filter(Boolean);
+        setAssignedSubjectIds(ids);
+      } catch (err) {
+        console.error("Error fetching assigned subjects for group:", err);
+      }
+    };
+
+    fetchAssignedForGroup();
+  }, [formData.grupoId, formData.cursoAcademicoId, activeIesId]);
 
   const fetchInitialData = async () => {
     if (!activeIesId) return;
@@ -154,6 +184,15 @@ export default function TeachingAssignments() {
       const snapProfs = await getDocs(qProfs);
       const profsData = snapProfs.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(u => u.roles?.some(r => r.rol === 'profesor' && r.iesId === activeIesId && r.departamento === myDept));
+      
+      // Ordenar alfabéticamente por Apellidos y luego Nombre (con soporte de acentos en español)
+      profsData.sort((a, b) => {
+        const apA = (a.apellidos || '').toLowerCase().trim();
+        const apB = (b.apellidos || '').toLowerCase().trim();
+        if (apA !== apB) return apA.localeCompare(apB, 'es', { sensitivity: 'base' });
+        return (a.nombre || '').toLowerCase().trim().localeCompare((b.nombre || '').toLowerCase().trim(), 'es', { sensitivity: 'base' });
+      });
+
       setProfessors(profsData);
 
     } catch (error) {
@@ -203,17 +242,25 @@ export default function TeachingAssignments() {
     }
   };
 
-  const fetchSubjectsAndGroups = async (studyId) => {
+  const fetchSubjectsAndGroups = async (studyId, yearId = formData.cursoAcademicoId) => {
     try {
       // Fetch Subjects for this study
       const qSub = query(collection(db, 'ies_asignaturas'), where('iesEstudioId', '==', studyId));
       const snapSub = await getDocs(qSub);
       setSubjects(snapSub.docs.map(d => ({ id: d.id, ...d.data() })));
 
-      // Fetch Groups for this study
-      const qGrp = query(collection(db, 'ies_grupos'), where('iesEstudioId', '==', studyId));
-      const snapGrp = await getDocs(qGrp);
-      setGroups(snapGrp.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Fetch Groups strictly for this study AND this specific academic year
+      if (yearId) {
+        const qGrp = query(
+          collection(db, 'ies_grupos'),
+          where('iesEstudioId', '==', studyId),
+          where('cursoAcademicoId', '==', yearId)
+        );
+        const snapGrp = await getDocs(qGrp);
+        setGroups(snapGrp.docs.map(d => ({ id: d.id, ...d.data() })));
+      } else {
+        setGroups([]);
+      }
     } catch (error) {
       console.error("Error fetching subjects/groups for study:", error);
     }
@@ -433,6 +480,32 @@ export default function TeachingAssignments() {
     }
   }, [studies, filterStudy]);
 
+  const filteredProfessors = professors.filter(p => {
+    if (!profSearch.trim()) return true;
+    const term = profSearch.toLowerCase().trim();
+    const fullName = `${p.apellidos || ''} ${p.nombre || ''}`.toLowerCase();
+    const invName = `${p.nombre || ''} ${p.apellidos || ''}`.toLowerCase();
+    return fullName.includes(term) || invName.includes(term);
+  });
+
+  const availableSubjects = subjects
+    .filter(s => {
+      // 1. Same department (case-insensitive)
+      const sDept = s.departamento?.toLowerCase().trim();
+      const uDept = userDept?.toLowerCase().trim();
+      if (sDept !== uDept) return false;
+      
+      // 2. Same course/level as group
+      const selectedGroup = groups.find(g => g.id === formData.grupoId);
+      if (!selectedGroup || Number(s.curso) !== Number(selectedGroup.curso)) return false;
+
+      // 3. Exclude already assigned subjects in this group & academic year
+      if (assignedSubjectIds.includes(s.id)) return false;
+
+      return true;
+    })
+    .sort((a, b) => (a.sigla || '').localeCompare(b.sigla || ''));
+
   const filteredAssignments = assignments
     .filter(a => {
       // 1. Titulación (Study) Filter
@@ -514,13 +587,19 @@ export default function TeachingAssignments() {
             </div>
 
             <button className="btn-primary" onClick={() => {
+              const defaultYear = filterYear || academicYears[0]?.id || '';
+              const defaultStudy = (filterStudy && filterStudy !== 'all') ? filterStudy : '';
+              setProfSearch('');
               setFormData({
-                cursoAcademicoId: filterYear,
-                iesEstudioId: filterStudy,
+                cursoAcademicoId: defaultYear,
+                iesEstudioId: defaultStudy,
                 asignaturaId: '',
                 grupoId: '',
                 usuarioId: ''
               });
+              if (defaultStudy && defaultYear) {
+                fetchSubjectsAndGroups(defaultStudy, defaultYear);
+              }
               setIsFormOpen(true);
             }} style={styles.newButton}>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -730,8 +809,14 @@ export default function TeachingAssignments() {
               <select 
                 className="input-field" 
                 value={formData.cursoAcademicoId} 
-                onChange={e => setFormData({...formData, cursoAcademicoId: e.target.value})}
+                onChange={e => setFormData({
+                  ...formData, 
+                  cursoAcademicoId: e.target.value,
+                  grupoId: '',
+                  asignaturaId: ''
+                })}
               >
+                <option value="">Selecciona curso académico...</option>
                 {academicYears.map(y => <option key={y.id} value={y.id}>{y.nombre}</option>)}
               </select>
             </div>
@@ -747,14 +832,62 @@ export default function TeachingAssignments() {
               </select>
             </div>
             <div className="form-group">
-              <label>Profesor (Departamento)</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ margin: 0 }}>Profesor (Departamento)</label>
+                {professors.length > 5 && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {filteredProfessors.length} de {professors.length}
+                  </span>
+                )}
+              </div>
+
+              {professors.length > 5 && (
+                <div style={{ position: 'relative', marginBottom: '6px' }}>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Buscar profesor por nombre o apellidos..."
+                    value={profSearch}
+                    onChange={e => setProfSearch(e.target.value)}
+                    style={{ fontSize: '0.85rem', padding: '6px 28px 6px 10px', height: '34px' }}
+                  />
+                  {profSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setProfSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-secondary)',
+                        fontSize: '1.1rem',
+                        cursor: 'pointer',
+                        padding: 0,
+                        lineHeight: 1
+                      }}
+                      title="Limpiar búsqueda"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )}
+
               <select 
                 className="input-field" 
                 value={formData.usuarioId} 
                 onChange={e => setFormData({...formData, usuarioId: e.target.value})}
+                required
               >
                 <option value="">Selecciona profesor...</option>
-                {professors.map(p => <option key={p.id} value={p.id}>{p.nombre} {p.apellidos}</option>)}
+                {filteredProfessors.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.apellidos ? `${p.apellidos}, ${p.nombre}` : p.nombre}
+                  </option>
+                ))}
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -764,9 +897,17 @@ export default function TeachingAssignments() {
                   className="input-field" 
                   value={formData.grupoId} 
                   onChange={e => setFormData({...formData, grupoId: e.target.value, asignaturaId: ''})}
-                  disabled={!formData.iesEstudioId}
+                  disabled={!formData.iesEstudioId || !formData.cursoAcademicoId || groups.length === 0}
                 >
-                  <option value="">Grupo...</option>
+                  <option value="">
+                    {!formData.cursoAcademicoId 
+                      ? "Selecciona curso académico..." 
+                      : !formData.iesEstudioId 
+                        ? "Selecciona titulación..." 
+                        : groups.length === 0 
+                          ? "Sin grupos creados para este año" 
+                          : "Grupo..."}
+                  </option>
                   {groups.map(g => <option key={g.id} value={g.id}>{g.nombre}</option>)}
                 </select>
               </div>
@@ -776,21 +917,21 @@ export default function TeachingAssignments() {
                   className="input-field" 
                   value={formData.asignaturaId} 
                   onChange={e => setFormData({...formData, asignaturaId: e.target.value})}
-                  disabled={!formData.grupoId}
+                  disabled={!formData.grupoId || availableSubjects.length === 0}
+                  required
                 >
-                  <option value="">Asignatura...</option>
-                  {subjects
-                    .filter(s => {
-                      // 1. Same department (case-insensitive)
-                      const sDept = s.departamento?.toLowerCase().trim();
-                      const uDept = userDept?.toLowerCase().trim();
-                      if (sDept !== uDept) return false;
-                      
-                      // 2. Same course/level as group
-                      const selectedGroup = groups.find(g => g.id === formData.grupoId);
-                      return selectedGroup && Number(s.curso) === Number(selectedGroup.curso);
-                    })
-                    .map(s => <option key={s.id} value={s.id}>{s.sigla} - {s.nombre}</option>)}
+                  <option value="">
+                    {!formData.grupoId 
+                      ? "Selecciona grupo..." 
+                      : availableSubjects.length === 0 
+                        ? "Todas las asignaturas ya asignadas" 
+                        : "Selecciona asignatura..."}
+                  </option>
+                  {availableSubjects.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.sigla} - {s.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
