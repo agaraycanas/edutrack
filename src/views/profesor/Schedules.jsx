@@ -8,6 +8,8 @@ export default function Schedules() {
   const [assignments, setAssignments] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [programaciones, setProgramaciones] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [selectedYear, setSelectedYear] = useState('');
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -45,9 +47,9 @@ export default function Schedules() {
       // Order by Academic Year (descending), then Subject Name
       assignmentsData.sort((a, b) => {
         if (a.cursoAcademicoLabel !== b.cursoAcademicoLabel) {
-          return b.cursoAcademicoLabel.localeCompare(a.cursoAcademicoLabel);
+          return (b.cursoAcademicoLabel || '').localeCompare(a.cursoAcademicoLabel || '');
         }
-        return a.asignaturaNombre.localeCompare(b.asignaturaNombre);
+        return (a.asignaturaNombre || '').localeCompare(b.asignaturaNombre || '');
       });
       setAssignments(assignmentsData);
 
@@ -68,6 +70,24 @@ export default function Schedules() {
       );
       const snapProg = await getDocs(qProg);
       setProgramaciones(snapProg.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      // 4. Fetch Academic Years
+      const qYears = query(
+        collection(db, 'cursos_academicos'),
+        where('iesId', '==', activeIesId)
+      );
+      const snapYears = await getDocs(qYears);
+      const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
+      yearsData.sort((a, b) => (b.añoInicio || 0) - (a.añoInicio || 0));
+      setAcademicYears(yearsData);
+
+      // Determine current academic year
+      const now = new Date();
+      const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentYearDoc = yearsData.find(y => y.añoInicio === currentYearStart) || yearsData[0];
+      if (currentYearDoc) {
+        setSelectedYear(prev => (!prev || prev === 'all' ? currentYearDoc.nombre : prev));
+      }
 
     } catch (error) {
       console.error("Error fetching schedules data:", error);
@@ -135,10 +155,20 @@ export default function Schedules() {
     setIsFormOpen(true);
   };
 
-  const unassignedAssignments = assignments.filter(a => !schedules.some(s => s.imparticionId === a.id));
+  const uniqueYears = [...new Set([
+    ...academicYears.map(y => y.nombre).filter(Boolean),
+    ...assignments.map(a => a.cursoAcademicoLabel).filter(Boolean)
+  ])].sort().reverse();
+
+  const filteredAssignments = assignments.filter(a => {
+    if (selectedYear && selectedYear !== 'all' && a.cursoAcademicoLabel !== selectedYear) return false;
+    return true;
+  });
+
+  const unassignedAssignments = filteredAssignments.filter(a => !schedules.some(s => s.imparticionId === a.id));
 
   // Merge assignments with their schedules for display
-  const displayRows = assignments.filter(a => schedules.some(s => s.imparticionId === a.id)).map(a => {
+  const displayRows = filteredAssignments.filter(a => schedules.some(s => s.imparticionId === a.id)).map(a => {
     const s = schedules.find(sch => sch.imparticionId === a.id);
     return { ...a, schedule: s };
   });
@@ -149,14 +179,30 @@ export default function Schedules() {
     <div className="animate-fade-in" style={styles.container}>
       <header style={styles.header}>
         <div style={styles.headerContent}>
-          <div>
-            <h1 style={styles.title}>Mis Horarios</h1>
-            <p style={styles.subtitle}>Carga lectiva semanal por asignatura</p>
+          <div style={styles.titleSection}>
+            <div>
+              <h1 style={styles.title}>Mis Horarios</h1>
+              <p style={styles.subtitle}>Carga lectiva semanal por asignatura</p>
+            </div>
+            <button className="btn-primary" onClick={openNewScheduleForm} style={styles.newButton}>
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Crear nuevo horario
+            </button>
           </div>
-          <button className="btn-primary" onClick={openNewScheduleForm} style={styles.newButton}>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '8px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Crear nuevo horario
-          </button>
+
+          <div style={styles.filterBar}>
+             <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>Filtrar por Año</label>
+                <select 
+                  style={styles.filterSelect}
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(e.target.value)}
+                >
+                  <option value="all">Todos los años</option>
+                  {uniqueYears.map(year => <option key={year} value={year}>{year}</option>)}
+                </select>
+             </div>
+          </div>
         </div>
       </header>
 
@@ -285,17 +331,22 @@ export default function Schedules() {
 }
 
 const styles = {
-  container: { padding: '2rem', maxWidth: '1200px', margin: '0 auto' },
-  header: { marginBottom: '2.5rem' },
-  headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  subtitle: { color: '#94a3b8', fontSize: '1.1rem' },
-  newButton: { padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '12px' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  th: { padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  container: { padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' },
+  header: { marginBottom: '1.5rem' },
+  headerContent: { display: 'flex', flexDirection: 'column', gap: '1rem' },
+  titleSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontSize: '1.5rem', fontWeight: '800', margin: 0, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  subtitle: { color: '#94a3b8', fontSize: '0.95rem', marginTop: '0.25rem' },
+  newButton: { padding: '0.6rem 1.2rem', display: 'flex', alignItems: 'center', fontWeight: '600', borderRadius: '10px' },
+  filterBar: { background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' },
+  filterGroup: { display: 'flex', alignItems: 'center', gap: '1rem' },
+  filterLabel: { fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' },
+  filterSelect: { background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '0.35rem 0.75rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' },
+  th: { padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' },
   tr: { borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' },
-  td: { padding: '1rem', verticalAlign: 'middle', color: '#e2e8f0' },
+  td: { padding: '0.85rem 1rem', verticalAlign: 'middle', color: '#e2e8f0' },
   badge: { padding: '0.25rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace' },
   emptyState: { padding: '3rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' },
-  loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8', fontSize: '1.2rem' }
+  loading: { padding: '4rem', textAlign: 'center', color: '#94a3b8' }
 };
