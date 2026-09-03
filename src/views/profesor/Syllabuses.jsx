@@ -12,7 +12,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { calcularHorasReales } from '../../utils/timeCalculations';
-import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown } from 'lucide-react';
+import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown, Copy } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 
 export default function Syllabuses() {
@@ -32,6 +32,12 @@ export default function Syllabuses() {
   const [tempTemas, setTempTemas] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '' });
+
+  // Copy previous programming state
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [copySources, setCopySources] = useState([]);
+  const [selectedSourceIdx, setSelectedSourceIdx] = useState(0);
+  const [loadingCopySources, setLoadingCopySources] = useState(false);
 
   const activeIesId = localStorage.getItem('activeIesId');
   const uid = auth.currentUser?.uid;
@@ -317,6 +323,101 @@ export default function Syllabuses() {
     }
   };
 
+  const fetchCopySources = async (subjectSigla, currentAssignmentId) => {
+    if (!activeIesId || !subjectSigla) return [];
+    
+    // 1. Query all imparticiones for this center with the same subject sigla
+    const q = query(
+      collection(db, 'ies_imparticiones'),
+      where('iesId', '==', activeIesId),
+      where('asignaturaSigla', '==', subjectSigla)
+    );
+    const snap = await getDocs(q);
+    const assigns = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const assignsMap = {};
+    assigns.forEach(a => { assignsMap[a.id] = a; });
+
+    const sources = [];
+    const seenIds = new Set();
+
+    // A. Match from imparticiones
+    for (const a of assigns) {
+      if (a.id === currentAssignmentId) continue;
+      const prog = programaciones.find(p => p.imparticionId === a.id || p.id === a.id);
+      if (prog && prog.temas && prog.temas.length > 0) {
+        seenIds.add(prog.id || a.id);
+        sources.push({
+          id: prog.id || a.id,
+          cursoAcademicoLabel: a.cursoAcademicoLabel || 'Año anterior',
+          grupoNombre: a.grupoNombre || 'Sin grupo',
+          profesorNombre: a.profesorNombre || 'Profesor',
+          asignaturaNombre: a.asignaturaNombre || a.asignaturaSigla,
+          temas: prog.temas,
+          totalHoras: prog.temas.reduce((acc, t) => acc + (Number(t.horasEstimadas ?? t.horas ?? 0) || 0), 0)
+        });
+      }
+    }
+
+    // B. Also match directly from programaciones (e.g. legacy/imported docs)
+    for (const p of programaciones) {
+      if (p.id === currentAssignmentId || p.imparticionId === currentAssignmentId) continue;
+      if (seenIds.has(p.id)) continue;
+      
+      const matchedAssign = assignsMap[p.imparticionId || p.id];
+      const idStr = String(p.id || '').toUpperCase();
+      const isSiglaMatch = idStr.includes(`_${subjectSigla.toUpperCase()}_`) || idStr.endsWith(`_${subjectSigla.toUpperCase()}`) || matchedAssign;
+      
+      if (isSiglaMatch && p.temas && p.temas.length > 0) {
+        seenIds.add(p.id);
+        sources.push({
+          id: p.id,
+          cursoAcademicoLabel: matchedAssign?.cursoAcademicoLabel || (idStr.startsWith('20252026') ? '2025-2026' : 'Histórico'),
+          grupoNombre: matchedAssign?.grupoNombre || idStr.split('_')[1] || 'General',
+          profesorNombre: matchedAssign?.profesorNombre || 'Profesor anterior',
+          asignaturaNombre: matchedAssign?.asignaturaNombre || subjectSigla,
+          temas: p.temas,
+          totalHoras: p.temas.reduce((acc, t) => acc + (Number(t.horasEstimadas ?? t.horas ?? 0) || 0), 0)
+        });
+      }
+    }
+
+    // Sort sources by academic year descending
+    sources.sort((a, b) => (b.cursoAcademicoLabel || '').localeCompare(a.cursoAcademicoLabel || ''));
+    return sources;
+  };
+
+  const handleOpenCopyModal = async () => {
+    if (!editingRow) return;
+    setLoadingCopySources(true);
+    setIsCopyModalOpen(true);
+    setSelectedSourceIdx(0);
+    try {
+      const sources = await fetchCopySources(editingRow.asignaturaSigla, editingRow.id);
+      setCopySources(sources);
+    } catch (e) {
+      console.error("Error fetching copy sources:", e);
+      setCopySources([]);
+    } finally {
+      setLoadingCopySources(false);
+    }
+  };
+
+  const handleApplyCopy = () => {
+    const selectedSource = copySources[selectedSourceIdx];
+    if (!selectedSource || !selectedSource.temas) return;
+
+    // Deep clone temas resetting tracking dates
+    const cloned = selectedSource.temas.map((t, idx) => ({
+      id: String(t.id || idx + 1),
+      nombre: t.nombre || t.titulo || '',
+      horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 1)
+    }));
+
+    setTempTemas(cloned);
+    setIsCopyModalOpen(false);
+  };
+
   const filteredDisplayRows = useMemo(() => {
     return displayRows.filter(row => {
       if (selectedYear !== 'all' && row.cursoAcademicoLabel !== selectedYear) return false;
@@ -502,11 +603,27 @@ export default function Syllabuses() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: '#94a3b8' }}>Listado de Temas</h3>
-              <button className="btn-primary" onClick={handleAddTheme} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px' }}>
-                <Plus size={14} style={{ marginRight: '4px' }} /> Añadir Tema
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={handleOpenCopyModal} 
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                  title="Copiar temas de cursos anteriores o de otros grupos"
+                >
+                  <Copy size={14} /> Copiar de Curso Anterior
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  onClick={handleAddTheme} 
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Plus size={14} /> Añadir Tema
+                </button>
+              </div>
             </div>
 
             <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem' }}>
@@ -522,7 +639,7 @@ export default function Syllabuses() {
                 <tbody>
                   {tempTemas.length === 0 ? (
                     <tr>
-                      <td colSpan="4" style={{...styles.emptyState, padding: '2rem'}}>No hay temas definidos. Añade el primero.</td>
+                      <td colSpan="4" style={{...styles.emptyState, padding: '2rem'}}>No hay temas definidos. Añade el primero o copia una programación anterior.</td>
                     </tr>
                   ) : (
                     tempTemas.map((tema, index) => (
@@ -576,9 +693,145 @@ export default function Syllabuses() {
               </table>
             </div>
             <p style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', margin: 0 }}>
-              * Los temas se guardarán en el orden que aparecen en la tabla.
+              * Los temas se guardarán en el orden que aparecen en la tabla. Puedes modificarlos libremente antes de guardar.
             </p>
           </div>
+        </Modal>
+      )}
+
+      {/* Copy Previous Programming Modal */}
+      {isCopyModalOpen && (
+        <Modal
+          isOpen={isCopyModalOpen}
+          onClose={() => setIsCopyModalOpen(false)}
+          title={`Copiar Programación: ${editingRow?.asignaturaSigla} (${editingRow?.asignaturaNombre})`}
+          width="750px"
+          footer={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                style={{ flex: 1 }} 
+                onClick={() => setIsCopyModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              {copySources.length > 0 && (
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} 
+                  onClick={handleApplyCopy}
+                >
+                  <Copy size={16} /> Importar {copySources[selectedSourceIdx]?.temas?.length || 0} Temas al Editor
+                </button>
+              )}
+            </div>
+          }
+        >
+          {loadingCopySources ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+              Buscando programaciones previas de {editingRow?.asignaturaSigla}...
+            </div>
+          ) : copySources.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📂</div>
+              <h4 style={{ color: '#fff', margin: '0 0 0.5rem 0' }}>No se encontraron programaciones anteriores</h4>
+              <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '450px', margin: '0 auto' }}>
+                No hay temarios guardados en otros cursos académicos para la asignatura <strong>{editingRow?.asignaturaSigla}</strong>. Puedes añadir los temas manualmente usando el botón "+ Añadir Tema".
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                  Selecciona la programación de origen a copiar:
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  {copySources.map((src, idx) => (
+                    <div 
+                      key={src.id || idx}
+                      onClick={() => setSelectedSourceIdx(idx)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: '10px',
+                        border: selectedSourceIdx === idx ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
+                        background: selectedSourceIdx === idx ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.02)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: '700', color: '#fff', fontSize: '0.9rem' }}>
+                            {src.cursoAcademicoLabel}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', color: '#cbd5e1' }}>
+                            {src.grupoNombre}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
+                          Prof. {src.profesorNombre}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', background: 'rgba(99, 102, 241, 0.2)', color: '#a5b4fc' }}>
+                          {src.temas.length} temas
+                        </span>
+                        <span style={{ padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
+                          {src.totalHoras}h totales
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vista previa de los temas seleccionados */}
+              {copySources[selectedSourceIdx] && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Vista previa de temas a importar ({copySources[selectedSourceIdx].temas.length})
+                    </h4>
+                  </div>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', background: 'rgba(0,0,0,0.2)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'center', width: '40px', color: '#94a3b8' }}>#</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', color: '#94a3b8' }}>Tema</th>
+                          <th style={{ padding: '0.4rem 0.6rem', textAlign: 'right', width: '60px', color: '#94a3b8' }}>Horas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {copySources[selectedSourceIdx].temas.map((t, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                            <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center', color: '#94a3b8' }}>{t.id || i + 1}</td>
+                            <td style={{ padding: '0.4rem 0.6rem', color: '#e2e8f0' }}>{t.nombre || t.titulo}</td>
+                            <td style={{ padding: '0.4rem 0.6rem', textAlign: 'right', color: '#a5b4fc', fontWeight: '700' }}>
+                              {Number(t.horasEstimadas || t.horas || 0)}h
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {tempTemas.length > 0 && (
+                <div style={{ padding: '0.6rem 0.8rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', color: '#fbbf24', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>⚠️</span>
+                  <span>Al importar, se sustituirán los {tempTemas.length} temas actuales del editor. Podrás revisarlos y editarlos libremente antes de guardar.</span>
+                </div>
+              )}
+            </div>
+          )}
         </Modal>
       )}
 
