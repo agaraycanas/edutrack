@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../config/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
@@ -85,9 +85,35 @@ export default function SyllabusTracking() {
         .filter(t => t.id !== undefined && t.id !== null)
         .sort((a, b) => Number(a.id) - Number(b.id));
 
-      
-      setTemas(temasData);
-      setProgramacion({ source: 'ies_programacion_temas' });
+      if (temasData.length > 0) {
+        setTemas(temasData);
+        setProgramacion({ source: 'ies_programacion_temas' });
+      } else {
+        // Fallback a profesor_programaciones si no están en ies_programacion_temas
+        const progSnap = await getDoc(doc(db, 'profesor_programaciones', id));
+        if (progSnap.exists()) {
+          const progData = progSnap.data();
+          if (progData.temas && Array.isArray(progData.temas)) {
+            const mapped = progData.temas.map((t, idx) => ({
+              id: t.id !== undefined && t.id !== null ? t.id : idx + 1,
+              nombre: t.nombre || t.titulo || '',
+              horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 0),
+              fechaInicio: t.fechaInicio || '',
+              fechaFin: t.fechaFin || '',
+              observaciones: t.observaciones || '',
+              updatedAt: t.updatedAt || progData.updatedAt || null
+            })).sort((a, b) => Number(a.id) - Number(b.id));
+            setTemas(mapped);
+            setProgramacion({ source: 'profesor_programaciones', ...progData });
+          } else {
+            setTemas([]);
+            setProgramacion({ source: 'profesor_programaciones', ...progData });
+          }
+        } else {
+          setTemas([]);
+          setProgramacion(null);
+        }
+      }
 
       // 3. Fetch Horario
       const hSnap = await getDoc(doc(db, 'profesor_horarios', id));
@@ -128,13 +154,14 @@ export default function SyllabusTracking() {
     }
   };
 
-  const handleDateChange = (docId, field, value) => {
+  const handleDateChange = (identifier, field, value) => {
     const newTemas = temas.map(t => 
-      t._docId === docId ? { ...t, [field]: value } : t
+      ((t._docId && t._docId === identifier) || String(t.id) === String(identifier))
+        ? { ...t, [field]: value }
+        : t
     );
     setTemas(newTemas);
   };
-
 
   const saveChanges = async () => {
     setIsProcessing(true);
@@ -153,11 +180,24 @@ export default function SyllabusTracking() {
         );
         await Promise.all(promises);
       } else {
-        // Legado: guardar en profesor_programaciones
-        await updateDoc(doc(db, 'profesor_programaciones', id), {
-          temas: temas,
-          updatedAt: serverTimestamp()
+        // Guardar en profesor_programaciones
+        const cleanTemas = temas.map(t => {
+          const item = {
+            id: t.id,
+            nombre: t.nombre || '',
+            horasEstimadas: Number(t.horasEstimadas || 0)
+          };
+          if (t.fechaInicio) item.fechaInicio = t.fechaInicio;
+          if (t.fechaFin) item.fechaFin = t.fechaFin;
+          if (t.observaciones) item.observaciones = t.observaciones;
+          return item;
         });
+
+        await setDoc(doc(db, 'profesor_programaciones', id), {
+          imparticionId: id,
+          temas: cleanTemas,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       }
       setModal({ isOpen: true, title: 'Éxito', message: 'Seguimiento guardado correctamente.' });
     } catch (error) {
@@ -267,7 +307,7 @@ export default function SyllabusTracking() {
                 }
 
                 return (
-                  <tr key={tema._docId} style={styles.tr}>
+                  <tr key={tema._docId || tema.id} style={styles.tr}>
 
                     <td style={styles.td}>
                       <span style={{ fontWeight: 'bold', color: '#94a3b8' }}>{tema.id}</span>
@@ -290,7 +330,7 @@ export default function SyllabusTracking() {
                             maxWidth: '95px'
                           }}
                           value={tema.fechaInicio || ''}
-                          onChange={(e) => handleDateChange(tema._docId, 'fechaInicio', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaInicio', e.target.value)}
                         />
                       )}
                     </td>
@@ -309,7 +349,7 @@ export default function SyllabusTracking() {
                             maxWidth: '95px'
                           }}
                           value={tema.fechaFin || ''}
-                          onChange={(e) => handleDateChange(tema._docId, 'fechaFin', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaFin', e.target.value)}
                         />
                       )}
                     </td>
@@ -350,7 +390,7 @@ export default function SyllabusTracking() {
                             minWidth: '200px'
                           }}
                           value={tema.observaciones || ''}
-                          onChange={(e) => handleDateChange(tema._docId, 'observaciones', e.target.value)}
+                          onChange={(e) => handleDateChange(tema._docId || tema.id, 'observaciones', e.target.value)}
                         />
                       )}
                     </td>

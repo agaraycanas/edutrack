@@ -11,7 +11,7 @@ import {
   getDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { calcularHorasReales } from '../../utils/timeCalculations';
+import { calcularMetricasSeguimiento, calcularHorasReales } from '../../utils/timeCalculations';
 import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown, Copy } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 
@@ -23,7 +23,11 @@ export default function Syllabuses() {
   const [academicYears, setAcademicYears] = useState([]);
   const [festivos, setFestivos] = useState([]);
   const [ausencias, setAusencias] = useState([]);
-  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const now = new Date();
+    const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    return `${currentYearStart}-${currentYearStart + 1}`;
+  });
   const [isLocked, setIsLocked] = useState(false);
   const navigate = useNavigate();
 
@@ -40,13 +44,13 @@ export default function Syllabuses() {
   const [loadingCopySources, setLoadingCopySources] = useState(false);
 
   const activeIesId = localStorage.getItem('activeIesId');
-  const uid = auth.currentUser?.uid;
   
   // Fetch initial data
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
-      if (user && activeIesId) {
-        fetchData(user.uid, activeIesId);
+      const currentIesId = activeIesId || localStorage.getItem('activeIesId');
+      if (user && currentIesId) {
+        fetchData(user.uid, currentIesId);
       } else if (!user) {
         setLoading(false); // Stop loading if no user
       }
@@ -54,7 +58,13 @@ export default function Syllabuses() {
     return () => unsubscribe();
   }, [activeIesId]);
 
-  const fetchData = async (uid, iesId) => {
+  const fetchData = async (uidParam, iesIdParam) => {
+    const uid = uidParam || auth.currentUser?.uid;
+    const iesId = iesIdParam || activeIesId || localStorage.getItem('activeIesId');
+    if (!uid || !iesId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     console.log("Fetching syllabuses data for:", { uid, iesId });
     try {
@@ -170,6 +180,8 @@ export default function Syllabuses() {
             imparticionId: impId,
             temas: groupedThemes[impId].temas.sort((a, b) => a.id - b.id)
           });
+        } else if ((!existing.temas || existing.temas.length === 0) && groupedThemes[impId]?.temas?.length > 0) {
+          existing.temas = groupedThemes[impId].temas.sort((a, b) => a.id - b.id);
         }
       });
       setProgramaciones(combinedProgs);
@@ -270,7 +282,7 @@ export default function Syllabuses() {
 
   const handleEdit = (row) => {
     setEditingRow(row);
-    setTempTemas(row.progRef?.temas ? [...row.progRef.temas] : []);
+    setTempTemas(row.progRef?.temas ? [...row.progRef.temas] : (row.temas ? [...row.temas] : []));
     setIsEditModalOpen(true);
   };
 
@@ -303,18 +315,41 @@ export default function Syllabuses() {
     if (!editingRow) return;
     setIsProcessing(true);
     try {
+      const currentUid = auth.currentUser?.uid || editingRow.usuarioId;
+      const currentIesId = activeIesId || localStorage.getItem('activeIesId') || editingRow.iesId;
       const progRef = doc(db, 'profesor_programaciones', editingRow.id);
+      
       await setDoc(progRef, {
         imparticionId: editingRow.id,
-        iesId: activeIesId,
-        usuarioId: uid,
+        iesId: currentIesId,
+        usuarioId: currentUid,
         temas: tempTemas,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
+      // Optimistic update of local programaciones so the table and re-editing immediately show updated temas
+      setProgramaciones(prev => {
+        const next = [...prev];
+        const idx = next.findIndex(p => p.imparticionId === editingRow.id || p.id === editingRow.id);
+        const updatedEntry = {
+          id: editingRow.id,
+          imparticionId: editingRow.id,
+          iesId: currentIesId,
+          usuarioId: currentUid,
+          temas: tempTemas,
+          updatedAt: new Date()
+        };
+        if (idx >= 0) {
+          next[idx] = updatedEntry;
+        } else {
+          next.push(updatedEntry);
+        }
+        return next;
+      });
+
       setMessageModal({ isOpen: true, title: 'Éxito', message: 'Programación guardada correctamente.' });
       setIsEditModalOpen(false);
-      fetchData(uid, activeIesId);
+      await fetchData(currentUid, currentIesId);
     } catch (error) {
       console.error("Error saving programming:", error);
       setMessageModal({ isOpen: true, title: 'Error', message: 'No se pudo guardar la programación.' });
@@ -323,17 +358,29 @@ export default function Syllabuses() {
     }
   };
 
-  const fetchCopySources = async (subjectSigla, currentAssignmentId) => {
-    if (!activeIesId || !subjectSigla) return [];
+  const fetchCopySources = async (row) => {
+    const currentIesId = activeIesId || localStorage.getItem('activeIesId');
+    const subjectSigla = row?.asignaturaSigla;
+    const currentAssignmentId = row?.id;
+    if (!currentIesId || !subjectSigla) return [];
     
-    // 1. Query all imparticiones for this center with the same subject sigla
+    // 1. Query all imparticiones for this center
     const q = query(
       collection(db, 'ies_imparticiones'),
-      where('iesId', '==', activeIesId),
-      where('asignaturaSigla', '==', subjectSigla)
+      where('iesId', '==', currentIesId)
     );
     const snap = await getDocs(q);
-    const assigns = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const allAssigns = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Filter to those with the same subject (by sigla, id or name)
+    const normName = (row.asignaturaNombre || '').trim().toLowerCase();
+    const assigns = allAssigns.filter(a => {
+      if (a.id === currentAssignmentId) return false;
+      if (a.asignaturaSigla && a.asignaturaSigla.toUpperCase() === subjectSigla.toUpperCase()) return true;
+      if (row.asignaturaId && a.asignaturaId === row.asignaturaId) return true;
+      if (normName && a.asignaturaNombre && a.asignaturaNombre.trim().toLowerCase() === normName) return true;
+      return false;
+    });
 
     const assignsMap = {};
     assigns.forEach(a => { assignsMap[a.id] = a; });
@@ -341,25 +388,52 @@ export default function Syllabuses() {
     const sources = [];
     const seenIds = new Set();
 
-    // A. Match from imparticiones
+    // A. Match from imparticiones (same academic year from another teacher/group, or previous years)
     for (const a of assigns) {
-      if (a.id === currentAssignmentId) continue;
-      const prog = programaciones.find(p => p.imparticionId === a.id || p.id === a.id);
+      let prog = programaciones.find(p => p.imparticionId === a.id || p.id === a.id);
+      
+      // Fallback a Firestore si no está en la memoria del profesor
+      if (!prog || !prog.temas || prog.temas.length === 0) {
+        try {
+          const pSnap = await getDoc(doc(db, 'profesor_programaciones', a.id));
+          if (pSnap.exists() && pSnap.data()?.temas?.length > 0) {
+            prog = { id: a.id, imparticionId: a.id, ...pSnap.data() };
+          } else {
+            const tSnap = await getDocs(query(collection(db, 'ies_programacion_temas'), where('imparticionId', '==', a.id)));
+            if (!tSnap.empty) {
+              prog = {
+                id: a.id,
+                imparticionId: a.id,
+                temas: tSnap.docs.map(d => ({
+                  id: d.data().n,
+                  nombre: d.data().titulo || d.data().nombre,
+                  horasEstimadas: d.data().horas || 0
+                })).sort((x, y) => Number(x.id) - Number(y.id))
+              };
+            }
+          }
+        } catch (err) {
+          console.warn("Error fetching fallback prog for assignment:", a.id, err);
+        }
+      }
+
       if (prog && prog.temas && prog.temas.length > 0) {
         seenIds.add(prog.id || a.id);
+        const isCurrentYear = a.cursoAcademicoLabel === (row.cursoAcademicoLabel || selectedYear);
         sources.push({
           id: prog.id || a.id,
           cursoAcademicoLabel: a.cursoAcademicoLabel || 'Año anterior',
           grupoNombre: a.grupoNombre || 'Sin grupo',
           profesorNombre: a.profesorNombre || 'Profesor',
           asignaturaNombre: a.asignaturaNombre || a.asignaturaSigla,
+          isCurrentYear,
           temas: prog.temas,
           totalHoras: prog.temas.reduce((acc, t) => acc + (Number(t.horasEstimadas ?? t.horas ?? 0) || 0), 0)
         });
       }
     }
 
-    // B. Also match directly from programaciones (e.g. legacy/imported docs)
+    // B. Also match directly from legacy/imported docs
     for (const p of programaciones) {
       if (p.id === currentAssignmentId || p.imparticionId === currentAssignmentId) continue;
       if (seenIds.has(p.id)) continue;
@@ -376,14 +450,23 @@ export default function Syllabuses() {
           grupoNombre: matchedAssign?.grupoNombre || idStr.split('_')[1] || 'General',
           profesorNombre: matchedAssign?.profesorNombre || 'Profesor anterior',
           asignaturaNombre: matchedAssign?.asignaturaNombre || subjectSigla,
+          isCurrentYear: false,
           temas: p.temas,
           totalHoras: p.temas.reduce((acc, t) => acc + (Number(t.horasEstimadas ?? t.horas ?? 0) || 0), 0)
         });
       }
     }
 
-    // Sort sources by academic year descending
-    sources.sort((a, b) => (b.cursoAcademicoLabel || '').localeCompare(a.cursoAcademicoLabel || ''));
+    // Sort: Current year first, then by year descending, then group
+    sources.sort((a, b) => {
+      if (a.isCurrentYear && !b.isCurrentYear) return -1;
+      if (!a.isCurrentYear && b.isCurrentYear) return 1;
+      const yearA = a.cursoAcademicoLabel || '';
+      const yearB = b.cursoAcademicoLabel || '';
+      if (yearA !== yearB) return yearB.localeCompare(yearA);
+      return (a.grupoNombre || '').localeCompare(b.grupoNombre || '');
+    });
+
     return sources;
   };
 
@@ -393,7 +476,7 @@ export default function Syllabuses() {
     setIsCopyModalOpen(true);
     setSelectedSourceIdx(0);
     try {
-      const sources = await fetchCopySources(editingRow.asignaturaSigla, editingRow.id);
+      const sources = await fetchCopySources(editingRow);
       setCopySources(sources);
     } catch (e) {
       console.error("Error fetching copy sources:", e);
@@ -420,8 +503,8 @@ export default function Syllabuses() {
 
   const filteredDisplayRows = useMemo(() => {
     return displayRows.filter(row => {
-      if (selectedYear !== 'all' && row.cursoAcademicoLabel !== selectedYear) return false;
-      return true;
+      if (!selectedYear || selectedYear === 'all') return true;
+      return row.cursoAcademicoLabel === selectedYear;
     });
   }, [displayRows, selectedYear]);
 
@@ -611,9 +694,9 @@ export default function Syllabuses() {
                   className="btn-secondary" 
                   onClick={handleOpenCopyModal} 
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                  title="Copiar temas de cursos anteriores o de otros grupos"
+                  title="Copiar temas de otra impartición reciente o de otros grupos"
                 >
-                  <Copy size={14} /> Copiar de Curso Anterior
+                  <Copy size={14} /> Copiar de programación reciente
                 </button>
                 <button 
                   type="button" 
@@ -704,7 +787,7 @@ export default function Syllabuses() {
         <Modal
           isOpen={isCopyModalOpen}
           onClose={() => setIsCopyModalOpen(false)}
-          title={`Copiar Programación: ${editingRow?.asignaturaSigla} (${editingRow?.asignaturaNombre})`}
+          title={`Copiar de Programación Reciente: ${editingRow?.asignaturaSigla} (${editingRow?.asignaturaNombre})`}
           width="750px"
           footer={
             <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
@@ -731,14 +814,14 @@ export default function Syllabuses() {
         >
           {loadingCopySources ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
-              Buscando programaciones previas de {editingRow?.asignaturaSigla}...
+              Buscando programaciones registradas de {editingRow?.asignaturaSigla}...
             </div>
           ) : copySources.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📂</div>
-              <h4 style={{ color: '#fff', margin: '0 0 0.5rem 0' }}>No se encontraron programaciones anteriores</h4>
+              <h4 style={{ color: '#fff', margin: '0 0 0.5rem 0' }}>No se encontraron programaciones previas o de otros grupos</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '450px', margin: '0 auto' }}>
-                No hay temarios guardados en otros cursos académicos para la asignatura <strong>{editingRow?.asignaturaSigla}</strong>. Puedes añadir los temas manualmente usando el botón "+ Añadir Tema".
+                No hay temarios guardados en otros cursos o grupos para la asignatura <strong>{editingRow?.asignaturaSigla}</strong>. Puedes añadir los temas manualmente usando el botón "+ Añadir Tema".
               </p>
             </div>
           ) : (
@@ -769,6 +852,11 @@ export default function Syllabuses() {
                           <span style={{ fontWeight: '700', color: '#fff', fontSize: '0.9rem' }}>
                             {src.cursoAcademicoLabel}
                           </span>
+                          {src.isCurrentYear && (
+                            <span style={{ fontSize: '0.7rem', background: 'rgba(99, 102, 241, 0.25)', color: '#a5b4fc', padding: '1px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                              Mismo curso
+                            </span>
+                          )}
                           <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', color: '#cbd5e1' }}>
                             {src.grupoNombre}
                           </span>
