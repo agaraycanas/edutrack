@@ -108,43 +108,39 @@ export default function Subjects() {
     }
 
     const isGlobalRole = activeRole === 'jefe_estudios' || activeRole === 'superadmin';
+    const myRoleData = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
+    const myDept = myRoleData?.departamento;
     
-    // If filtering all and not global role, we need the profile to know the department
-    if (filterStudy === 'all' && !isGlobalRole && !userProfile) {
+    // If not global role, we need the profile to know the department
+    if (!isGlobalRole && !myDept) {
       return;
     }
     
     try {
-      let q = query(
+      const q = query(
         collection(db, 'ies_asignaturas'),
         where('iesId', '==', activeIesId)
       );
 
-      if (filterStudy && filterStudy !== 'all') {
-        q = query(q, where('iesEstudioId', '==', filterStudy));
-      } else {
-        // "Todas" logic: filter by department if not a global role
-        if (!isGlobalRole) {
-          const myRoleData = userProfile?.roles?.find(r => r.rol === activeRole && r.iesId === activeIesId);
-          const myDept = myRoleData?.departamento;
-          if (myDept) {
-            q = query(q, where('departamento', '==', myDept));
-          } else {
-            // If no department found for this role, we can't filter yet or they see nothing
-            setSubjects([]);
-            return;
-          }
-        }
-      }
-
-      if (filterLevel) {
-        q = query(q, where('curso', '==', parseInt(filterLevel)));
-      }
-
       const snapshot = await getDocs(q);
-      const subjectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let subjectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // 1. If not a global role, filter strictly by user's department
+      if (!isGlobalRole && myDept) {
+        subjectsData = subjectsData.filter(s => (s.departamento || '').toLowerCase().trim() === myDept.toLowerCase().trim());
+      }
+
+      // 2. Filter by Study (Titulación) if selected
+      if (filterStudy && filterStudy !== 'all') {
+        subjectsData = subjectsData.filter(s => s.iesEstudioId === filterStudy);
+      }
+
+      // 3. Filter by Course / Level
+      if (filterLevel) {
+        subjectsData = subjectsData.filter(s => Number(s.curso) === parseInt(filterLevel));
+      }
       
-      // Sort by Titulación -> Curso -> Nombre
+      // 4. Sort by Titulación -> Curso -> Nombre
       subjectsData.sort((a, b) => {
         // 1. Titulación (titulacionNombre)
         const nameA = a.titulacionNombre || '';
