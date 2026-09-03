@@ -686,11 +686,12 @@ export default function TeachingAssignments() {
             <table className="data-table" style={{ width: '100%', minWidth: '650px', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '30%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '20%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig./Grupo</th>
-                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desviación</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '15%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>F. Últ. Act.</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '20%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '28%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '18%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig./Grupo</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '13%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desviación</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '13%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>F. Últ. Act.</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '12%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>N. Temas</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '16%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
                 </tr>
               </thead>
 
@@ -737,6 +738,32 @@ export default function TeachingAssignments() {
                     </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                       {a.lastUpdate ? a.lastUpdate.toLocaleDateString() : 'Nunca'}
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                      {a.temas && a.temas.length > 0 ? (
+                        <span style={{ 
+                          padding: '0.25rem 0.55rem', 
+                          borderRadius: '6px', 
+                          fontSize: '0.85rem', 
+                          fontWeight: '700', 
+                          background: 'rgba(99, 102, 241, 0.15)', 
+                          color: '#a5b4fc' 
+                        }}>
+                          {a.temas.length}
+                        </span>
+                      ) : (
+                        <span style={{ 
+                          padding: '0.25rem 0.55rem', 
+                          borderRadius: '6px', 
+                          fontSize: '0.85rem', 
+                          fontWeight: '700', 
+                          background: 'rgba(239, 68, 68, 0.12)', 
+                          color: '#ff6b6b',
+                          border: '1px solid rgba(239, 68, 68, 0.25)'
+                        }} title="Sin temas configurados">
+                          0
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>

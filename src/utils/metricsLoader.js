@@ -23,24 +23,47 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
     const allFestivos = festivosSnap.docs.map(d => d.data());
     const allAusencias = ausenciasSnap.docs.map(d => d.data());
 
-    // 2. Carga de Temas en bloque para todas las imparticiones del centro (optimizado)
-    // Nota: En centros muy grandes se podría filtrar por imparticionId si es necesario
-    const topicsSnap = await getDocs(query(collection(db, 'ies_programacion_temas'), where('iesId', '==', iesId)));
+    // 2. Carga de Temas y Programaciones del centro
+    const [topicsSnap, progsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'ies_programacion_temas'), where('iesId', '==', iesId))),
+      getDocs(query(collection(db, 'profesor_programaciones'), where('iesId', '==', iesId)))
+    ]);
     const topicsMap = {};
+
+    // A. Poblar desde profesor_programaciones
+    progsSnap.docs.forEach(d => {
+      const data = d.data();
+      const impId = data.imparticionId || d.id;
+      if (data.temas && Array.isArray(data.temas)) {
+        topicsMap[impId] = data.temas.map(t => ({
+          id: t.id,
+          nombre: t.nombre || t.titulo || '',
+          horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 0),
+          fechaInicio: t.fechaInicio || '',
+          fechaFin: t.fechaFin || '',
+          observaciones: t.observaciones || '',
+          updatedAt: t.updatedAt || data.updatedAt || null
+        }));
+      }
+    });
+
+    // B. Añadir temas desde ies_programacion_temas si no estaban ya
     topicsSnap.docs.forEach(d => {
       const data = d.data();
-      if (!data.imparticionId || data.n === undefined || data.n === null) return; // Filter phantoms
-      
+      if (!data.imparticionId || data.n === undefined || data.n === null) return;
       if (!topicsMap[data.imparticionId]) topicsMap[data.imparticionId] = [];
-      topicsMap[data.imparticionId].push({
-        id: data.n,
-        nombre: data.titulo || data.nombre || '',
-        horasEstimadas: data.horas ?? 0,
-        fechaInicio: data.fechaInicio || '',
-        fechaFin: data.fechaFin || '',
-        observaciones: data.observaciones || '',
-        updatedAt: data.updatedAt || null
-      });
+      const idStr = String(data.n);
+      if (!topicsMap[data.imparticionId].some(t => String(t.id) === idStr)) {
+        topicsMap[data.imparticionId].push({
+          id: data.n,
+          nombre: data.titulo || data.nombre || '',
+          horasEstimadas: Number(data.horas ?? 0),
+          fechaInicio: data.fechaInicio || '',
+          fechaFin: data.fechaFin || '',
+          observaciones: data.observaciones || '',
+          updatedAt: data.updatedAt || null
+        });
+      }
     });
 
     // Sort topics for each imparticion
