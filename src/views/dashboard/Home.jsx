@@ -204,7 +204,10 @@ export default function Home() {
         if (activeRole === 'profesor') {
           const qI = query(collection(db, 'ies_imparticiones'), where('usuarioId', '==', user.uid), where('iesId', '==', activeIesId));
           const snapI = await getDocs(qI);
-          const assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          let assigns = snapI.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          if (currentYearId) {
+            assigns = assigns.filter(a => a.cursoAcademicoId === currentYearId || a.cursoAcademicoLabel === currentYearLabel);
+          }
           const results = await getMetricsForAssignments(assigns, [{ id: user.uid, email: user.email }]);
           dData.imparticiones = sortImparticiones(results);
         }

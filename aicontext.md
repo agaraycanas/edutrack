@@ -20,6 +20,10 @@ Este fichero sirve como memoria central para que Antigravity (o cualquier IA) pu
 - **Backend**: Firebase Firestore (Base de datos principal).
 - **Autenticación**: Firebase Auth (Google Auth, validación `@educa.madrid.org`).
 - **IES ID**: `ies_rey_fernando` (Identificador del instituto actual).
+- **Entorno Local (Herramientas)**:
+  - **Node.js**: `D:\Users\agaray\.nodejs\node-v22.14.0-win-x64` (Node v22 LTS).
+  - **Firebase CLI**: Sesión iniciada y credenciales persistidas en disco (`alberto.garay.canas@gmail.com`).
+  - **Git**: Configurado con `Alberto Garay <agaraycanas@educa.madrid.org>`.
 
 ---
 
