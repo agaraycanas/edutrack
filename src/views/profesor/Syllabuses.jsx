@@ -11,8 +11,8 @@ import {
   getDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { calcularMetricasSeguimiento, calcularHorasReales } from '../../utils/timeCalculations';
-import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown, Copy } from 'lucide-react';
+import { calcularMetricasSeguimiento } from '../../utils/timeCalculations';
+import { Edit2, Activity, Plus, Trash2, Save, MoveUp, MoveDown, Copy, Clock, AlertTriangle } from 'lucide-react';
 import Modal from '../../components/common/Modal';
 
 export default function Syllabuses() {
@@ -39,6 +39,7 @@ export default function Syllabuses() {
 
   // Copy previous programming state
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [confirmCopyModal, setConfirmCopyModal] = useState({ isOpen: false, source: null });
   const [copySources, setCopySources] = useState([]);
   const [selectedSourceIdx, setSelectedSourceIdx] = useState(0);
   const [loadingCopySources, setLoadingCopySources] = useState(false);
@@ -280,19 +281,23 @@ export default function Syllabuses() {
     });
   }, [assignments, programaciones, horarios, academicYears, festivos, ausencias]);
 
+  const reindexTemas = (list) => list.map((t, idx) => ({ ...t, id: String(idx + 1) }));
+
   const handleEdit = (row) => {
     setEditingRow(row);
-    setTempTemas(row.progRef?.temas ? [...row.progRef.temas] : (row.temas ? [...row.temas] : []));
+    const rawTemas = row.progRef?.temas ? [...row.progRef.temas] : (row.temas ? [...row.temas] : []);
+    setTempTemas(reindexTemas(rawTemas));
     setIsEditModalOpen(true);
   };
 
   const handleAddTheme = () => {
-    const nextId = tempTemas.length + 1;
-    setTempTemas([...tempTemas, { id: nextId.toString(), nombre: '', horasEstimadas: 1 }]);
+    const nextId = (tempTemas.length + 1).toString();
+    setTempTemas([...tempTemas, { id: nextId, nombre: '', horasEstimadas: 1 }]);
   };
 
   const handleRemoveTheme = (index) => {
-    setTempTemas(tempTemas.filter((_, i) => i !== index));
+    const filtered = tempTemas.filter((_, i) => i !== index);
+    setTempTemas(reindexTemas(filtered));
   };
 
   const handleMoveTheme = (index, direction) => {
@@ -302,7 +307,7 @@ export default function Syllabuses() {
     const newTemas = [...tempTemas];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     [newTemas[index], newTemas[targetIndex]] = [newTemas[targetIndex], newTemas[index]];
-    setTempTemas(newTemas);
+    setTempTemas(reindexTemas(newTemas));
   };
 
   const handleThemeChange = (index, field, value) => {
@@ -319,11 +324,17 @@ export default function Syllabuses() {
       const currentIesId = activeIesId || localStorage.getItem('activeIesId') || editingRow.iesId;
       const progRef = doc(db, 'profesor_programaciones', editingRow.id);
       
+      const cleanTemas = reindexTemas(tempTemas).map(t => ({
+        ...t,
+        id: String(t.id),
+        horasEstimadas: Number(t.horasEstimadas) || 1
+      }));
+
       await setDoc(progRef, {
         imparticionId: editingRow.id,
         iesId: currentIesId,
         usuarioId: currentUid,
-        temas: tempTemas,
+        temas: cleanTemas,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
@@ -336,7 +347,7 @@ export default function Syllabuses() {
           imparticionId: editingRow.id,
           iesId: currentIesId,
           usuarioId: currentUid,
-          temas: tempTemas,
+          temas: cleanTemas,
           updatedAt: new Date()
         };
         if (idx >= 0) {
@@ -486,20 +497,38 @@ export default function Syllabuses() {
     }
   };
 
-  const handleApplyCopy = () => {
-    const selectedSource = copySources[selectedSourceIdx];
-    if (!selectedSource || !selectedSource.temas) return;
+  const executeApplyCopy = (source) => {
+    if (!source || !source.temas) return;
 
-    // Deep clone temas resetting tracking dates
-    const cloned = selectedSource.temas.map((t, idx) => ({
-      id: String(t.id || idx + 1),
+    // Deep clone temas resetting tracking dates and guaranteeing sequential IDs 1..N
+    const cloned = source.temas.map((t, idx) => ({
+      id: String(idx + 1),
       nombre: t.nombre || t.titulo || '',
       horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 1)
     }));
 
     setTempTemas(cloned);
+    setConfirmCopyModal({ isOpen: false, source: null });
     setIsCopyModalOpen(false);
   };
+
+  const handleRequestApplyCopy = () => {
+    const selectedSource = copySources[selectedSourceIdx];
+    if (!selectedSource || !selectedSource.temas) return;
+
+    if (tempTemas.length > 0) {
+      setConfirmCopyModal({
+        isOpen: true,
+        source: selectedSource
+      });
+    } else {
+      executeApplyCopy(selectedSource);
+    }
+  };
+
+  const totalHorasEditor = useMemo(() => {
+    return tempTemas.reduce((acc, t) => acc + (Number(t.horasEstimadas) || 0), 0);
+  }, [tempTemas]);
 
   const filteredDisplayRows = useMemo(() => {
     return displayRows.filter(row => {
@@ -566,9 +595,6 @@ export default function Syllabuses() {
               </tr>
             ) : (
               filteredDisplayRows.map((row) => {
-                const progressReal = row.totalHours > 0 ? (row.hReal / row.totalHours) * 100 : 0;
-                const progressEst = row.totalHours > 0 ? (row.hEst / row.totalHours) * 100 : 0;
-                
                 return (
                   <tr key={row.id} style={styles.tr}>
                     <td style={styles.td}>
@@ -675,6 +701,7 @@ export default function Syllabuses() {
           isOpen={isEditModalOpen} 
           onClose={() => setIsEditModalOpen(false)}
           title={`Editar Programación: ${editingRow?.asignaturaSigla} - ${editingRow?.grupoNombre}`}
+          maxWidth="800px"
           width="800px"
           footer={
             <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
@@ -686,8 +713,25 @@ export default function Syllabuses() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', color: '#94a3b8' }}>Listado de Temas</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#94a3b8' }}>Listado de Temas</h3>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '16px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700',
+                  color: '#a5b4fc'
+                }}>
+                  <Clock size={14} />
+                  <span>Total Horas: <strong style={{ color: '#38bdf8' }}>{totalHorasEditor}h</strong></span>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button 
                   type="button" 
@@ -713,10 +757,10 @@ export default function Syllabuses() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{...styles.th, padding: '0.5rem'}}>ID</th>
+                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'center', width: '50px'}}>ID</th>
                     <th style={{...styles.th, padding: '0.5rem'}}>Nombre del Tema</th>
-                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'center'}}>Horas</th>
-                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'right'}}>Acciones</th>
+                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'center', width: '80px'}}>Horas</th>
+                    <th style={{...styles.th, padding: '0.5rem', textAlign: 'right', width: '110px'}}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -727,14 +771,22 @@ export default function Syllabuses() {
                   ) : (
                     tempTemas.map((tema, index) => (
                       <tr key={index} style={styles.tr}>
-                        <td style={{...styles.td, padding: '0.5rem'}}>
-                          <input 
-                            type="text" 
-                            className="input-field" 
-                            style={{ padding: '0.4rem', fontSize: '0.85rem', width: '40px', textAlign: 'center' }}
-                            value={tema.id}
-                            onChange={(e) => handleThemeChange(index, 'id', e.target.value)}
-                          />
+                        <td style={{...styles.td, padding: '0.5rem', textAlign: 'center', width: '50px'}}>
+                          <span style={{ 
+                            fontWeight: '700', 
+                            color: '#a5b4fc', 
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: '28px',
+                            height: '28px',
+                            background: 'rgba(99, 102, 241, 0.12)',
+                            border: '1px solid rgba(99, 102, 241, 0.25)',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem'
+                          }}>
+                            {index + 1}
+                          </span>
                         </td>
                         <td style={{...styles.td, padding: '0.5rem'}}>
                           <input 
@@ -773,6 +825,19 @@ export default function Syllabuses() {
                     ))
                   )}
                 </tbody>
+                {tempTemas.length > 0 && (
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
+                      <td colSpan="2" style={{ ...styles.td, padding: '0.6rem 0.5rem', fontWeight: '700', textAlign: 'right', color: '#cbd5e1' }}>
+                        Total Horas Programadas:
+                      </td>
+                      <td style={{ ...styles.td, padding: '0.6rem 0.5rem', textAlign: 'center', fontWeight: '800', color: '#38bdf8', fontSize: '1rem' }}>
+                        {totalHorasEditor}h
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
             <p style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', margin: 0 }}>
@@ -788,6 +853,7 @@ export default function Syllabuses() {
           isOpen={isCopyModalOpen}
           onClose={() => setIsCopyModalOpen(false)}
           title={`Copiar de Programación Reciente: ${editingRow?.asignaturaSigla} (${editingRow?.asignaturaNombre})`}
+          maxWidth="750px"
           width="750px"
           footer={
             <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
@@ -804,7 +870,7 @@ export default function Syllabuses() {
                   type="button" 
                   className="btn-primary" 
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} 
-                  onClick={handleApplyCopy}
+                  onClick={handleRequestApplyCopy}
                 >
                   <Copy size={16} /> Importar {copySources[selectedSourceIdx]?.temas?.length || 0} Temas al Editor
                 </button>
@@ -920,6 +986,57 @@ export default function Syllabuses() {
               )}
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* Modal de confirmación para sustitución al copiar programación */}
+      {confirmCopyModal.isOpen && (
+        <Modal
+          isOpen={confirmCopyModal.isOpen}
+          onClose={() => setConfirmCopyModal({ isOpen: false, source: null })}
+          title="Confirmar Sustitución de Temas"
+          maxWidth="520px"
+          footer={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                style={{ flex: 1 }} 
+                onClick={() => setConfirmCopyModal({ isOpen: false, source: null })}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ 
+                  flex: 1, 
+                  background: '#ef4444', 
+                  borderColor: '#dc2626',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '0.5rem' 
+                }} 
+                onClick={() => executeApplyCopy(confirmCopyModal.source)}
+              >
+                <Trash2 size={16} /> Sí, borrar y sustituir
+              </button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.85rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '10px', color: '#fca5a5' }}>
+              <AlertTriangle size={24} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+              <div style={{ fontSize: '0.875rem', lineHeight: '1.45' }}>
+                <strong style={{ display: 'block', marginBottom: '4px', color: '#fff' }}>¡Atención! Acción destructiva</strong>
+                Esta acción <strong>borrará por completo los {tempTemas.length} temas actuales</strong> que tienes en el editor y los sustituirá por los <strong>{confirmCopyModal.source?.temas?.length || 0} temas</strong> de la programación seleccionada (<em>{confirmCopyModal.source?.cursoAcademicoLabel} - {confirmCopyModal.source?.grupoNombre}</em>).
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8', lineHeight: '1.4' }}>
+              Una vez importados, podrás revisar, reordenar, añadir o modificar los temas en el editor antes de pulsar <em>"Guardar Programación"</em>.
+            </p>
+          </div>
         </Modal>
       )}
 
