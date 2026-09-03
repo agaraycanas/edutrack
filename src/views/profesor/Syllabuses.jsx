@@ -23,7 +23,7 @@ export default function Syllabuses() {
   const [academicYears, setAcademicYears] = useState([]);
   const [festivos, setFestivos] = useState([]);
   const [ausencias, setAusencias] = useState([]);
-  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('');
   const [isLocked, setIsLocked] = useState(false);
   const navigate = useNavigate();
 
@@ -94,7 +94,17 @@ export default function Syllabuses() {
         where('iesId', '==', iesId)
       );
       const snapYears = await getDocs(qYears);
-      setAcademicYears(snapYears.docs.map(d => ({ id: d.id, ...d.data() })));
+      const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
+      yearsData.sort((a, b) => (b.añoInicio || 0) - (a.añoInicio || 0));
+      setAcademicYears(yearsData);
+
+      // Determine current academic year
+      const now = new Date();
+      const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentYearDoc = yearsData.find(y => y.añoInicio === currentYearStart) || yearsData[0];
+      if (currentYearDoc) {
+        setSelectedYear(prev => (!prev || prev === 'all' ? currentYearDoc.nombre : prev));
+      }
 
       // 5. Fetch Festivos
       const qFestivos = query(collection(db, 'festivos'), where('iesId', '==', iesId));
@@ -314,7 +324,10 @@ export default function Syllabuses() {
     });
   }, [displayRows, selectedYear]);
 
-  const uniqueYears = [...new Set(assignments.map(a => a.cursoAcademicoLabel).filter(Boolean))].sort().reverse();
+  const uniqueYears = [...new Set([
+    ...academicYears.map(y => y.nombre).filter(Boolean),
+    ...assignments.map(a => a.cursoAcademicoLabel).filter(Boolean)
+  ])].sort().reverse();
 
   if (loading) return <div style={styles.loading}>Cargando programaciones...</div>;
 
