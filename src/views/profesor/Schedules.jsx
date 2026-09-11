@@ -44,12 +44,14 @@ export default function Schedules() {
       const snapAssignments = await getDocs(qAssignments);
       let assignmentsData = snapAssignments.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Order by Academic Year (descending), then Subject Name
+      // Order by Academic Year (descending), then Subject Name, then Group
       assignmentsData.sort((a, b) => {
         if (a.cursoAcademicoLabel !== b.cursoAcademicoLabel) {
           return (b.cursoAcademicoLabel || '').localeCompare(a.cursoAcademicoLabel || '');
         }
-        return (a.asignaturaNombre || '').localeCompare(b.asignaturaNombre || '');
+        const subjCompare = (a.asignaturaNombre || '').localeCompare(b.asignaturaNombre || '');
+        if (subjCompare !== 0) return subjCompare;
+        return (a.grupoNombre || '').localeCompare(b.grupoNombre || '');
       });
       setAssignments(assignmentsData);
 
@@ -281,7 +283,11 @@ export default function Schedules() {
               {/* If editing, select is disabled and shows the current assignment name. If new, it's an active select */}
               {schedules.some(s => s.imparticionId === formData.imparticionId) ? (
                 <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  {assignments.find(a => a.id === formData.imparticionId)?.label}
+                  {(() => {
+                    const a = assignments.find(item => item.id === formData.imparticionId);
+                    if (!a) return formData.imparticionId;
+                    return `${a.grupoNombre ? `[${a.grupoNombre}] ` : ''}${a.label} (${a.asignaturaNombre})`;
+                  })()}
                 </div>
               ) : (
                 <select 
@@ -292,14 +298,16 @@ export default function Schedules() {
                 >
                   <option value="">Selecciona una impartición sin horario...</option>
                   {unassignedAssignments.map(a => (
-                    <option key={a.id} value={a.id}>{a.label} ({a.asignaturaNombre})</option>
+                    <option key={a.id} value={a.id}>
+                      {a.grupoNombre ? `[${a.grupoNombre}] ` : ''}{a.label} ({a.asignaturaNombre})
+                    </option>
                   ))}
                 </select>
               )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
-              {['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((day, idx) => (
+              {['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map(day => (
                 <div key={day} className="form-group" style={{ textAlign: 'center' }}>
                   <label style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{day.charAt(0).toUpperCase()}</label>
                   <select 
