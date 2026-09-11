@@ -80,12 +80,12 @@ export default function Groups() {
       );
       const snapshotYears = await getDocs(qYears);
       const yearsData = snapshotYears.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      yearsData.sort((a, b) => b.añoInicio - a.añoInicio);
+      yearsData.sort((a, b) => (Number(b.añoInicio) || 0) - (Number(a.añoInicio) || 0));
       setAcademicYears(yearsData);
 
       // Set default filters/form
       const currentYear = calculateCurrentAcademicYear();
-      const defaultYear = yearsData.find(y => y.añoInicio === currentYear);
+      const defaultYear = yearsData.find(y => y.añoInicio === currentYear) || yearsData[0];
       if (defaultYear) {
         setFilterYear(defaultYear.id);
         setFormData(prev => ({ ...prev, cursoAcademicoId: defaultYear.id }));

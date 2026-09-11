@@ -55,11 +55,8 @@ export default function TeachingAssignments() {
   const [profSearch, setProfSearch] = useState('');
   const [assignedSubjectIds, setAssignedSubjectIds] = useState([]);
 
-  // Filters (initialized from localStorage if available)
-  const [filterYear, setFilterYear] = useState(() => {
-    const saved = localStorage.getItem('teachingFilterYear');
-    return (saved && saved !== 'undefined' && saved !== 'null') ? saved : '';
-  });
+  // Filters
+  const [filterYear, setFilterYear] = useState('');
   const [filterStudy, setFilterStudy] = useState(() => {
     const saved = localStorage.getItem('teachingFilterStudy');
     return (saved && saved !== 'undefined' && saved !== 'null') ? saved : '';
@@ -105,10 +102,9 @@ export default function TeachingAssignments() {
 
 
   useEffect(() => {
-    localStorage.setItem('teachingFilterYear', filterYear);
     localStorage.setItem('teachingFilterStudy', filterStudy);
     localStorage.setItem('teachingSearchTerm', searchTerm);
-  }, [filterYear, filterStudy, searchTerm]);
+  }, [filterStudy, searchTerm]);
 
   // When study or academic year changes in form, fetch relevant subjects and groups
   useEffect(() => {
@@ -164,9 +160,15 @@ export default function TeachingAssignments() {
       const qYears = query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId));
       const snapYears = await getDocs(qYears);
       const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
-      yearsData.sort((a, b) => b.añoInicio - a.añoInicio);
+      yearsData.sort((a, b) => (Number(b.añoInicio) || 0) - (Number(a.añoInicio) || 0));
       setAcademicYears(yearsData);
-      if (yearsData.length > 0 && !filterYear) setFilterYear(yearsData[0].id);
+
+      const now = new Date();
+      const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentYearDoc = yearsData.find(y => y.añoInicio === currentYearStart) || yearsData[0];
+      if (currentYearDoc) {
+        setFilterYear(currentYearDoc.id);
+      }
 
       // 3. Fetch Studies of this Dept
       const qStudies = query(collection(db, 'ies_estudios'), where('iesId', '==', activeIesId));

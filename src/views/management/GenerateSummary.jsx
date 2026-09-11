@@ -43,10 +43,14 @@ export default function GenerateSummary() {
       const qYears = query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId));
       const snapYears = await getDocs(qYears);
       const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
-      yearsData.sort((a, b) => b.añoInicio - a.añoInicio);
+      yearsData.sort((a, b) => (Number(b.añoInicio) || 0) - (Number(a.añoInicio) || 0));
       setAcademicYears(yearsData);
-      if (yearsData.length > 0) {
-        setSelectedYearId(yearsData[0].id);
+
+      const now = new Date();
+      const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+      const currentYearDoc = yearsData.find(y => y.añoInicio === currentYearStart) || yearsData[0];
+      if (currentYearDoc) {
+        setSelectedYearId(currentYearDoc.id);
       }
     } catch (error) {
       console.error("Error fetching initial data for summary:", error);
