@@ -37,6 +37,47 @@ const getFirstSurname = (apellidos) => {
   return firstSurnameParts.join(' ');
 };
 
+const getHorarioTotalHours = (h) => {
+  if (!h) return 0;
+  const p = h.patron || h;
+  return (Number(p.lunes) || 0) + (Number(p.martes) || 0) + (Number(p.miercoles) || 0) + (Number(p.jueves) || 0) + (Number(p.viernes) || 0);
+};
+
+const isAssignmentReady = (a) => {
+  const hasTemas = Array.isArray(a.temas) && a.temas.length > 0;
+  const hasHorario = !!(a.horario && getHorarioTotalHours(a.horario) > 0);
+  return hasTemas && hasHorario;
+};
+
+const getReadinessInfo = (a) => {
+  const hasTemas = Array.isArray(a.temas) && a.temas.length > 0;
+  const totalHorasSemana = a.horario ? getHorarioTotalHours(a.horario) : 0;
+  const hasHorario = totalHorasSemana > 0;
+
+  if (hasTemas && hasHorario) {
+    return {
+      ready: true,
+      title: `Lista para procesar fechas (${a.temas.length} ${a.temas.length === 1 ? 'tema' : 'temas'}, ${totalHorasSemana}h/semana)`
+    };
+  }
+  if (!hasTemas && !hasHorario) {
+    return {
+      ready: false,
+      title: 'No lista: Sin temas registrados y sin horario semanal asignado'
+    };
+  }
+  if (!hasTemas) {
+    return {
+      ready: false,
+      title: 'No lista: Falta registrar al menos un tema'
+    };
+  }
+  return {
+    ready: false,
+    title: 'No lista: Falta asignar el horario semanal'
+  };
+};
+
 export default function TeachingAssignments() {
 
   const navigate = useNavigate();
@@ -672,9 +713,39 @@ export default function TeachingAssignments() {
           </div>
         </div>
         <div style={styles.counterRow}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.6rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', display: 'inline-flex', alignItems: 'center' }}>
-            <strong style={{ fontSize: '1rem', marginRight: '6px', color: 'var(--accent-primary)' }}>{filteredAssignments.length}</strong>
-            <span style={{ opacity: 0.8, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.05em' }}>seleccionadas</span>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '0.3rem 0.6rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', display: 'inline-flex', alignItems: 'center' }}>
+              <strong style={{ fontSize: '1rem', marginRight: '6px', color: 'var(--accent-primary)' }}>{filteredAssignments.length}</strong>
+              <span style={{ opacity: 0.8, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.05em' }}>seleccionadas</span>
+            </div>
+
+            {(() => {
+              const notReadyCount = filteredAssignments.filter(a => !isAssignmentReady(a)).length;
+              if (notReadyCount === 0) return null;
+              return (
+                <div style={{ 
+                  fontSize: '0.8rem', 
+                  color: '#f87171', 
+                  background: 'rgba(239, 68, 68, 0.12)', 
+                  padding: '0.3rem 0.75rem', 
+                  borderRadius: '8px', 
+                  border: '1px solid rgba(239, 68, 68, 0.25)', 
+                  display: 'inline-flex', 
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                  <span>
+                    <strong style={{ fontSize: '0.95rem', fontWeight: '800', marginRight: '4px' }}>{notReadyCount}</strong>
+                    {notReadyCount === 1 ? 'impartición no lista todavía' : 'imparticiones no listas todavía'}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </section>
@@ -685,123 +756,169 @@ export default function TeachingAssignments() {
           <div style={styles.emptyState}>No hay imparticiones que coincidan con la búsqueda.</div>
         ) : (
           <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '60vh', width: '100%' }}>
-            <table className="data-table" style={{ width: '100%', minWidth: '650px', tableLayout: 'fixed' }}>
+            <table className="data-table" style={{ width: '100%', minWidth: '680px', tableLayout: 'fixed' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '28%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '18%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig./Grupo</th>
-                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '13%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desviación</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '13%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>F. Últ. Act.</th>
-                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '12%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>N. Temas</th>
-                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '16%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '26%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profesor</th>
+                  <th style={{ textAlign: 'left', padding: '0.75rem 1rem', width: '17%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asig./Grupo</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '12%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Desviación</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '12%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>F. Últ. Act.</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '11%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>N. Temas</th>
+                  <th style={{ textAlign: 'center', padding: '0.75rem 1rem', width: '9%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Listo</th>
+                  <th style={{ textAlign: 'right', padding: '0.75rem 1rem', width: '13%', fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredAssignments.map(a => (
-                  <tr 
-                    key={a.id} 
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
-                    onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
-                  >
-                    <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
-                      <div style={{ ...styles.profInfoCell, width: '100%' }}>
-                        {professors.find(p => p.id === a.usuarioId)?.foto ? (
-                          <img 
-                            src={professors.find(p => p.id === a.usuarioId).foto} 
-                            alt={a.profesorNombre} 
-                            style={styles.avatarMini} 
-                          />
-                        ) : (
-                          <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
-                        )}
-                        <span style={{ fontWeight: '600', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }} title={a.profesorNombre}>
-                          {a.profesorNombre}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'left', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{a.asignaturaSigla}</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{a.grupoNombre}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                      <span style={{ 
-                        padding: '0.3rem 0.6rem', 
-                        borderRadius: '6px', 
-                        fontSize: '0.85rem',
-                        fontWeight: '800',
-                        background: a.desviacion > 0 ? 'rgba(239, 68, 68, 0.15)' : (a.desviacion < 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'),
-                        color: a.desviacion > 0 ? '#ff6b6b' : (a.desviacion < 0 ? '#34d399' : 'var(--text-secondary)')
-                      }}>
-                        {a.desviacion > 0 ? `+${a.desviacion}h` : `${a.desviacion}h`}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      {a.lastUpdate ? a.lastUpdate.toLocaleDateString() : 'Nunca'}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                      {a.temas && a.temas.length > 0 ? (
+                {filteredAssignments.map(a => {
+                  const readiness = getReadinessInfo(a);
+                  return (
+                    <tr 
+                      key={a.id} 
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
+                      onClick={() => navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`)}
+                    >
+                      <td style={{ padding: '0.75rem 1rem', overflow: 'hidden' }}>
+                        <div style={{ ...styles.profInfoCell, width: '100%' }}>
+                          {professors.find(p => p.id === a.usuarioId)?.foto ? (
+                            <img 
+                              src={professors.find(p => p.id === a.usuarioId).foto} 
+                              alt={a.profesorNombre} 
+                              style={styles.avatarMini} 
+                            />
+                          ) : (
+                            <div style={styles.avatarMini}>{a.profesorNombre.charAt(0)}</div>
+                          )}
+                          <span style={{ fontWeight: '600', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', width: '100%' }} title={a.profesorNombre}>
+                            {a.profesorNombre}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'left', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{a.asignaturaSigla}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{a.grupoNombre}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                         <span style={{ 
-                          padding: '0.25rem 0.55rem', 
+                          padding: '0.3rem 0.6rem', 
                           borderRadius: '6px', 
-                          fontSize: '0.85rem', 
-                          fontWeight: '700', 
-                          background: 'rgba(99, 102, 241, 0.15)', 
-                          color: '#a5b4fc' 
+                          fontSize: '0.85rem',
+                          fontWeight: '800',
+                          background: a.desviacion > 0 ? 'rgba(239, 68, 68, 0.15)' : (a.desviacion < 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)'),
+                          color: a.desviacion > 0 ? '#ff6b6b' : (a.desviacion < 0 ? '#34d399' : 'var(--text-secondary)')
                         }}>
-                          {a.temas.length}
+                          {a.desviacion > 0 ? `+${a.desviacion}h` : `${a.desviacion}h`}
                         </span>
-                      ) : (
-                        <span style={{ 
-                          padding: '0.25rem 0.55rem', 
-                          borderRadius: '6px', 
-                          fontSize: '0.85rem', 
-                          fontWeight: '700', 
-                          background: 'rgba(239, 68, 68, 0.12)', 
-                          color: '#ff6b6b',
-                          border: '1px solid rgba(239, 68, 68, 0.25)'
-                        }} title="Sin temas configurados">
-                          0
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`);
-                          }}
-                          className="btn-secondary"
-                          style={{ padding: '0.4rem', minWidth: 'auto' }}
-                          title="Ver seguimiento"
-                        >
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                          </svg>
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirm({ isOpen: true, assignment: a });
-                          }} 
-                          className="btn-delete"
-                          style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
-                          title="Eliminar"
-                        >
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        {a.lastUpdate ? a.lastUpdate.toLocaleDateString() : 'Nunca'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        {a.temas && a.temas.length > 0 ? (
+                          <span style={{ 
+                            padding: '0.25rem 0.55rem', 
+                            borderRadius: '6px', 
+                            fontSize: '0.85rem', 
+                            fontWeight: '700', 
+                            background: 'rgba(99, 102, 241, 0.15)', 
+                            color: '#a5b4fc' 
+                          }}>
+                            {a.temas.length}
+                          </span>
+                        ) : (
+                          <span style={{ 
+                            padding: '0.25rem 0.55rem', 
+                            borderRadius: '6px', 
+                            fontSize: '0.85rem', 
+                            fontWeight: '700', 
+                            background: 'rgba(239, 68, 68, 0.12)', 
+                            color: '#ff6b6b',
+                            border: '1px solid rgba(239, 68, 68, 0.25)'
+                          }} title="Sin temas configurados">
+                            0
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        {readiness.ready ? (
+                          <span 
+                            title={readiness.title}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.3)'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          </span>
+                        ) : (
+                          <span 
+                            title={readiness.title}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.3)'
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '0.75rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/profesor/programaciones/${a.id}/seguimiento?readOnly=true`);
+                            }}
+                            className="btn-secondary"
+                            style={{ padding: '0.4rem', minWidth: 'auto' }}
+                            title="Ver seguimiento"
+                          >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="12" y1="16" x2="12" y2="12"></line>
+                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm({ isOpen: true, assignment: a });
+                            }} 
+                            className="btn-delete"
+                            style={{ padding: '0.4rem', minWidth: 'auto', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '4px' }}
+                            title="Eliminar"
+                          >
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
 
             </table>

@@ -1,5 +1,5 @@
 import { db } from '../config/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { calcularMetricasSeguimiento } from './timeCalculations';
 
 /**
@@ -71,26 +71,37 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
       list.sort((a, b) => Number(a.id) - Number(b.id));
     });
 
-    // 3. Carga de Horarios en lotes (Firestore limit 30 para 'in')
-    const ids = assignments.map(a => a.id);
+    // 3. Carga de Horarios del centro
     const schedulesMap = {};
-    const batchSize = 30;
-    
-    const schedulePromises = [];
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const chunk = ids.slice(i, i + batchSize);
-      schedulePromises.push(
-        getDocs(query(collection(db, 'profesor_horarios'), where('imparticionId', 'in', chunk)))
-      );
-    }
-    
-    const scheduleSnaps = await Promise.all(schedulePromises);
-    scheduleSnaps.forEach(snap => {
-      snap.docs.forEach(d => {
+    try {
+      const schedulesSnap = await getDocs(query(collection(db, 'profesor_horarios'), where('iesId', '==', iesId)));
+      schedulesSnap.docs.forEach(d => {
         const data = d.data();
-        schedulesMap[data.imparticionId] = data;
+        schedulesMap[d.id] = data;
+        if (data.imparticionId) {
+          schedulesMap[data.imparticionId] = data;
+        }
       });
-    });
+    } catch (e) {
+      console.warn("Error querying profesor_horarios by iesId:", e);
+    }
+
+    // Fallback: Si para alguna impartición no se encontró horario en la búsqueda general, comprobamos por doc ID directo
+    const missingScheduleIds = assignments.map(a => a.id).filter(id => !schedulesMap[id]);
+    if (missingScheduleIds.length > 0) {
+      const directSnaps = await Promise.all(
+        missingScheduleIds.map(id => getDoc(doc(db, 'profesor_horarios', id)).catch(() => null))
+      );
+      directSnaps.forEach(snap => {
+        if (snap && snap.exists && snap.exists()) {
+          const data = snap.data();
+          schedulesMap[snap.id] = data;
+          if (data.imparticionId) {
+            schedulesMap[data.imparticionId] = data;
+          }
+        }
+      });
+    }
 
     // 4. Cálculo de métricas e inyección en los objetos originales
     return assignments.map(imp => {
@@ -109,7 +120,8 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
       return { 
         ...imp, 
         ...metrics,
-        temas
+        temas,
+        horario: horario || null
       };
     });
   } catch (error) {
