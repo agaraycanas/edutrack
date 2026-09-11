@@ -208,10 +208,15 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     let nSesiones = 0;
     let desviacion = null;
 
-    if (t.fechaInicio && t.fechaFin) {
+    if (t.fechaInicio) {
       try {
-        hRealRaw = calcularHorasRealesRaw(t.fechaInicio, t.fechaFin, horario, duracionSesion, festivos, ausencias);
-        nSesiones = contarSesiones(t.fechaInicio, t.fechaFin, horario, festivos, ausencias);
+        const endDate = t.fechaFin || todayIso;
+        const normStart = normalizeDate(t.fechaInicio);
+        const normEnd = normalizeDate(endDate);
+        const effectiveEnd = (normEnd && normStart && normEnd < normStart) ? t.fechaInicio : endDate;
+
+        hRealRaw = calcularHorasRealesRaw(t.fechaInicio, effectiveEnd, horario, duracionSesion, festivos, ausencias);
+        nSesiones = contarSesiones(t.fechaInicio, effectiveEnd, horario, festivos, ausencias);
         desviacion = calcularDesviacion(hRealRaw, hEst);
         totalDevRaw += (hRealRaw - hEst);
       } catch (err) {}

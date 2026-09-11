@@ -361,12 +361,12 @@ export default function SyllabusTracking() {
                         title="Número de clases impartidas para este tema" 
                         style={{ fontWeight: '600', color: '#a5b4fc', cursor: 'help' }}
                       >
-                        {tema.fechaInicio && tema.fechaFin ? nSesiones : '-'}
+                        {tema.fechaInicio ? nSesiones : '-'}
                       </span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        {tema.fechaInicio && tema.fechaFin ? `${hRealesDisplay}h` : '-'}
+                        {tema.fechaInicio ? `${hRealesDisplay}h` : '-'}
                       </span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>

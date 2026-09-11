@@ -238,8 +238,8 @@ export default function GenerateSummary() {
                 <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; color: #475569; white-space: nowrap;">${tStart}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; color: #475569; white-space: nowrap;">${tEnd}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; font-weight: bold; background-color: #fafafa; white-space: nowrap;">${Math.round(t.horasEstimadas)}h</td>
-                <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; white-space: nowrap;">${t.fechaInicio && t.fechaFin ? temaMetrics.nSesiones : '-'}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; font-weight: bold; white-space: nowrap;">${t.fechaInicio && t.fechaFin ? `${temaMetrics.hReal}h` : '-'}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; white-space: nowrap;">${t.fechaInicio ? temaMetrics.nSesiones : '-'}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; font-weight: bold; white-space: nowrap;">${t.fechaInicio ? `${temaMetrics.hReal}h` : '-'}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 5px 6px; text-align: center; font-weight: bold; color: ${tDevColor}; white-space: nowrap;">${tDevText}</td>
                 <td style="border: 1px solid #cbd5e1; padding: 5px 6px; color: #475569; font-style: italic;">${t.observaciones || '-'}</td>
               </tr>
@@ -272,7 +272,7 @@ export default function GenerateSummary() {
           const tableHeader = 'Tema\tNombre\tF. Inicio\tF. Fin\tH. Est\tSesiones\tH. Real\tDesv.\tObservaciones';
           const rows = (a.temas || []).map(t => {
             const m = a.metricasPorTema?.find(m => Number(m.id) === Number(t.id)) || { hReal: 0, nSesiones: 0, desviacion: null };
-            return `${t.id}\t${t.nombre}\t${t.fechaInicio || '-'}\t${t.fechaFin || '-'}\t${t.horasEstimadas}h\t${t.fechaInicio && t.fechaFin ? m.nSesiones : '-'}\t${t.fechaInicio && t.fechaFin ? m.hReal + 'h' : '-'}\t${m.desviacion !== null ? m.desviacion : '-'}\t${t.observaciones || '-'}`;
+            return `${t.id}\t${t.nombre}\t${t.fechaInicio || '-'}\t${t.fechaFin || '-'}\t${t.horasEstimadas}h\t${t.fechaInicio ? m.nSesiones : '-'}\t${t.fechaInicio ? m.hReal + 'h' : '-'}\t${m.desviacion !== null ? m.desviacion : '-'}\t${t.observaciones || '-'}`;
           }).join('\n');
           return `${header}\n${tableHeader}\n${rows}`;
         }).join('\n\n');
@@ -519,10 +519,10 @@ export default function GenerateSummary() {
                                         </span>
                                       </td>
                                       <td style={{ padding: '0.6rem', textAlign: 'center', color: '#a5b4fc', fontWeight: '600', whiteSpace: 'nowrap' }}>
-                                        {t.fechaInicio && t.fechaFin ? temaMetrics.nSesiones : '-'}
+                                        {t.fechaInicio ? temaMetrics.nSesiones : '-'}
                                       </td>
                                       <td style={{ padding: '0.6rem', textAlign: 'center', color: '#fff', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                        {t.fechaInicio && t.fechaFin ? `${temaMetrics.hReal}h` : '-'}
+                                        {t.fechaInicio ? `${temaMetrics.hReal}h` : '-'}
                                       </td>
                                       <td style={{ padding: '0.6rem', textAlign: 'center', fontWeight: '800', color: tDevColor, whiteSpace: 'nowrap' }}>
                                         {temaMetrics.desviacion !== null ? (temaMetrics.desviacion > 0 ? `+${temaMetrics.desviacion}h` : `${temaMetrics.desviacion}h`) : '-'}
