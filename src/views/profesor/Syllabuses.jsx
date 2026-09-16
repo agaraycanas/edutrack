@@ -226,7 +226,7 @@ export default function Syllabuses() {
         // Find Theoretical Current Theme from metrics
         // (The library already calculates currentThemeName, we can map it back or just use the name)
         const currentTheme = metrics.temaActual !== 'No iniciado' && metrics.temaActual !== 'Temario completado' 
-          ? { nombre: metrics.temaActual, progress: metrics.progreso } 
+          ? { nombre: metrics.temaActual, progress: metrics.progresoTema ?? metrics.progreso } 
           : null;
 
         // Find Real Current Theme (last started theme)

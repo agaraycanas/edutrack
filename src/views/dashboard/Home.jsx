@@ -398,14 +398,43 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div style={{ marginTop: 'auto' }}>
-                  <div style={styles.statRow}>
-                    <span style={{ fontSize: '0.9rem' }}>Progreso Teórico (Hoy):</span>
-                    <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.2rem' }}>{imp.progreso}%</span>
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>
+                      Progreso teórico:
+                    </span>
+                    
+                    {/* Tema actual */}
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Tema actual:</span>
+                        <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.05rem' }}>
+                          {imp.progresoTema ?? 0}%
+                        </span>
+                      </div>
+                      <div style={{ ...styles.progressBarBg, height: '6px', margin: '4px 0 0.5rem 0' }}>
+                        <div style={{ ...styles.progressBarFill, width: `${Math.min(100, Math.max(0, imp.progresoTema ?? 0))}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Global */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Global:</span>
+                        <span style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                          {imp.progresoGlobal ?? imp.progreso ?? 0}%
+                        </span>
+                      </div>
+                      <div style={{ ...styles.progressBarBg, height: '6px', margin: '4px 0 0 0' }}>
+                        <div style={{ 
+                          ...styles.progressBarFill, 
+                          background: 'linear-gradient(90deg, #6366f1, #a855f7)', 
+                          width: `${Math.min(100, Math.max(0, imp.progresoGlobal ?? imp.progreso ?? 0))}%` 
+                        }} />
+                      </div>
+                    </div>
                   </div>
-                  <div style={{...styles.progressBarBg, height: '8px', margin: '8px 0'}}>
-                    <div style={{...styles.progressBarFill, width: `${imp.progreso}%`}} />
-                  </div>
+
                   <div style={styles.statRow}>
                     <span style={{ fontSize: '0.9rem' }}>Desviación Global:</span>
                     <span style={{ 
@@ -416,7 +445,7 @@ export default function Home() {
                       {imp.desviacion > 0 ? `+${imp.desviacion}h` : `${imp.desviacion}h`}
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', fontWeight: '500' }}>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', fontWeight: '500' }}>
                     Última actualización: {imp.lastUpdate ? imp.lastUpdate.toLocaleDateString() : 'Nunca'}
                   </p>
                 </div>

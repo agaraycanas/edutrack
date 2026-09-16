@@ -179,7 +179,7 @@ export const calcularDesviacion = (horasReales, horasEstimadas) => {
  */
 export const calcularMetricasSeguimiento = (temas, horario, academicYear, festivos = [], ausencias = [], todayIso = new Date().toISOString().split('T')[0], baseUpdatedAt = null) => {
   if (!academicYear || !horario) {
-    return { desviacion: 0, progreso: 0, temaActual: 'Sin configuración', lastUpdate: null, metricasPorTema: [] };
+    return { desviacion: 0, progreso: 0, progresoGlobal: 0, progresoTema: 0, temaActual: 'Sin configuración', lastUpdate: null, metricasPorTema: [] };
   }
 
   const duracionSesion = academicYear.duracionSesion || 55;
@@ -196,6 +196,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   let totalHours = 0;
   let currentThemeName = 'No iniciado';
   let cumulativeEstimadas = 0;
+  let progresoTema = 0;
   
   // La fecha de última actualización SOLO se basa en las fechas de los temas (calendario)
   let lastUpdate = null;
@@ -232,6 +233,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     // Identificar tema actual basado en horas lectivas transcurridas vs acumulado de estimadas
     if (currentThemeName === 'No iniciado' && cumulativeEstimadas + hEst > horasTranscurridasHoy) {
       currentThemeName = t.nombre || t.titulo || 'Tema ' + (t.id || t.n);
+      const horasEnEsteTema = Math.max(0, horasTranscurridasHoy - cumulativeEstimadas);
+      progresoTema = hEst > 0 ? Math.min(100, Math.round((horasEnEsteTema / hEst) * 100)) : 0;
     }
     cumulativeEstimadas += hEst;
 
@@ -246,6 +249,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   // Si todas las horas lectivas han pasado el total, el tema actual es el último
   if (currentThemeName === 'No iniciado' && totalHours > 0 && horasTranscurridasHoy >= totalHours) {
     currentThemeName = 'Temario completado';
+    progresoTema = 100;
   }
 
   const progreso = totalHours > 0 ? Math.min(100, Math.round((horasTranscurridasHoy / totalHours) * 100)) : 0;
@@ -253,6 +257,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
   return { 
     desviacion: Math.round(totalDevRaw), 
     progreso, 
+    progresoGlobal: progreso,
+    progresoTema,
     temaActual: currentThemeName, 
     lastUpdate,
     metricasPorTema
