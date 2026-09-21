@@ -166,6 +166,7 @@ export default function Syllabuses() {
           horasEstimadas: t.horas,
           fechaInicio: t.fechaInicio,
           fechaFin: t.fechaFin,
+          ajuste: Number(t.ajuste) || 0,
           observaciones: t.observaciones
         });
         return acc;

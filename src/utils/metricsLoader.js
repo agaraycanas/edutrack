@@ -41,6 +41,7 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
           horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 0),
           fechaInicio: t.fechaInicio || '',
           fechaFin: t.fechaFin || '',
+          ajuste: Number(t.ajuste) || 0,
           observaciones: t.observaciones || '',
           updatedAt: t.updatedAt || data.updatedAt || null
         }));
@@ -60,6 +61,7 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
           horasEstimadas: Number(data.horas ?? 0),
           fechaInicio: data.fechaInicio || '',
           fechaFin: data.fechaFin || '',
+          ajuste: Number(data.ajuste) || 0,
           observaciones: data.observaciones || '',
           updatedAt: data.updatedAt || null
         });

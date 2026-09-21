@@ -144,16 +144,16 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
  * Calcula las horas reales invertidas entre dos fechas, basándose en el patrón horario,
  * excluyendo festivos y ausencias. Devuelve el valor con decimales para cálculos internos.
  */
-export const calcularHorasRealesRaw = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
-  const totalSesiones = contarSesiones(fechaInicio, fechaFin, horario, festivos, ausencias);
+export const calcularHorasRealesRaw = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = [], ajuste = 0) => {
+  const totalSesiones = Math.max(0, contarSesiones(fechaInicio, fechaFin, horario, festivos, ausencias) + (Number(ajuste) || 0));
   return (totalSesiones * duracionSesion) / 60;
 };
 
 /**
  * Calcula las horas reales redondeadas para visualización.
  */
-export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = []) => {
-  return Math.round(calcularHorasRealesRaw(fechaInicio, fechaFin, horario, duracionSesion, festivos, ausencias));
+export const calcularHorasReales = (fechaInicio, fechaFin, horario, duracionSesion = 55, festivos = [], ausencias = [], ajuste = 0) => {
+  return Math.round(calcularHorasRealesRaw(fechaInicio, fechaFin, horario, duracionSesion, festivos, ausencias, ajuste));
 };
 
 /**
@@ -216,8 +216,10 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
         const normEnd = normalizeDate(endDate);
         const effectiveEnd = (normEnd && normStart && normEnd < normStart) ? t.fechaInicio : endDate;
 
-        hRealRaw = calcularHorasRealesRaw(t.fechaInicio, effectiveEnd, horario, duracionSesion, festivos, ausencias);
-        nSesiones = contarSesiones(t.fechaInicio, effectiveEnd, horario, festivos, ausencias);
+        const rawSesiones = contarSesiones(t.fechaInicio, effectiveEnd, horario, festivos, ausencias);
+        const ajuste = Number(t.ajuste) || 0;
+        nSesiones = Math.max(0, rawSesiones + ajuste);
+        hRealRaw = (nSesiones * duracionSesion) / 60;
         desviacion = calcularDesviacion(hRealRaw, hEst);
         totalDevRaw += (hRealRaw - hEst);
       } catch (err) {}

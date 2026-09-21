@@ -77,6 +77,7 @@ export default function SyllabusTracking() {
             horasEstimadas: data.horas ?? 0,
             fechaInicio: data.fechaInicio || '',
             fechaFin: data.fechaFin || '',
+            ajuste: Number(data.ajuste) || 0,
             observaciones: data.observaciones || '',
             updatedAt: data.updatedAt || null,
           };
@@ -100,6 +101,7 @@ export default function SyllabusTracking() {
               horasEstimadas: Number(t.horasEstimadas ?? t.horas ?? 0),
               fechaInicio: t.fechaInicio || '',
               fechaFin: t.fechaFin || '',
+              ajuste: Number(t.ajuste) || 0,
               observaciones: t.observaciones || '',
               updatedAt: t.updatedAt || progData.updatedAt || null
             })).sort((a, b) => Number(a.id) - Number(b.id));
@@ -173,6 +175,7 @@ export default function SyllabusTracking() {
             ? updateDoc(doc(db, 'ies_programacion_temas', tema._docId), {
                 fechaInicio: tema.fechaInicio || '',
                 fechaFin: tema.fechaFin || '',
+                ajuste: Number(tema.ajuste) || 0,
                 observaciones: tema.observaciones || '',
                 updatedAt: serverTimestamp()
               })
@@ -189,6 +192,7 @@ export default function SyllabusTracking() {
           };
           if (t.fechaInicio) item.fechaInicio = t.fechaInicio;
           if (t.fechaFin) item.fechaFin = t.fechaFin;
+          item.ajuste = Number(t.ajuste) || 0;
           if (t.observaciones) item.observaciones = t.observaciones;
           return item;
         });
@@ -273,6 +277,7 @@ export default function SyllabusTracking() {
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)'}}>Nombre</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)', width: isReadOnly ? '80px' : '100px'}}>Fecha Inicio</th>
               <th style={{...styles.th, background: 'rgba(255,255,255,0.03)', width: isReadOnly ? '80px' : '100px'}}>Fecha Fin</th>
+              <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: isReadOnly ? '60px' : '75px'}} title="Ajuste de sesiones computadas">Ajuste</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '90px'}}>H. Estimadas</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '80px'}}>Sesiones</th>
               <th style={{...styles.th, textAlign: 'center', background: 'rgba(255,255,255,0.03)', width: '80px'}}>H. Reales</th>
@@ -283,7 +288,7 @@ export default function SyllabusTracking() {
           <tbody>
             {temas.length === 0 ? (
               <tr>
-                <td colSpan="9" style={styles.emptyState}>No hay temas definidos.</td>
+                <td colSpan="10" style={styles.emptyState}>No hay temas definidos.</td>
               </tr>
             ) : (
               temas.map((tema) => {
@@ -353,12 +358,47 @@ export default function SyllabusTracking() {
                         />
                       )}
                     </td>
+                    <td style={{...styles.td, textAlign: 'center', width: isReadOnly ? '60px' : '75px'}}>
+                      {isReadOnly ? (
+                        <span style={{ 
+                          fontSize: '0.85rem', 
+                          color: (tema.ajuste || 0) < 0 ? '#f59e0b' : '#94a3b8', 
+                          fontWeight: (tema.ajuste || 0) !== 0 ? '600' : 'normal' 
+                        }}>
+                          {tema.ajuste || 0}
+                        </span>
+                      ) : (
+                        <select 
+                          className="input-field" 
+                          style={{ 
+                            padding: '0.3rem 0.4rem', 
+                            fontSize: '0.85rem', 
+                            width: '65px',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            color: (tema.ajuste || 0) < 0 ? '#f59e0b' : 'inherit',
+                            fontWeight: (tema.ajuste || 0) !== 0 ? '600' : 'normal',
+                            paddingRight: '1rem',
+                            backgroundPosition: 'right 0.25rem center',
+                            backgroundSize: '0.9em'
+                          }}
+                          value={tema.ajuste ?? 0}
+                          onChange={(e) => handleDateChange(tema._docId || tema.id, 'ajuste', parseInt(e.target.value, 10) || 0)}
+                        >
+                          {[0, -1, -2, -3, -4, -5, -6].map(val => (
+                            <option key={val} value={val} style={{ background: '#1e293b', color: '#f8fafc' }}>
+                              {val}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span style={styles.badgeEstimadas}>{Math.round(tema.horasEstimadas)}h</span>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <span 
-                        title="Número de clases impartidas para este tema" 
+                        title={`Número de clases impartidas para este tema${(tema.ajuste || 0) !== 0 ? ` (Ajuste: ${tema.ajuste})` : ''}`}
                         style={{ fontWeight: '600', color: '#a5b4fc', cursor: 'help' }}
                       >
                         {tema.fechaInicio ? nSesiones : '-'}
