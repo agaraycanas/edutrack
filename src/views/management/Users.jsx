@@ -31,18 +31,27 @@ const ROLE_LABELS = {
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [iesList, setIesList] = useState([]);
+  const [selectedIesId, setSelectedIesId] = useState(() => localStorage.getItem('activeIesId') || '');
   const [currentIes, setCurrentIes] = useState(null);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
+  const [selectedYearId, setSelectedYearId] = useState('current'); // 'current' | 'all' | <id>
+  const [assignedTeacherIds, setAssignedTeacherIds] = useState(new Set());
+  const [myDeptName, setMyDeptName] = useState('');
+  
+  const [filterDept, setFilterDept] = useState('all');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterText, setFilterText] = useState('');
+  const [loading, setLoading] = useState(true);
+  
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   
   const [deptModal, setDeptModal] = useState({ isOpen: false, user: null, newDept: '' });
   const [emailModal, setEmailModal] = useState({ isOpen: false, user: null, newEmail: '' });
-  const [filterRole, setFilterRole] = useState('all');
-  const [filterText, setFilterText] = useState('');
   
   const activeRole = localStorage.getItem('activeRole') || 'profesor';
-  const activeIesId = localStorage.getItem('activeIesId');
   const myRank = RANKS[activeRole] || 0;
 
   useEffect(() => {
@@ -52,25 +61,83 @@ export default function Users() {
     return () => unsubscribe();
   }, []);
 
+  // Fetch all centers (IES) once
+  useEffect(() => {
+    const fetchIesList = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'ies'));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+        setIesList(list);
+
+        const currentActive = localStorage.getItem('activeIesId');
+        if (!selectedIesId && currentActive) {
+          setSelectedIesId(currentActive);
+        } else if (!selectedIesId && list.length > 0) {
+          setSelectedIesId(list[0].id);
+        }
+      } catch (err) {
+        console.error("Error fetching IES list:", err);
+      }
+    };
+
+    fetchIesList();
+  }, []);
+
+  // Fetch center-specific data whenever selectedIesId or currentUser changes
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedIesId) return;
       setLoading(true);
       try {
-        if (activeIesId) {
-          const iesSnap = await getDoc(doc(db, 'ies', activeIesId));
-          if (iesSnap.exists()) setCurrentIes(iesSnap.data());
-          
-          const deptsSnap = await getDocs(query(collection(db, 'departamentos'), where('iesId', '==', activeIesId)));
-          const deptsList = deptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          deptsList.sort((a, b) => a.nombre.localeCompare(b.nombre));
-          setDepartments(deptsList);
-        }
+        // 1. Centro actual
+        const iesSnap = await getDoc(doc(db, 'ies', selectedIesId));
+        if (iesSnap.exists()) setCurrentIes(iesSnap.data());
 
+        // 2. Departamentos del centro
+        const deptsSnap = await getDocs(query(collection(db, 'departamentos'), where('iesId', '==', selectedIesId)));
+        const deptsList = deptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        deptsList.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+        setDepartments(deptsList);
+
+        // 3. Cursos académicos del centro
+        const qYears = query(collection(db, 'cursos_academicos'), where('iesId', '==', selectedIesId));
+        const snapYears = await getDocs(qYears);
+        const yearsData = snapYears.docs.map(d => ({ id: d.id, ...d.data() }));
+        yearsData.sort((a, b) => (Number(b.añoInicio) || 0) - (Number(a.añoInicio) || 0));
+        setAcademicYears(yearsData);
+
+        const now = new Date();
+        const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const currentYearDoc = yearsData.find(y => Number(y.añoInicio) === currentYearStart) || yearsData[0] || null;
+        setCurrentAcademicYear(currentYearDoc);
+
+        // 4. Imparticiones activas para el curso seleccionado
+        const targetYearId = selectedYearId === 'current' ? currentYearDoc?.id : (selectedYearId === 'all' ? null : selectedYearId);
+        const assignedIds = new Set();
+
+        if (targetYearId) {
+          const qImparticiones = query(
+            collection(db, 'ies_imparticiones'),
+            where('iesId', '==', selectedIesId),
+            where('cursoAcademicoId', '==', targetYearId)
+          );
+          const snapImparticiones = await getDocs(qImparticiones);
+          snapImparticiones.docs.forEach(d => {
+            const data = d.data();
+            if (data.usuarioId) {
+              assignedIds.add(data.usuarioId);
+            }
+          });
+        }
+        setAssignedTeacherIds(assignedIds);
+
+        // 5. Cargar usuarios del centro (o todos si superadmin)
         let q;
         if (activeRole === 'superadmin') {
           q = collection(db, 'usuarios');
         } else {
-          q = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
+          q = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', selectedIesId));
         }
 
         const querySnapshot = await getDocs(q);
@@ -83,22 +150,23 @@ export default function Users() {
             try {
               await updateDoc(doc(db, 'usuarios', u.id), { email: fixedEmail });
               u.email = fixedEmail;
-              console.log(`Email normalizado en Firestore: ${u.nombre} -> ${fixedEmail}`);
             } catch (err) {
               console.warn("No se pudo auto-actualizar email en Firestore:", err);
             }
           }
         }
 
+        // Obtener mi perfil para saber mi departamento si soy Jefe de Depto
+        const myProfile = allUsers.find(u => u.email === currentUser?.email);
+        const myDept = myProfile?.roles?.find(myR => myR.rol === 'jefe_departamento' && myR.iesId === selectedIesId)?.departamento || '';
+        setMyDeptName(myDept);
+
         const filtered = allUsers.filter(u => {
           if (activeRole === 'superadmin') return true;
           if (u.email === currentUser?.email) return true;
 
-          const userRolesInIes = u.roles?.filter(r => r.iesId === activeIesId && r.estado === 'activo') || [];
+          const userRolesInIes = u.roles?.filter(r => r.iesId === selectedIesId && r.estado === 'activo') || [];
           if (userRolesInIes.length === 0) return false;
-
-          // Obtener mi perfil para saber mi departamento si soy Jefe de Depto
-          const myProfile = allUsers.find(u => u.email === currentUser?.email);
 
           // Un usuario es visible si tiene al menos UN ROL gestionable por mí
           return userRolesInIes.some(r => {
@@ -106,7 +174,6 @@ export default function Users() {
             
             // Jefe de Departamento: Puede ver al usuario si tiene un rol de profesor en su departamento
             if (activeRole === 'jefe_departamento') {
-              const myDept = myProfile?.roles?.find(myR => myR.rol === 'jefe_departamento' && myR.iesId === activeIesId)?.departamento;
               return roleRank < myRank && r.departamento === myDept;
             }
 
@@ -124,7 +191,7 @@ export default function Users() {
     };
 
     fetchData();
-  }, [activeRole, activeIesId, currentUser, myRank]);
+  }, [selectedIesId, selectedYearId, activeRole, currentUser, myRank]);
 
   const toggleRole = async (user, roleKey) => {
     const targetRank = RANKS[roleKey];
@@ -141,10 +208,10 @@ export default function Users() {
     const isMe = user.email === currentUser?.email;
     if (isMe) {
       const myMaxRole = user.roles
-        .filter(r => r.iesId === activeIesId && r.estado === 'activo' && r.rol?.toLowerCase() !== 'alumno')
+        .filter(r => r.iesId === selectedIesId && r.estado === 'activo' && r.rol?.toLowerCase() !== 'alumno')
         .reduce((max, r) => (RANKS[r.rol] || 0) > (RANKS[max] || 0) ? r.rol : max, 'profesor');
       
-      if (roleKey === myMaxRole && user.roles.some(r => r.rol === roleKey && r.iesId === activeIesId)) {
+      if (roleKey === myMaxRole && user.roles.some(r => r.rol === roleKey && r.iesId === selectedIesId)) {
         setModal({
           isOpen: true,
           title: 'Acción no permitida',
@@ -158,16 +225,16 @@ export default function Users() {
       const userRef = doc(db, 'usuarios', user.id);
       let newRoles = [...(user.roles || [])];
       
-      const existingRoleIndex = newRoles.findIndex(r => r.rol === roleKey && r.iesId === activeIesId);
+      const existingRoleIndex = newRoles.findIndex(r => r.rol === roleKey && r.iesId === selectedIesId);
       
       if (existingRoleIndex > -1) {
         newRoles.splice(existingRoleIndex, 1);
       } else {
-        const iesNombre = user.roles?.find(r => r.iesId === activeIesId)?.iesNombre || currentIes?.nombre || 'IES';
-        const currentDept = user.roles?.find(r => r.iesId === activeIesId && r.departamento)?.departamento || null;
+        const iesNombre = user.roles?.find(r => r.iesId === selectedIesId)?.iesNombre || currentIes?.nombre || 'IES';
+        const currentDept = user.roles?.find(r => r.iesId === selectedIesId && r.departamento)?.departamento || null;
 
         newRoles.push({
-          iesId: activeIesId,
+          iesId: selectedIesId,
           iesNombre,
           rol: roleKey,
           departamento: currentDept,
@@ -177,7 +244,7 @@ export default function Users() {
 
       await updateDoc(userRef, { 
         roles: newRoles,
-        iesIds: arrayUnion(activeIesId)
+        iesIds: arrayUnion(selectedIesId)
       });
       
       setUsers(users.map(u => u.id === user.id ? { ...u, roles: newRoles } : u));
@@ -188,7 +255,7 @@ export default function Users() {
   };
 
   const handleDeptEditRequest = async (user) => {
-    const userDept = user.roles?.find(r => r.iesId === activeIesId)?.departamento || '';
+    const userDept = user.roles?.find(r => r.iesId === selectedIesId)?.departamento || '';
     setDeptModal({ isOpen: true, user, newDept: userDept });
   };
 
@@ -199,7 +266,7 @@ export default function Users() {
     try {
       const userRef = doc(db, 'usuarios', user.id);
       const newRoles = user.roles.map(r => {
-        if (r.iesId === activeIesId) {
+        if (r.iesId === selectedIesId) {
           return { ...r, departamento: newDept };
         }
         return r;
@@ -235,20 +302,31 @@ export default function Users() {
     }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando datos...</div>;
+  if (loading && users.length === 0) return <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando datos...</div>;
 
   // 1. Filtrado
   const filteredUsers = users.filter(u => {
+    // Filtro por Curso (Impartición en este centro y curso académico)
+    if (selectedYearId !== 'all') {
+      if (!assignedTeacherIds.has(u.id)) return false;
+    }
+
+    // Filtro por Departamento (solo para Jefe de Estudios / Superadmin)
+    if ((activeRole === 'jefe_estudios' || activeRole === 'superadmin') && filterDept !== 'all') {
+      const userDept = u.roles?.find(r => r.iesId === selectedIesId)?.departamento;
+      if (userDept !== filterDept) return false;
+    }
+
     // Filtro de Rol
     if (filterRole !== 'all') {
-      const hasRole = u.roles?.some(r => r.rol === filterRole && r.iesId === activeIesId);
+      const hasRole = u.roles?.some(r => r.rol === filterRole && r.iesId === selectedIesId);
       if (!hasRole) return false;
     }
 
     // Filtro de Texto (nombre, apellidos, email, departamento)
     if (filterText.trim()) {
       const search = filterText.toLowerCase();
-      const userDept = (u.roles?.find(r => r.iesId === activeIesId)?.departamento || '').toLowerCase();
+      const userDept = (u.roles?.find(r => r.iesId === selectedIesId)?.departamento || '').toLowerCase();
       const matchesText = 
         (u.nombre || '').toLowerCase().includes(search) ||
         (u.apellidos || '').toLowerCase().includes(search) ||
@@ -279,6 +357,11 @@ export default function Users() {
     return nombreA.localeCompare(nombreB);
   });
 
+  // Título según el rol
+  const pageTitle = activeRole === 'jefe_departamento' 
+    ? `Profesores de ${myDeptName || 'Departamento'}`
+    : 'Profesores';
+
   return (
     <div className="animate-fade-in" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
       <style>{`
@@ -292,10 +375,68 @@ export default function Users() {
           z-index: 10;
         }
       `}</style>
-      <h1 style={{ marginBottom: '1.5rem' }}>Gestión de Usuarios</h1>
+      
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1 style={{ margin: 0 }}>{pageTitle}</h1>
+      </div>
 
       {/* Barra de Filtros */}
       <div style={styles.filterBar}>
+        {/* Selector de Centro (IES) */}
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Centro:</label>
+          <select 
+            className="input-field" 
+            style={styles.filterSelect}
+            value={selectedIesId}
+            onChange={(e) => setSelectedIesId(e.target.value)}
+          >
+            {iesList.map(ies => (
+              <option key={ies.id} value={ies.id}>{ies.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Selector de Curso Académico */}
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Curso:</label>
+          <select 
+            className="input-field" 
+            style={styles.filterSelect}
+            value={selectedYearId}
+            onChange={(e) => setSelectedYearId(e.target.value)}
+          >
+            <option value="current">
+              {currentAcademicYear ? `Este curso (${currentAcademicYear.nombre})` : 'Este curso'}
+            </option>
+            <option value="all">Todos los cursos</option>
+            {academicYears
+              .filter(y => y.id !== currentAcademicYear?.id)
+              .map(y => (
+                <option key={y.id} value={y.id}>{y.nombre}</option>
+              ))}
+          </select>
+        </div>
+
+        {/* Selector de Departamento (visible para Jefe de Estudios y Superadmin) */}
+        {(activeRole === 'jefe_estudios' || activeRole === 'superadmin') && (
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Departamento:</label>
+            <select 
+              className="input-field" 
+              style={styles.filterSelect}
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+            >
+              <option value="all">Todos los departamentos</option>
+              {departments.map(d => (
+                <option key={d.id} value={d.nombre}>{d.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Selector de Rol */}
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Rol:</label>
           <select 
@@ -304,13 +445,14 @@ export default function Users() {
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
           >
-            <option value="all">Todos</option>
+            <option value="all">Todos los roles</option>
             {Object.entries(ROLE_LABELS).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
         </div>
 
+        {/* Búsqueda por texto */}
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Buscar:</label>
           <div style={{ position: 'relative', flex: 1 }}>
@@ -335,11 +477,11 @@ export default function Users() {
         </div>
         
         <div style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-          {sortedUsers.length} {sortedUsers.length === 1 ? 'usuario' : 'usuarios'}
+          {sortedUsers.length} {sortedUsers.length === 1 ? 'profesor' : 'profesores'}
         </div>
       </div>
       
-      <div className="glass-panel" style={{ width: '100%', overflow: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
+      <div className="glass-panel" style={{ width: '100%', overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <table style={styles.table}>
           <thead>
             <tr>
@@ -353,93 +495,101 @@ export default function Users() {
             </tr>
           </thead>
           <tbody>
-            {sortedUsers.map(user => {
-              const userDept = user.roles?.find(r => r.iesId === activeIesId)?.departamento || '';
-              const canEditDept = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
-              const canEditEmail = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
-              const isMe = user.email === currentUser?.email;
-              
-              return (
-                <tr key={user.id} style={{ ...styles.tr, backgroundColor: isMe ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
-                  <td style={{ ...styles.td, textAlign: 'center' }}>
-                    <img 
-                      src={user.foto || user.avatar || 'https://via.placeholder.com/32'} 
-                      className="user-avatar-zoom"
-                      style={styles.miniAvatar} 
-                      alt="" 
-                      onClick={() => setModal({
-                        isOpen: true,
-                        title: `Foto de ${user.nombre}`,
-                        message: <div style={{ textAlign: 'center' }}><img src={user.foto || user.avatar || 'https://via.placeholder.com/200'} style={{ width: '250px', height: '250px', borderRadius: '20px', objectFit: 'cover', border: '4px solid var(--border-color)' }} /></div>
-                      })}
-                    />
-                  </td>
-                  <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
-                    {user.apellidos}, {user.nombre} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
-                  </td>
-                  <td style={styles.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }} title={user.email}>
-                        {user.email?.includes('@educa.madrid.org') ? (
-                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                            {user.email.split('@')[0]}
-                          </span>
-                        ) : (
-                          <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                            {user.email}
-                          </span>
-                        )}
-                      </span>
-                      {canEditEmail && (
-                        <button 
-                          onClick={() => handleEmailEditRequest(user)} 
-                          className="btn-icon" 
-                          title="Editar Email"
-                          style={{ borderRadius: '8px' }}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td style={styles.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <span style={{ fontSize: '0.85rem', color: userDept ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {userDept || 'Sin depto.'}
-                      </span>
-                      {canEditDept && (
-                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            {sortedUsers.length === 0 ? (
+              <tr>
+                <td colSpan={4 + Object.keys(ROLE_LABELS).length} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
+                  No se encontraron profesores para los filtros seleccionados.
+                </td>
+              </tr>
+            ) : (
+              sortedUsers.map(user => {
+                const userDept = user.roles?.find(r => r.iesId === selectedIesId)?.departamento || '';
+                const canEditDept = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
+                const canEditEmail = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
+                const isMe = user.email === currentUser?.email;
+                
+                return (
+                  <tr key={user.id} style={{ ...styles.tr, backgroundColor: isMe ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
+                    <td style={{ ...styles.td, textAlign: 'center' }}>
+                      <img 
+                        src={user.foto || user.avatar || 'https://via.placeholder.com/32'} 
+                        className="user-avatar-zoom"
+                        style={styles.miniAvatar} 
+                        alt="" 
+                        onClick={() => setModal({
+                          isOpen: true,
+                          title: `Foto de ${user.nombre}`,
+                          message: <div style={{ textAlign: 'center' }}><img src={user.foto || user.avatar || 'https://via.placeholder.com/200'} style={{ width: '250px', height: '250px', borderRadius: '20px', objectFit: 'cover', border: '4px solid var(--border-color)' }} /></div>
+                        })}
+                      />
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: isMe ? '700' : '400' }}>
+                      {user.apellidos}, {user.nombre} {isMe && <span style={{ color: 'var(--accent-primary)', fontSize: '0.7rem' }}>(TÚ)</span>}
+                    </td>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }} title={user.email}>
+                          {user.email?.includes('@educa.madrid.org') ? (
+                            <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                              {user.email.split('@')[0]}
+                            </span>
+                          ) : (
+                            <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
+                              {user.email}
+                            </span>
+                          )}
+                        </span>
+                        {canEditEmail && (
                           <button 
-                            onClick={() => handleDeptEditRequest(user)} 
+                            onClick={() => handleEmailEditRequest(user)} 
                             className="btn-icon" 
-                            title="Editar"
+                            title="Editar Email"
                             style={{ borderRadius: '8px' }}
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                           </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  {Object.keys(ROLE_LABELS).map(roleKey => {
-                    const hasRole = user.roles?.some(r => r.rol === roleKey && r.iesId === activeIesId);
-                    const canToggle = (RANKS[roleKey] <= myRank || activeRole === 'superadmin');
-                    
-                    return (
-                      <td key={roleKey} style={{...styles.td, textAlign: 'center'}}>
-                        <input 
-                          type="checkbox" 
-                          checked={hasRole}
-                          disabled={!canToggle}
-                          onChange={() => toggleRole(user, roleKey)}
-                          style={styles.checkbox}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
+                        )}
+                      </div>
+                    </td>
+                    <td style={styles.td}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                        <span style={{ fontSize: '0.85rem', color: userDept ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                          {userDept || 'Sin depto.'}
+                        </span>
+                        {canEditDept && (
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button 
+                              onClick={() => handleDeptEditRequest(user)} 
+                              className="btn-icon" 
+                              title="Editar"
+                              style={{ borderRadius: '8px' }}
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    {Object.keys(ROLE_LABELS).map(roleKey => {
+                      const hasRole = user.roles?.some(r => r.rol === roleKey && r.iesId === selectedIesId);
+                      const canToggle = (RANKS[roleKey] <= myRank || activeRole === 'superadmin');
+                      
+                      return (
+                        <td key={roleKey} style={{...styles.td, textAlign: 'center'}}>
+                          <input 
+                            type="checkbox" 
+                            checked={hasRole}
+                            disabled={!canToggle}
+                            onChange={() => toggleRole(user, roleKey)}
+                            style={styles.checkbox}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -579,7 +729,7 @@ const styles = {
   },
   filterBar: {
     display: 'flex',
-    gap: '1.5rem',
+    gap: '1rem',
     marginBottom: '1rem',
     padding: '0.7rem 1.2rem',
     background: 'rgba(255, 255, 255, 0.03)',
@@ -591,8 +741,9 @@ const styles = {
   filterGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.5rem',
-    minWidth: '200px'
+    gap: '0.35rem',
+    minWidth: '160px',
+    flex: '1 1 160px'
   },
   filterLabel: {
     fontSize: '0.75rem',
@@ -605,7 +756,8 @@ const styles = {
     padding: '6px 10px',
     fontSize: '0.85rem',
     background: 'var(--surface-color)',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    width: '100%'
   },
   filterInput: {
     padding: '6px 10px',
