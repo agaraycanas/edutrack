@@ -28,6 +28,21 @@ const ROLE_LABELS = {
   // alumno: 'Alumno' (removed to hide from UI)
 };
 
+const getUserDept = (user, iesId) => {
+  if (!user || !user.roles) return '';
+  const rolesInIes = user.roles.filter(r => r.iesId === iesId && r.estado === 'activo');
+  const withDept = rolesInIes.find(r => r.departamento);
+  if (withDept) return withDept.departamento;
+  const anyRoleInIes = user.roles.filter(r => r.iesId === iesId);
+  const anyDept = anyRoleInIes.find(r => r.departamento);
+  return anyDept ? anyDept.departamento : '';
+};
+
+const isSameDept = (deptA, deptB) => {
+  if (!deptA || !deptB) return false;
+  return deptA.trim().toLowerCase() === deptB.trim().toLowerCase();
+};
+
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -125,8 +140,9 @@ export default function Users() {
           const snapImparticiones = await getDocs(qImparticiones);
           snapImparticiones.docs.forEach(d => {
             const data = d.data();
-            if (data.usuarioId) {
-              assignedIds.add(data.usuarioId);
+            const uid = data.usuarioId || data.profesorId;
+            if (uid) {
+              assignedIds.add(uid);
             }
           });
         }
@@ -156,30 +172,44 @@ export default function Users() {
           }
         }
 
-        // Obtener mi perfil para saber mi departamento si soy Jefe de Depto
-        const myProfile = allUsers.find(u => u.email === currentUser?.email);
-        const myDept = myProfile?.roles?.find(myR => myR.rol === 'jefe_departamento' && myR.iesId === selectedIesId)?.departamento || '';
+        // Obtener mi perfil y departamento en este centro
+        const currentUid = currentUser?.uid || auth.currentUser?.uid;
+        const currentEmail = currentUser?.email || auth.currentUser?.email;
+        const isUserMe = (u) => {
+          if (currentUid && u.id === currentUid) return true;
+          if (currentEmail && u.email && u.email.toLowerCase() === currentEmail.toLowerCase()) return true;
+          return false;
+        };
+
+        const myProfile = allUsers.find(isUserMe);
+        const myDept = getUserDept(myProfile, selectedIesId);
         setMyDeptName(myDept);
+
+        const myHasAssignments = myProfile ? assignedIds.has(myProfile.id) : false;
 
         const filtered = allUsers.filter(u => {
           if (activeRole === 'superadmin') return true;
-          if (u.email === currentUser?.email) return true;
+          if (isUserMe(u)) return true;
 
           const userRolesInIes = u.roles?.filter(r => r.iesId === selectedIesId && r.estado === 'activo') || [];
           if (userRolesInIes.length === 0) return false;
 
-          // Un usuario es visible si tiene al menos UN ROL gestionable por mí
-          return userRolesInIes.some(r => {
-            const roleRank = RANKS[r.rol] || 0;
-            
-            // Jefe de Departamento: Puede ver al usuario si tiene un rol de profesor en su departamento
-            if (activeRole === 'jefe_departamento') {
-              return roleRank < myRank && r.departamento === myDept;
-            }
+          const userDept = getUserDept(u, selectedIesId);
 
-            // Para otros roles (como Jefe de Estudios), simplemente ver si tiene algún rol inferior
-            return roleRank < myRank;
-          });
+          if (activeRole === 'profesor') {
+            // Si el profesor logueado no imparte clase en este curso, solo se ve a sí mismo (isUserMe ya lo incluyó)
+            if (!myHasAssignments) return false;
+            // Si imparte clase, ve a los profesores de su mismo departamento que impartan clase en este curso
+            return isSameDept(userDept, myDept) && assignedIds.has(u.id);
+          }
+
+          if (activeRole === 'jefe_departamento') {
+            // Jefe de Departamento: Puede ver a los profesores de su departamento
+            return isSameDept(userDept, myDept);
+          }
+
+          // Para otros roles (como Jefe de Estudios), simplemente ver si tiene algún rol inferior
+          return userRolesInIes.some(r => (RANKS[r.rol] || 0) < myRank);
         });
 
         setUsers(filtered);
@@ -306,14 +336,18 @@ export default function Users() {
 
   // 1. Filtrado
   const filteredUsers = users.filter(u => {
+    const isMe = (currentUser?.uid && u.id === currentUser.uid) || 
+                 (currentUser?.email && u.email?.toLowerCase() === currentUser.email?.toLowerCase());
+
     // Filtro por Curso (Impartición en este centro y curso académico)
-    if (selectedYearId !== 'all') {
+    // El propio usuario logueado siempre se ve a sí mismo aunque no tenga imparticiones en este curso
+    if (selectedYearId !== 'all' && !isMe) {
       if (!assignedTeacherIds.has(u.id)) return false;
     }
 
     // Filtro por Departamento (solo para Jefe de Estudios / Superadmin)
     if ((activeRole === 'jefe_estudios' || activeRole === 'superadmin') && filterDept !== 'all') {
-      const userDept = u.roles?.find(r => r.iesId === selectedIesId)?.departamento;
+      const userDept = getUserDept(u, selectedIesId);
       if (userDept !== filterDept) return false;
     }
 
@@ -326,7 +360,7 @@ export default function Users() {
     // Filtro de Texto (nombre, apellidos, email, departamento)
     if (filterText.trim()) {
       const search = filterText.toLowerCase();
-      const userDept = (u.roles?.find(r => r.iesId === selectedIesId)?.departamento || '').toLowerCase();
+      const userDept = getUserDept(u, selectedIesId).toLowerCase();
       const matchesText = 
         (u.nombre || '').toLowerCase().includes(search) ||
         (u.apellidos || '').toLowerCase().includes(search) ||
@@ -341,20 +375,21 @@ export default function Users() {
 
   // 2. Ordenación
   const sortedUsers = [...filteredUsers].sort((a, b) => {
-    const myEmail = currentUser?.email;
-    const isMeA = a.email === myEmail;
-    const isMeB = b.email === myEmail;
+    const isMeA = (currentUser?.uid && a.id === currentUser.uid) || 
+                  (currentUser?.email && a.email?.toLowerCase() === currentUser.email?.toLowerCase());
+    const isMeB = (currentUser?.uid && b.id === currentUser.uid) || 
+                  (currentUser?.email && b.email?.toLowerCase() === currentUser.email?.toLowerCase());
     
     if (isMeA) return -1;
     if (isMeB) return 1;
     
     const apellidosA = (a.apellidos || '').toLowerCase();
     const apellidosB = (b.apellidos || '').toLowerCase();
-    if (apellidosA !== apellidosB) return apellidosA.localeCompare(apellidosB);
+    if (apellidosA !== apellidosB) return apellidosA.localeCompare(apellidosB, 'es', { sensitivity: 'base' });
     
     const nombreA = (a.nombre || '').toLowerCase();
     const nombreB = (b.nombre || '').toLowerCase();
-    return nombreA.localeCompare(nombreB);
+    return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
   });
 
   // Título según el rol
@@ -409,7 +444,7 @@ export default function Users() {
             <option value="current">
               {currentAcademicYear ? `Este curso (${currentAcademicYear.nombre})` : 'Este curso'}
             </option>
-            <option value="all">Todos los cursos</option>
+            {activeRole !== 'profesor' && <option value="all">Todos los cursos</option>}
             {academicYears
               .filter(y => y.id !== currentAcademicYear?.id)
               .map(y => (
@@ -503,10 +538,11 @@ export default function Users() {
               </tr>
             ) : (
               sortedUsers.map(user => {
-                const userDept = user.roles?.find(r => r.iesId === selectedIesId)?.departamento || '';
+                const userDept = getUserDept(user, selectedIesId);
                 const canEditDept = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
                 const canEditEmail = activeRole === 'superadmin' || activeRole === 'jefe_estudios';
-                const isMe = user.email === currentUser?.email;
+                const isMe = (currentUser?.uid && user.id === currentUser.uid) || 
+                             (currentUser?.email && user.email?.toLowerCase() === currentUser.email?.toLowerCase());
                 
                 return (
                   <tr key={user.id} style={{ ...styles.tr, backgroundColor: isMe ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
@@ -572,7 +608,7 @@ export default function Users() {
                     </td>
                     {Object.keys(ROLE_LABELS).map(roleKey => {
                       const hasRole = user.roles?.some(r => r.rol === roleKey && r.iesId === selectedIesId);
-                      const canToggle = (RANKS[roleKey] <= myRank || activeRole === 'superadmin');
+                      const canToggle = activeRole !== 'profesor' && (activeRole === 'superadmin' || RANKS[roleKey] < myRank);
                       
                       return (
                         <td key={roleKey} style={{...styles.td, textAlign: 'center'}}>

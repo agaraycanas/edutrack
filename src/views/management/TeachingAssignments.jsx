@@ -106,6 +106,8 @@ export default function TeachingAssignments() {
     const saved = localStorage.getItem('teachingSearchTerm');
     return (saved && saved !== 'undefined' && saved !== 'null') ? saved : '';
   });
+  const [filterOnlyNotReady, setFilterOnlyNotReady] = useState(false);
+  const [sortBy, setSortBy] = useState('group'); // 'group' | 'professor'
   
   // Form state
   const [formData, setFormData] = useState({
@@ -226,7 +228,7 @@ export default function TeachingAssignments() {
       const qProfs = query(collection(db, 'usuarios'), where('iesIds', 'array-contains', activeIesId));
       const snapProfs = await getDocs(qProfs);
       const profsData = snapProfs.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => u.roles?.some(r => r.rol === 'profesor' && r.iesId === activeIesId && r.departamento === myDept));
+        .filter(u => u.roles?.some(r => (r.rol === 'profesor' || r.rol === 'jefe_departamento') && r.iesId === activeIesId && r.departamento === myDept));
       
       // Ordenar alfabéticamente por Apellidos y luego Nombre (con soporte de acentos en español)
       profsData.sort((a, b) => {
@@ -549,47 +551,95 @@ export default function TeachingAssignments() {
     })
     .sort((a, b) => (a.sigla || '').localeCompare(b.sigla || ''));
 
-  const filteredAssignments = assignments
-    .filter(a => {
-      // 1. Titulación (Study) Filter
-      if (filterStudy && filterStudy !== '' && filterStudy !== 'all') {
-        const activeFilterId = String(filterStudy).trim();
-        const selectedStudy = studies.find(s => String(s.id) === activeFilterId);
-        
-        // Double-check: If we have a selected study name (e.g. "DAW"), 
-        // ensure the row doesn't explicitly belong to another one.
-        if (selectedStudy) {
-          const selectedPrefix = selectedStudy.nombre.split(' - ')[0].trim(); // e.g. "DAW"
-          
-          // If the group name has a different prefix (e.g. "DAM" vs "DAW"), hide it
-          const rowGroupPrefix = a.grupoNombre?.match(/^[A-Z]+/)?.[0];
-          if (selectedPrefix && rowGroupPrefix && rowGroupPrefix !== selectedPrefix) {
-            return false;
-          }
+  const getAssignmentProfSortKey = (assignment) => {
+    const prof = professors.find(p => p.id === assignment.usuarioId);
+    let apellidos = (prof?.apellidos || '').trim();
+    let nombre = (prof?.nombre || '').trim();
 
-          // If the titration name is different, hide it
-          if (a.titulacionNombre && a.titulacionNombre !== selectedStudy.nombre) {
-            // Only hide if the names are strictly different and not substrings
-            if (!a.titulacionNombre.includes(selectedPrefix)) return false;
-          }
+    if (!apellidos && !nombre && assignment.profesorNombre) {
+      const parts = assignment.profesorNombre.trim().split(/\s+/);
+      if (parts.length > 1) {
+        nombre = parts[0];
+        apellidos = parts.slice(1).join(' ');
+      } else {
+        nombre = assignment.profesorNombre;
+      }
+    }
+
+    const modulo = (assignment.asignaturaNombre || '').trim();
+    const grupo = (assignment.grupoNombre || '').trim();
+
+    return { apellidos, nombre, modulo, grupo };
+  };
+
+  const baseFilteredAssignments = assignments.filter(a => {
+    // 1. Titulación (Study) Filter
+    if (filterStudy && filterStudy !== '' && filterStudy !== 'all') {
+      const activeFilterId = String(filterStudy).trim();
+      const selectedStudy = studies.find(s => String(s.id) === activeFilterId);
+      
+      // Double-check: If we have a selected study name (e.g. "DAW"), 
+      // ensure the row doesn't explicitly belong to another one.
+      if (selectedStudy) {
+        const selectedPrefix = selectedStudy.nombre.split(' - ')[0].trim(); // e.g. "DAW"
+        
+        // If the group name has a different prefix (e.g. "DAM" vs "DAW"), hide it
+        const rowGroupPrefix = a.grupoNombre?.match(/^[A-Z]+/)?.[0];
+        if (selectedPrefix && rowGroupPrefix && rowGroupPrefix !== selectedPrefix) {
+          return false;
         }
 
-        // Standard ID match as fallback/primary check
-        const rowStudyId = String(a.iesEstudioId || '').trim();
-        if (rowStudyId !== activeFilterId) return false;
+        // If the titration name is different, hide it
+        if (a.titulacionNombre && a.titulacionNombre !== selectedStudy.nombre) {
+          // Only hide if the names are strictly different and not substrings
+          if (!a.titulacionNombre.includes(selectedPrefix)) return false;
+        }
       }
 
-      // 2. Búsqueda rápida (Multi-term AND)
-      const normalizedSearch = (searchTerm || '').trim().toLowerCase();
-      if (normalizedSearch) {
-        const terms = normalizedSearch.split(/\s+/).filter(t => t.length > 0);
-        const searchableText = `${a.profesorNombre} ${a.asignaturaNombre} ${a.asignaturaSigla} ${a.grupoNombre} ${a.titulacionNombre}`.toLowerCase();
-        if (!terms.every(term => searchableText.includes(term))) return false;
-      }
+      // Standard ID match as fallback/primary check
+      const rowStudyId = String(a.iesEstudioId || '').trim();
+      if (rowStudyId !== activeFilterId) return false;
+    }
 
+    // 2. Búsqueda rápida (Multi-term AND)
+    const normalizedSearch = (searchTerm || '').trim().toLowerCase();
+    if (normalizedSearch) {
+      const terms = normalizedSearch.split(/\s+/).filter(t => t.length > 0);
+      const searchableText = `${a.profesorNombre} ${a.asignaturaNombre} ${a.asignaturaSigla} ${a.grupoNombre} ${a.titulacionNombre}`.toLowerCase();
+      if (!terms.every(term => searchableText.includes(term))) return false;
+    }
+
+    return true;
+  });
+
+  const filteredAssignments = baseFilteredAssignments
+    .filter(a => {
+      if (filterOnlyNotReady) {
+        return !isAssignmentReady(a);
+      }
       return true;
     })
     .sort((a, b) => {
+      if (sortBy === 'professor') {
+        const keyA = getAssignmentProfSortKey(a);
+        const keyB = getAssignmentProfSortKey(b);
+
+        // 1. Apellidos (<apellido1> <apellido2>)
+        const apComp = keyA.apellidos.localeCompare(keyB.apellidos, 'es', { sensitivity: 'base' });
+        if (apComp !== 0) return apComp;
+
+        // 2. Nombre (<nombre_profesor>)
+        const nomComp = keyA.nombre.localeCompare(keyB.nombre, 'es', { sensitivity: 'base' });
+        if (nomComp !== 0) return nomComp;
+
+        // 3. Nombre del módulo (<nombre_del_módulo_impartido>)
+        const modComp = keyA.modulo.localeCompare(keyB.modulo, 'es', { sensitivity: 'base' });
+        if (modComp !== 0) return modComp;
+
+        // 4. Grupo
+        return keyA.grupo.localeCompare(keyB.grupo, 'es', { sensitivity: 'base' });
+      }
+
       // Sort by group name first (e.g. DAW2D)
       const groupCompare = (a.grupoNombre || '').localeCompare(b.grupoNombre || '');
       if (groupCompare !== 0) return groupCompare;
@@ -720,20 +770,60 @@ export default function TeachingAssignments() {
             </div>
 
             {(() => {
-              const notReadyCount = filteredAssignments.filter(a => !isAssignmentReady(a)).length;
-              if (notReadyCount === 0) return null;
+              const notReadyCount = baseFilteredAssignments.filter(a => !isAssignmentReady(a)).length;
+              if (notReadyCount === 0 && !filterOnlyNotReady) return null;
+
+              if (filterOnlyNotReady) {
+                return (
+                  <button 
+                    type="button"
+                    onClick={() => setFilterOnlyNotReady(false)}
+                    style={{ 
+                      fontSize: '0.8rem', 
+                      color: 'var(--text-primary)', 
+                      background: 'rgba(99, 102, 241, 0.15)', 
+                      padding: '0.3rem 0.75rem', 
+                      borderRadius: '8px', 
+                      border: '1px solid var(--accent-primary)', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      fontWeight: '600',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Volver a mostrar todas las imparticiones"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="19" y1="12" x2="5" y2="12"></line>
+                      <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    <span>Volver a listado normal</span>
+                  </button>
+                );
+              }
+
               return (
-                <div style={{ 
-                  fontSize: '0.8rem', 
-                  color: '#f87171', 
-                  background: 'rgba(239, 68, 68, 0.12)', 
-                  padding: '0.3rem 0.75rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid rgba(239, 68, 68, 0.25)', 
-                  display: 'inline-flex', 
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
+                <button 
+                  type="button"
+                  onClick={() => setFilterOnlyNotReady(true)}
+                  style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#f87171', 
+                    background: 'rgba(239, 68, 68, 0.12)', 
+                    padding: '0.3rem 0.75rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid rgba(239, 68, 68, 0.25)', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Ver solo las imparticiones no listas todavía"
+                >
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -743,9 +833,50 @@ export default function TeachingAssignments() {
                     <strong style={{ fontSize: '0.95rem', fontWeight: '800', marginRight: '4px' }}>{notReadyCount}</strong>
                     {notReadyCount === 1 ? 'impartición no lista todavía' : 'imparticiones no listas todavía'}
                   </span>
-                </div>
+                </button>
               );
             })()}
+
+            {/* Botón a la derecha para conmutar ordenación */}
+            <button
+              type="button"
+              onClick={() => setSortBy(prev => prev === 'group' ? 'professor' : 'group')}
+              style={{
+                fontSize: '0.8rem',
+                color: sortBy === 'professor' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                background: sortBy === 'professor' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                padding: '0.3rem 0.75rem',
+                borderRadius: '8px',
+                border: sortBy === 'professor' ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontWeight: '600',
+                transition: 'all 0.2s ease'
+              }}
+              title={sortBy === 'group' ? "Ordenar por profesor" : "Ordenar por grupo"}
+            >
+              {sortBy === 'group' ? (
+                <>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span>Ordenar por profesor</span>
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                  <span>Ordenar por grupo</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </section>
