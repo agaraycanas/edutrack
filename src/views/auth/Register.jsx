@@ -96,7 +96,7 @@ export default function Register() {
         nombre: formData.nombre,
         apellidos: formData.apellidos,
         email: email,
-        foto: auth.currentUser.photoURL,
+        foto: auth.currentUser?.photoURL || null,
         roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'superadmin', estado: 'activo' }] : [], 
         iesIds: [formData.iesId],
         createdAt: new Date()
