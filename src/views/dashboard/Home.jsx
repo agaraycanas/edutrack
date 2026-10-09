@@ -108,7 +108,7 @@ export default function Home() {
         const [academicYearsSnap, festivosSnap, ausenciasSnap] = await Promise.all([
           getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId))),
           getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId))),
-          getDocs(query(collection(db, 'profesor_ausencias'), where('iesId', '==', activeIesId)))
+          getDocs(collection(db, 'profesor_ausencias'))
         ]);
 
         const academicYears = academicYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -121,7 +121,9 @@ export default function Home() {
         const currentYearLabel = currentYearDoc ? currentYearDoc.nombre : null;
 
         const allFestivos = festivosSnap.docs.map(d => d.data());
-        const allAusencias = ausenciasSnap.docs.map(d => d.data());
+        const allAusencias = ausenciasSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(a => !a.iesId || a.iesId === activeIesId);
 
 
         // 2. Fetch Today Status for the logged-in user
@@ -392,10 +394,31 @@ export default function Home() {
                 <h3 style={styles.cardTitle}>{imp.asignaturaNombre}</h3>
                 
                 <div style={{ margin: '1rem 0' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.4rem' }}>Tema Teórico Actual</p>
-                  <p style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={imp.temaActual}>
-                    {imp.temaActual}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.4rem' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
+                      {imp.temaRealActual ? 'Tema Actual' : 'Tema Teórico Actual'}
+                    </p>
+                    {imp.temaRealActual && (
+                      <span style={{ 
+                        fontSize: '0.7rem', 
+                        color: imp.temaRealActual.status === 'Completado' ? '#10b981' : '#38bdf8', 
+                        background: 'rgba(255,255,255,0.05)', 
+                        padding: '1px 6px', 
+                        borderRadius: '4px',
+                        fontWeight: '600'
+                      }}>
+                        {imp.temaRealActual.status} ({imp.temaRealActual.progreso}%)
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={imp.temaRealActual?.nombre || imp.temaActual}>
+                    {imp.temaRealActual?.nombre || imp.temaActual}
                   </p>
+                  {imp.temaActual && imp.temaRealActual && imp.temaActual !== imp.temaRealActual.nombre && (
+                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }} title={`Según calendario lectivo debería ir por: ${imp.temaActual}`}>
+                      Teórico: <span style={{ color: '#cbd5e1' }}>{imp.temaActual}</span> ({imp.progresoTema}%)
+                    </p>
+                  )}
                 </div>
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../../config/firebase';
 import { 
   collection, 
@@ -6,20 +6,190 @@ import {
   where, 
   getDocs, 
   addDoc, 
-  updateDoc,
+  updateDoc, 
   deleteDoc, 
   doc, 
-  orderBy,
+  orderBy, 
   serverTimestamp 
 } from 'firebase/firestore';
 import Modal from '../../components/common/Modal';
 
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtDate(y, m, d) { return `${y}-${pad(m)}-${pad(d)}`; }
+function addDays(date, days) {
+  const res = new Date(date);
+  res.setUTCDate(res.getUTCDate() + days);
+  return res;
+}
+function toIsoDate(d) {
+  return fmtDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+}
+function getDayOfWeek(y, m, d) {
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+}
+
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function getNthFriday(year, month, n) {
+  let count = 0;
+  for (let day = 1; day <= 31; day++) {
+    const d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCMonth() !== month - 1) break;
+    if (d.getUTCDay() === 5) {
+      count++;
+      if (count === n) return day;
+    }
+  }
+  return 15;
+}
+
+function generateHolidays(yearStart, comunidad, localidad) {
+  const Y = Number(yearStart);
+  const Y1 = Y + 1;
+  const list = [];
+  const easter = getEasterSunday(Y1);
+
+  // 1. Fiesta Nacional (12 oct)
+  const dow12Oct = getDayOfWeek(Y, 10, 12);
+  if (dow12Oct === 0) {
+    list.push({ nombre: 'Fiesta Nacional (Trasladada)', startDate: fmtDate(Y, 10, 13), endDate: null });
+  } else {
+    list.push({ nombre: 'Fiesta Nacional de España', startDate: fmtDate(Y, 10, 12), endDate: null });
+  }
+
+  // 2. Todos los Santos (1 nov)
+  const dow1Nov = getDayOfWeek(Y, 11, 1);
+  if (comunidad === 'Madrid') {
+    if (dow1Nov === 0) {
+      list.push({ nombre: 'Día no lectivo (Puente)', startDate: fmtDate(Y, 10, 31), endDate: null });
+      list.push({ nombre: 'Día de Todos los Santos (Trasladado)', startDate: fmtDate(Y, 11, 2), endDate: null });
+      list.push({ nombre: 'Día no lectivo', startDate: fmtDate(Y, 11, 3), endDate: null });
+    } else if (dow1Nov === 1) {
+      list.push({ nombre: 'Día de Todos los Santos', startDate: fmtDate(Y, 11, 1), endDate: null });
+    } else {
+      list.push({ nombre: 'Día no lectivo', startDate: fmtDate(Y, 10, 31), endDate: null });
+      list.push({ nombre: 'Día de Todos los Santos', startDate: fmtDate(Y, 11, 1), endDate: null });
+      if (dow1Nov === 6) {
+        list.push({ nombre: 'Día no lectivo', startDate: fmtDate(Y, 11, 3), endDate: null });
+      }
+    }
+  } else if (comunidad === 'Castilla-La Mancha') {
+    if (dow1Nov === 0) {
+      list.push({ nombre: 'Día no lectivo (Puente)', startDate: fmtDate(Y, 10, 31), endDate: null });
+      list.push({ nombre: 'Todos los Santos (Trasladado)', startDate: fmtDate(Y, 11, 2), endDate: null });
+    } else {
+      list.push({ nombre: 'Día no lectivo (Puente)', startDate: fmtDate(Y, 10, 31), endDate: null });
+      list.push({ nombre: 'Todos los Santos', startDate: fmtDate(Y, 11, 1), endDate: null });
+    }
+    const ensDay = getNthFriday(Y, 11, 2);
+    list.push({ nombre: 'Día de la Enseñanza', startDate: fmtDate(Y, 11, ensDay), endDate: null });
+  } else {
+    if (dow1Nov === 0) {
+      list.push({ nombre: 'Todos los Santos (Trasladado)', startDate: fmtDate(Y, 11, 2), endDate: null });
+    } else {
+      list.push({ nombre: 'Todos los Santos', startDate: fmtDate(Y, 11, 1), endDate: null });
+    }
+  }
+
+  // 3. Constitución e Inmaculada (6 y 8 dic)
+  const dow6Dec = getDayOfWeek(Y, 12, 6);
+  if (dow6Dec === 0) {
+    list.push({ nombre: 'Día de la Constitución (Trasladado)', startDate: fmtDate(Y, 12, 7), endDate: null });
+  } else {
+    list.push({ nombre: 'Día de la Constitución', startDate: fmtDate(Y, 12, 6), endDate: null });
+  }
+  const dow8Dec = getDayOfWeek(Y, 12, 8);
+  if (dow8Dec === 0) {
+    list.push({ nombre: 'Inmaculada Concepción (Trasladada)', startDate: fmtDate(Y, 12, 9), endDate: null });
+  } else {
+    list.push({ nombre: 'Inmaculada Concepción', startDate: fmtDate(Y, 12, 8), endDate: null });
+  }
+
+  // 4. Vacaciones de Navidad
+  const navStartDay = getDayOfWeek(Y, 12, 22) === 1 ? 20 : 22;
+  list.push({ nombre: 'Vacaciones de Navidad', startDate: fmtDate(Y, 12, navStartDay), endDate: fmtDate(Y1, 1, 7) });
+
+  // 5. Febrero no lectivos / Carnaval
+  const febFri = getNthFriday(Y1, 2, 2);
+  const febMon = febFri + 3;
+  if (comunidad === 'Castilla-La Mancha') {
+    list.push({ nombre: 'Carnaval / Libre disposición', startDate: fmtDate(Y1, 2, febMon), endDate: fmtDate(Y1, 2, febMon + 1) });
+  } else {
+    list.push({ nombre: 'Día no lectivo', startDate: fmtDate(Y1, 2, febFri), endDate: null });
+    list.push({ nombre: 'Día no lectivo', startDate: fmtDate(Y1, 2, febMon), endDate: null });
+  }
+
+  // 6. Semana Santa
+  const ssStart = toIsoDate(addDays(easter, -9));
+  const ssEnd = toIsoDate(addDays(easter, 1));
+  list.push({ nombre: 'Vacaciones de Semana Santa', startDate: ssStart, endDate: ssEnd });
+
+  // 7. Fiesta del Trabajo (1 mayo)
+  const dow1May = getDayOfWeek(Y1, 5, 1);
+  if (dow1May === 0) {
+    list.push({ nombre: 'Fiesta del Trabajo (Trasladada)', startDate: fmtDate(Y1, 5, 2), endDate: null });
+  } else {
+    list.push({ nombre: 'Fiesta del Trabajo', startDate: fmtDate(Y1, 5, 1), endDate: null });
+  }
+
+  // 8. Regionales y Locales
+  if (comunidad === 'Madrid') {
+    const dow2May = getDayOfWeek(Y1, 5, 2);
+    if (dow2May === 0) {
+      list.push({ nombre: 'Día de la Comunidad (Trasladado)', startDate: fmtDate(Y1, 5, 3), endDate: null });
+    } else {
+      list.push({ nombre: 'Día de la Comunidad (No lectivo)', startDate: fmtDate(Y1, 5, 2), endDate: null });
+    }
+
+    if (localidad && localidad.toLowerCase().includes('fernando')) {
+      const dow15May = getDayOfWeek(Y1, 5, 15);
+      const is15Sun = dow15May === 0;
+      list.push({ nombre: 'Festivo Local (San Isidro)', startDate: is15Sun ? fmtDate(Y1, 5, 16) : fmtDate(Y1, 5, 15), endDate: null });
+      
+      const dow30May = getDayOfWeek(Y1, 5, 30);
+      let localDay = 30;
+      if (dow30May === 6) localDay = 29;
+      else if (dow30May === 0) localDay = 28;
+      list.push({ nombre: 'Festivo Local (San Fernando)', startDate: fmtDate(Y1, 5, localDay), endDate: null });
+    }
+  } else if (comunidad === 'Castilla-La Mancha') {
+    list.push({ nombre: 'Día de Castilla-La Mancha', startDate: fmtDate(Y1, 5, 31), endDate: null });
+    const corpusDate = addDays(easter, 60);
+    list.push({ nombre: 'Corpus Christi', startDate: toIsoDate(corpusDate), endDate: null });
+    list.push({ nombre: 'Día no lectivo', startDate: toIsoDate(addDays(corpusDate, 1)), endDate: null });
+  }
+
+  return list;
+}
+
 export default function Holidays() {
   const [holidays, setHolidays] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [currentAcademicYear, setCurrentAcademicYear] = useState(null);
+  const [filterYear, setFilterYear] = useState('all'); // 'all' | <academicYearId>
   const [loading, setLoading] = useState(true);
+  
+  // Create / Edit states
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [holidayCursoId, setHolidayCursoId] = useState('');
   
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -30,14 +200,24 @@ export default function Holidays() {
   // AI Import States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importStep, setImportStep] = useState('location'); // 'location', 'searching', 'proposal'
-  const [comunidad, setComunidad] = useState('Madrid');
-  const [localidad, setLocalidad] = useState('');
+  const [importYearId, setImportYearId] = useState('');
+  const [comunidad, setComunidad] = useState(() => localStorage.getItem('holiday_comunidad') || 'Madrid');
+  const [localidad, setLocalidad] = useState(() => localStorage.getItem('holiday_localidad') || 'San Fernando de Henares');
   const [proposedHolidays, setProposedHolidays] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [selectedProposed, setSelectedProposed] = useState([]);
   
   const activeIesId = localStorage.getItem('activeIesId');
 
+  // Guardar ubicación en localStorage
+  useEffect(() => {
+    if (comunidad) localStorage.setItem('holiday_comunidad', comunidad);
+  }, [comunidad]);
+
+  useEffect(() => {
+    if (localidad) localStorage.setItem('holiday_localidad', localidad);
+  }, [localidad]);
+
+  // Cargar festivos del centro
   const fetchHolidays = useCallback(async () => {
     if (!activeIesId) return;
     setLoading(true);
@@ -63,12 +243,82 @@ export default function Holidays() {
   }, [activeIesId]);
 
   useEffect(() => {
-    fetchHolidays();
-  }, [fetchHolidays]);
+    let isSubscribed = true;
+
+    const loadInitialData = async () => {
+      if (!activeIesId) return;
+      setLoading(true);
+      try {
+        const [qYearsSnap, qHolidaysSnap] = await Promise.all([
+          getDocs(query(collection(db, 'cursos_academicos'), where('iesId', '==', activeIesId))),
+          getDocs(query(collection(db, 'festivos'), where('iesId', '==', activeIesId), orderBy('startDate', 'desc')))
+        ]);
+
+        if (!isSubscribed) return;
+
+        const yearsData = qYearsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        yearsData.sort((a, b) => (Number(b.añoInicio) || 0) - (Number(a.añoInicio) || 0));
+        setAcademicYears(yearsData);
+
+        const now = new Date();
+        const currentYearStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        const currentDoc = yearsData.find(y => Number(y.añoInicio) === currentYearStart) || yearsData[0] || null;
+        setCurrentAcademicYear(currentDoc);
+
+        if (currentDoc) {
+          setImportYearId(currentDoc.id);
+          setFilterYear(currentDoc.id);
+        }
+
+        const holidaysData = qHolidaysSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setHolidays(holidaysData);
+      } catch (error) {
+        console.error("Error loading holidays initial data:", error);
+        if (isSubscribed) {
+          setModal({ 
+            isOpen: true, 
+            title: 'Error', 
+            message: "Error al cargar los datos de festivos." 
+          });
+        }
+      } finally {
+        if (isSubscribed) setLoading(false);
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [activeIesId]);
+
+  // Helper para asociar un festivo a un curso académico
+  const getHolidayAcademicYear = useCallback((holiday) => {
+    if (holiday.cursoAcademicoId) {
+      const found = academicYears.find(y => y.id === holiday.cursoAcademicoId);
+      if (found) return found;
+    }
+    if (!holiday.startDate) return null;
+    const start = new Date(holiday.startDate);
+    const y = start.getFullYear();
+    const m = start.getMonth() + 1; // 1-12
+    const startYear = m >= 9 ? y : y - 1;
+    return academicYears.find(year => Number(year.añoInicio) === startYear || year.nombre === `${startYear}-${startYear + 1}`) || null;
+  }, [academicYears]);
+
+  // Filtrado de festivos para la vista principal
+  const filteredHolidays = useMemo(() => {
+    if (!filterYear || filterYear === 'all') return holidays;
+    return holidays.filter(h => {
+      const yearObj = getHolidayAcademicYear(h);
+      return yearObj?.id === filterYear;
+    });
+  }, [holidays, filterYear, getHolidayAcademicYear]);
 
   const handleStartDateChange = (val) => {
     setStartDate(val);
-    setEndDate(val); // Sincronizar fecha fin con fecha inicio por defecto
+    setEndDate(val);
   };
 
   const checkOverlap = (start, end, idToExclude = null) => {
@@ -87,11 +337,14 @@ export default function Holidays() {
     e.preventDefault();
     if (!activeIesId) return;
 
+    const targetCursoId = holidayCursoId || (filterYear !== 'all' ? filterYear : currentAcademicYear?.id || null);
+
     const payload = {
       nombre: name,
       startDate,
       endDate: endDate === startDate ? null : endDate,
       iesId: activeIesId,
+      cursoAcademicoId: targetCursoId,
       updatedAt: serverTimestamp()
     };
 
@@ -137,6 +390,7 @@ export default function Holidays() {
     setName('');
     setStartDate('');
     setEndDate('');
+    setHolidayCursoId(filterYear !== 'all' ? filterYear : (currentAcademicYear?.id || ''));
     setIsEditing(false);
     setEditingId(null);
   };
@@ -152,6 +406,8 @@ export default function Holidays() {
     setName(holiday.nombre || '');
     setStartDate(holiday.startDate || '');
     setEndDate(holiday.endDate || '');
+    const matchedYear = getHolidayAcademicYear(holiday);
+    setHolidayCursoId(matchedYear?.id || holiday.cursoAcademicoId || '');
     setIsFormOpen(true);
   };
 
@@ -183,91 +439,62 @@ export default function Holidays() {
       });
     }
   };
+
   const handleAIImport = () => {
+    // Si hay un curso filtrado en la vista, inicializar el wizard con ese curso
+    if (filterYear && filterYear !== 'all') {
+      setImportYearId(filterYear);
+    } else if (currentAcademicYear) {
+      setImportYearId(currentAcademicYear.id);
+    } else if (academicYears.length > 0) {
+      setImportYearId(academicYears[0].id);
+    }
     setImportStep('location');
     setIsImportModalOpen(true);
   };
 
+  const getTargetYearObj = () => {
+    return academicYears.find(y => y.id === importYearId) || currentAcademicYear || academicYears[0] || null;
+  };
+
   const startSearch = async () => {
     setImportStep('searching');
-    setIsSearching(true);
     
-    // Simular "investigación" de la IA basada en la ubicación
+    const targetYearObj = getTargetYearObj();
+    const now = new Date();
+    const fallbackStart = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+    const yearStart = targetYearObj ? Number(targetYearObj.añoInicio) : fallbackStart;
+
     setTimeout(() => {
-      let mockProposed = [];
-      
-      if (comunidad === 'Castilla-La Mancha') {
-        mockProposed = [
-          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
-          { nombre: 'Día no lectivo (Puente)', startDate: '2025-10-31', endDate: null },
-          { nombre: 'Todos los Santos', startDate: '2025-11-01', endDate: null },
-          { nombre: 'Día de la Enseñanza', startDate: '2025-11-14', endDate: null },
-          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
-          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
-          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-22', endDate: '2026-01-07' },
-          { nombre: 'Carnaval / Libre disposición', startDate: '2026-02-16', endDate: '2026-02-17' },
-          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-30', endDate: '2026-04-06' },
-          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
-          { nombre: 'Día de Castilla-La Mancha', startDate: '2026-05-31', endDate: null },
-          { nombre: 'Corpus Christi', startDate: '2026-06-04', endDate: null },
-          { nombre: 'Día no lectivo', startDate: '2026-06-05', endDate: null },
-        ];
-      } else if (comunidad === 'Madrid') {
-        const isSanFernando = localidad.toLowerCase().includes('fernando');
-        
-        mockProposed = [
-          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
-          { nombre: 'Día no lectivo', startDate: '2025-10-31', endDate: null },
-          { nombre: 'Día de Todos los Santos', startDate: '2025-11-01', endDate: null },
-          { nombre: 'Día no lectivo', startDate: '2025-11-03', endDate: null },
-          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
-          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
-          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-20', endDate: '2026-01-07' },
-          { nombre: 'Día no lectivo', startDate: '2026-02-13', endDate: null },
-          { nombre: 'Día no lectivo', startDate: '2026-02-16', endDate: null },
-          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-27', endDate: '2026-04-06' },
-          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
-          { nombre: 'Día de la Comunidad (No lectivo)', startDate: '2026-05-02', endDate: null },
-        ];
+      const generated = generateHolidays(yearStart, comunidad, localidad);
 
-        if (isSanFernando) {
-          mockProposed.push({ nombre: 'Festivo Local (San Fernando)', startDate: '2026-05-15', endDate: null });
-          mockProposed.push({ nombre: 'Festivo Local (San Fernando)', startDate: '2026-05-29', endDate: null });
-        }
-      } else {
-        mockProposed = [
-          { nombre: 'Fiesta Nacional (Trasladada)', startDate: '2025-10-13', endDate: null },
-          { nombre: 'Todos los Santos', startDate: '2025-11-01', endDate: null },
-          { nombre: 'Día de la Constitución', startDate: '2025-12-06', endDate: null },
-          { nombre: 'Inmaculada Concepción', startDate: '2025-12-08', endDate: null },
-          { nombre: 'Vacaciones de Navidad', startDate: '2025-12-22', endDate: '2026-01-07' },
-          { nombre: 'Vacaciones de Semana Santa', startDate: '2026-03-30', endDate: '2026-04-06' },
-          { nombre: 'Fiesta del Trabajo', startDate: '2026-05-01', endDate: null },
-        ];
-      }
-
-      // Marcar los que ya existen en lugar de filtrarlos
-      const withOverlapInfo = mockProposed.map(p => ({
+      // Marcar los que ya existen en el sistema (solapamiento)
+      const withOverlapInfo = generated.map(p => ({
         ...p,
         alreadyPresent: !!checkOverlap(p.startDate, p.endDate)
       }));
       
       setProposedHolidays(withOverlapInfo);
-      // Solo seleccionar los que no están presentes
-      setSelectedProposed(withOverlapInfo
-        .map((p, index) => p.alreadyPresent ? null : index)
-        .filter(i => i !== null)
+      
+      // Pre-seleccionar únicamente los festivos nuevos que no existan
+      setSelectedProposed(
+        withOverlapInfo
+          .map((p, index) => p.alreadyPresent ? null : index)
+          .filter(i => i !== null)
       );
       
-      setIsSearching(false);
       setImportStep('proposal');
-    }, 2000);
+    }, 1500);
   };
 
   const executeImport = async () => {
     if (!activeIesId) return;
     
     setLoading(true);
+    const targetYearObj = getTargetYearObj();
+    const targetYearId = targetYearObj?.id || null;
+    const targetYearLabel = targetYearObj?.nombre || 'curso seleccionado';
+
     try {
       const toImport = proposedHolidays.filter((_, index) => selectedProposed.includes(index));
       
@@ -277,6 +504,7 @@ export default function Holidays() {
           startDate: holiday.startDate,
           endDate: holiday.endDate,
           iesId: activeIesId,
+          cursoAcademicoId: targetYearId,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
@@ -285,9 +513,13 @@ export default function Holidays() {
       setModal({
         isOpen: true,
         title: 'Importación Completada',
-        message: `Se han importado correctamente ${toImport.length} festivos para ${localidad || comunidad}.`
+        message: `Se han importado correctamente ${toImport.length} festivos para ${localidad || comunidad} en el curso ${targetYearLabel}.`
       });
       
+      if (targetYearId && filterYear !== targetYearId && filterYear !== 'all') {
+        setFilterYear(targetYearId);
+      }
+
       fetchHolidays();
       setIsImportModalOpen(false);
     } catch (error) {
@@ -306,14 +538,21 @@ export default function Holidays() {
     }
   };
 
+  const targetYearForDisplay = getTargetYearObj();
+  const targetYearLabel = targetYearForDisplay?.nombre || (
+    new Date().getMonth() >= 8 
+      ? `${new Date().getFullYear()}-${new Date().getFullYear() + 1}` 
+      : `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`
+  );
+
   return (
     <div className="animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '0.5rem' }}>Días Festivos</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Gestión de días no lectivos y periodos vacacionales del centro.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Gestión de días no lectivos y periodos vacacionales del centro escolar.</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <button 
             className="btn-secondary" 
             onClick={handleAIImport}
@@ -340,8 +579,43 @@ export default function Holidays() {
       </div>
 
       <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>Listado de Festivos</h2>
+        <div style={{ 
+          padding: '1.25rem 2rem', 
+          borderBottom: '1px solid var(--border-color)', 
+          background: 'rgba(255,255,255,0.02)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}>
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>Listado de Festivos</h2>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+              {filteredHolidays.length} {filteredHolidays.length === 1 ? 'festivo' : 'festivos'}
+              {filterYear !== 'all' && ` para el curso seleccionado`}
+            </p>
+          </div>
+
+          {/* Filtro por Curso Académico */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>
+              Curso:
+            </label>
+            <select
+              className="input-field"
+              style={{ minWidth: '200px', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
+              value={filterYear}
+              onChange={e => setFilterYear(e.target.value)}
+            >
+              <option value="all">Todos los cursos ({holidays.length})</option>
+              {academicYears.map(year => (
+                <option key={year.id} value={year.id}>
+                  Curso {year.nombre} {currentAcademicYear?.id === year.id ? '(Actual)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         
         <div className="table-scroll-wrapper">
@@ -350,17 +624,36 @@ export default function Holidays() {
               <div className="spinner-small" style={{ margin: '0 auto 1rem' }}></div>
               <p>Cargando festivos...</p>
             </div>
-          ) : holidays.length === 0 ? (
+          ) : filteredHolidays.length === 0 ? (
             <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '1rem', opacity: 0.5 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-              <p>No hay días festivos registrados.</p>
-              <button className="btn-secondary" onClick={openCreateModal} style={{ marginTop: '1rem', display: 'inline-flex' }}>Configurar primer festivo</button>
+              {holidays.length === 0 ? (
+                <>
+                  <p>No hay días festivos registrados en el centro.</p>
+                  <button className="btn-secondary" onClick={handleAIImport} style={{ marginTop: '1rem', display: 'inline-flex', gap: '0.5rem' }}>
+                    Importar festivos con IA
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>No hay festivos registrados para el curso seleccionado.</p>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1rem' }}>
+                    <button className="btn-secondary" onClick={() => setFilterYear('all')}>
+                      Ver todos los cursos
+                    </button>
+                    <button className="btn-primary" onClick={handleAIImport}>
+                      (AI) Importar para este curso
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <table className="data-table">
               <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                 <tr>
                   <th>Nombre</th>
+                  <th>Curso</th>
                   <th>Fecha Inicio</th>
                   <th>Fecha Fin</th>
                   <th>Duración</th>
@@ -368,15 +661,25 @@ export default function Holidays() {
                 </tr>
               </thead>
               <tbody>
-                {holidays.map(holiday => {
+                {filteredHolidays.map(holiday => {
                   const start = new Date(holiday.startDate);
                   const end = holiday.endDate ? new Date(holiday.endDate) : start;
                   const diffTime = Math.abs(end - start);
                   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                  const yearObj = getHolidayAcademicYear(holiday);
                   
                   return (
                     <tr key={holiday.id}>
                       <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{holiday.nombre}</td>
+                      <td>
+                        <span className="badge" style={{ 
+                          background: 'rgba(255, 255, 255, 0.05)', 
+                          color: yearObj ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          fontSize: '0.75rem'
+                        }}>
+                          {yearObj ? yearObj.nombre : 'General'}
+                        </span>
+                      </td>
                       <td>{start.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                       <td>{holiday.endDate ? end.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                       <td>
@@ -413,7 +716,7 @@ export default function Holidays() {
         </div>
       </div>
 
-      {/* Form Modal */}
+      {/* Form Modal (Nuevo / Editar Festivo) */}
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
@@ -431,6 +734,22 @@ export default function Holidays() {
               required
             />
           </div>
+
+          {academicYears.length > 0 && (
+            <div className="form-group">
+              <label className="form-label">Curso Académico Asociado</label>
+              <select 
+                className="input-field"
+                value={holidayCursoId}
+                onChange={e => setHolidayCursoId(e.target.value)}
+              >
+                <option value="">Detectar automáticamente por fechas</option>
+                {academicYears.map(y => (
+                  <option key={y.id} value={y.id}>Curso {y.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
@@ -522,19 +841,43 @@ export default function Holidays() {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         title={
-          importStep === 'location' ? "(AI) Configurar Ubicación" : 
+          importStep === 'location' ? "(AI) Configurar Ubicación y Curso" : 
           importStep === 'searching' ? "Investigando..." : "(AI) Propuesta de Festivos"
         }
       >
         <div style={{ minHeight: '300px' }}>
           {importStep === 'location' ? (
             <div style={styles.form}>
-              <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-                Para ofrecerte el calendario correcto, la IA necesita saber la ubicación del centro.
+              <p style={{ marginBottom: '1.25rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Selecciona el curso académico y la ubicación geográfica del centro para calcular el calendario escolar oficial correspondiente.
               </p>
+
+              {/* Selector de Curso Académico */}
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ fontWeight: '600' }}>Curso Académico</label>
+                <select 
+                  className="input-field" 
+                  value={importYearId}
+                  onChange={e => setImportYearId(e.target.value)}
+                >
+                  {academicYears.map(year => (
+                    <option key={year.id} value={year.id}>
+                      Curso {year.nombre} {currentAcademicYear?.id === year.id ? '(Curso Actual)' : ''}
+                    </option>
+                  ))}
+                  {academicYears.length === 0 && (
+                    <option value="">
+                      Curso {targetYearLabel} (Por defecto)
+                    </option>
+                  )}
+                </select>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                  Los festivos se generarán y adaptarán a este curso académico.
+                </p>
+              </div>
               
-              <div className="form-group">
-                <label className="form-label">Comunidad Autónoma</label>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ fontWeight: '600' }}>Comunidad Autónoma</label>
                 <select 
                   className="input-field" 
                   value={comunidad}
@@ -562,17 +905,17 @@ export default function Holidays() {
                 </select>
               </div>
 
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label className="form-label">Localidad / Municipio</label>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: '600' }}>Localidad / Municipio</label>
                 <input 
                   type="text" 
                   className="input-field"
-                  placeholder="Ej: Toledo, Madrid, Alcázar..."
+                  placeholder="Ej: San Fernando de Henares, Madrid, Toledo..."
                   value={localidad}
                   onChange={e => setLocalidad(e.target.value)}
                 />
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
-                  Usaremos esto para buscar los festivos locales específicos.
+                  Usaremos esto para buscar los festivos locales y patronales específicos.
                 </p>
               </div>
 
@@ -589,18 +932,20 @@ export default function Holidays() {
             <div style={{ padding: '4rem', textAlign: 'center' }}>
               <div className="spinner-small" style={{ margin: '0 auto 1rem' }}></div>
               <p>Investigando calendario escolar oficial para <b>{localidad ? `${localidad}, ` : ''}{comunidad}</b>...</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Buscando festivos regionales, nacionales y locales para el curso 2025-2026.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                Buscando festivos regionales, nacionales y locales para el curso <b>{targetYearLabel}</b>.
+              </p>
             </div>
           ) : proposedHolidays.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
-              <p>No se han encontrado nuevos festivos para proponer en {comunidad}.</p>
+              <p>No se han encontrado nuevos festivos para proponer en {comunidad} para el curso {targetYearLabel}.</p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Todos los festivos detectados ya están en el sistema.</p>
               <button className="btn-secondary" onClick={() => setIsImportModalOpen(false)} style={{ marginTop: '1.5rem' }}>Cerrar</button>
             </div>
           ) : (
             <>
               <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
-                Resultados encontrados para <b>{localidad ? `${localidad} (${comunidad})` : comunidad}</b>:
+                Resultados encontrados para <b>{localidad ? `${localidad} (${comunidad})` : comunidad}</b> en el curso <b>{targetYearLabel}</b>:
               </p>
               <div className="scrollable" style={{ maxHeight: '40vh', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem' }}>
                 {proposedHolidays.map((holiday, index) => (

@@ -62,7 +62,14 @@ export default function Absences() {
         }
       }
 
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const activeIesId = localStorage.getItem('activeIesId');
+      const data = snapshot.docs.map(docSnap => {
+        const d = docSnap.data();
+        if (!d.iesId && activeIesId) {
+          updateDoc(doc(db, 'profesor_ausencias', docSnap.id), { iesId: activeIesId }).catch(console.warn);
+        }
+        return { id: docSnap.id, ...d };
+      });
       // Sort client-side to avoid requiring a composite index in Firestore
       data.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
       setAbsences(data);
@@ -103,11 +110,13 @@ export default function Absences() {
     e.preventDefault();
     if (!user) return;
 
+    const activeIesId = localStorage.getItem('activeIesId');
     const payload = {
       motivo,
       startDate,
       endDate: endDate === startDate ? null : endDate,
       userId: user.uid,
+      iesId: activeIesId || null,
       updatedAt: serverTimestamp()
     };
 

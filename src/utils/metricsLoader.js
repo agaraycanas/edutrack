@@ -18,10 +18,10 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
     // 1. Carga de datos comunes (Festivos y Ausencias del centro)
     const [festivosSnap, ausenciasSnap] = await Promise.all([
       getDocs(query(collection(db, 'festivos'), where('iesId', '==', iesId))),
-      getDocs(query(collection(db, 'profesor_ausencias'), where('iesId', '==', iesId)))
+      getDocs(collection(db, 'profesor_ausencias'))
     ]);
     const allFestivos = festivosSnap.docs.map(d => d.data());
-    const allAusencias = ausenciasSnap.docs.map(d => d.data());
+    const allAusencias = ausenciasSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     // 2. Carga de Temas y Programaciones del centro
     const [topicsSnap, progsSnap] = await Promise.all([
@@ -109,7 +109,7 @@ export const loadMetricsForAssignments = async (iesId, assignments, academicYear
     return assignments.map(imp => {
       const temas = topicsMap[imp.id] || [];
       const horario = schedulesMap[imp.id];
-      const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId);
+      const profAusencias = allAusencias.filter(a => a.userId === imp.usuarioId && (!a.iesId || a.iesId === iesId));
       
       const metrics = calcularMetricasSeguimiento(
         temas, 

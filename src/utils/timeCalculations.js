@@ -220,6 +220,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
         const ajuste = Number(t.ajuste) || 0;
         nSesiones = Math.max(0, rawSesiones + ajuste);
         hRealRaw = (nSesiones * duracionSesion) / 60;
+
         desviacion = calcularDesviacion(hRealRaw, hEst);
         totalDevRaw += (hRealRaw - hEst);
       } catch (err) {}
@@ -254,6 +255,23 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     progresoTema = 100;
   }
 
+  // Identificar tema real actual (último tema iniciado en el seguimiento)
+  let temaRealActual = null;
+  const startedThemes = temas.filter(t => t.fechaInicio);
+  if (startedThemes.length > 0) {
+    const lastStarted = startedThemes[startedThemes.length - 1];
+    const lastStartedMetrics = metricasPorTema.find(m => String(m.id) === String(lastStarted.id));
+    const est = Number(lastStarted.horasEstimadas) || 1;
+    temaRealActual = {
+      id: lastStarted.id,
+      nombre: lastStarted.nombre || lastStarted.titulo || 'Tema ' + (lastStarted.id || lastStarted.n),
+      horasEstimadas: est,
+      horasReales: lastStartedMetrics?.hReal || 0,
+      progreso: lastStarted.fechaFin ? 100 : Math.min(100, Math.round(((lastStartedMetrics?.hReal || 0) / est) * 100)),
+      status: lastStarted.fechaFin ? 'Completado' : 'En curso'
+    };
+  }
+
   const progreso = totalHours > 0 ? Math.min(100, Math.round((horasTranscurridasHoy / totalHours) * 100)) : 0;
 
   return { 
@@ -262,6 +280,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     progresoGlobal: progreso,
     progresoTema,
     temaActual: currentThemeName, 
+    temaRealActual,
     lastUpdate,
     metricasPorTema
   };
