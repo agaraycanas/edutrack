@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Modal from '../../components/common/Modal';
 
 export default function Schedules() {
@@ -12,8 +12,10 @@ export default function Schedules() {
   const [selectedYear, setSelectedYear] = useState('');
   
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
   const [formData, setFormData] = useState({
     imparticionId: '',
+    validoDesde: '',
     lunes: 0,
     martes: 0,
     miercoles: 0,
@@ -22,6 +24,14 @@ export default function Schedules() {
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    warning: null,
+    isSuccessHint: false,
+    onConfirm: null
+  });
 
   const activeIesId = localStorage.getItem('activeIesId');
   const uid = auth.currentUser?.uid;
@@ -104,6 +114,15 @@ export default function Schedules() {
     return prog.temas.some(t => t.fechaInicio || t.fechaFin);
   };
 
+  const formatDateEs = (dStr) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dStr;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.imparticionId) {
@@ -111,23 +130,108 @@ export default function Schedules() {
       return;
     }
 
+    if (!formData.validoDesde) {
+      setModal({ isOpen: true, title: 'Error', message: 'Indica la fecha a partir de la cual entra en vigor el horario.' });
+      return;
+    }
+
+    // Caso A: Alta de horario nuevo (sin horario previo registrado)
+    if (!editingSchedule) {
+      await saveSchedule({ isNewVersion: false });
+      return;
+    }
+
+    const a = assignments.find(item => item.id === formData.imparticionId);
+    const aYear = academicYears.find(y => y.nombre === a?.cursoAcademicoLabel);
+    const originalValidoDesde = editingSchedule.validoDesde || aYear?.fechaInicioClases || '';
+
+    // Caso B: Misma fecha de vigencia -> Corrección sobre el tramo actual
+    if (!originalValidoDesde || formData.validoDesde === originalValidoDesde) {
+      const hasThemes = hasStartedThemes(formData.imparticionId);
+      setConfirmModal({
+        isOpen: true,
+        title: 'Guardar cambios en el horario',
+        message: `Se van a guardar los cambios en el patrón horario vigente desde el ${formatDateEs(formData.validoDesde)}.`,
+        warning: hasThemes 
+          ? 'Atención: Al mantener la misma fecha de vigencia, si ya hay temas iniciados o finalizados se recalcularán sus horas reales con estos nuevos valores.' 
+          : null,
+        isSuccessHint: false,
+        onConfirm: () => saveSchedule({ isNewVersion: false })
+      });
+      return;
+    }
+
+    // Caso C: Fecha de vigencia posterior -> Nuevo tramo / cambio de horario a mitad de curso
+    if (formData.validoDesde > originalValidoDesde) {
+      const [y, m, d] = formData.validoDesde.split('-').map(Number);
+      const dNueva = new Date(y, m - 1, d, 12, 0, 0);
+      dNueva.setDate(dNueva.getDate() - 1);
+      const diaAnterior = `${dNueva.getFullYear()}-${String(dNueva.getMonth() + 1).padStart(2, '0')}-${String(dNueva.getDate()).padStart(2, '0')}`;
+
+      setConfirmModal({
+        isOpen: true,
+        title: 'Nuevo tramo horario',
+        message: `A partir del ${formatDateEs(formData.validoDesde)} se aplicará el nuevo patrón horario, sustituyendo al actual (vigente del ${formatDateEs(originalValidoDesde)} al ${formatDateEs(diaAnterior)}).`,
+        warning: 'Las clases y temas impartidos antes de esa fecha mantendrán su cómputo histórico intacto con el horario anterior.',
+        isSuccessHint: true,
+        onConfirm: () => saveSchedule({ 
+          isNewVersion: true, 
+          diaAnterior, 
+          originalValidoDesde 
+        })
+      });
+      return;
+    }
+
+    // Caso D: Fecha anterior a la fecha inicial previa
+    setConfirmModal({
+      isOpen: true,
+      title: 'Modificar fecha de vigencia',
+      message: `La fecha seleccionada (${formatDateEs(formData.validoDesde)}) es anterior a la fecha previa (${formatDateEs(originalValidoDesde)}). Se actualizará el horario con esta nueva fecha.`,
+      warning: 'Esto afectará a los cálculos previos.',
+      isSuccessHint: false,
+      onConfirm: () => saveSchedule({ isNewVersion: false })
+    });
+  };
+
+  const saveSchedule = async ({ isNewVersion = false, diaAnterior = '', originalValidoDesde = '' }) => {
+    setConfirmModal({ isOpen: false, title: '', message: '', warning: null, isSuccessHint: false, onConfirm: null });
     setIsProcessing(true);
     try {
       const scheduleRef = doc(db, 'profesor_horarios', formData.imparticionId);
-      await setDoc(scheduleRef, {
+
+      const updateData = {
         imparticionId: formData.imparticionId,
         iesId: activeIesId,
         usuarioId: uid,
+        validoDesde: formData.validoDesde,
         lunes: Number(formData.lunes),
         martes: Number(formData.martes),
         miercoles: Number(formData.miercoles),
         jueves: Number(formData.jueves),
         viernes: Number(formData.viernes),
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+
+      if (isNewVersion && editingSchedule) {
+        const existingHistorico = Array.isArray(editingSchedule.historico) ? [...editingSchedule.historico] : [];
+        const previousTramo = {
+          validoDesde: originalValidoDesde,
+          validoHasta: diaAnterior,
+          lunes: Number(editingSchedule.lunes || 0),
+          martes: Number(editingSchedule.martes || 0),
+          miercoles: Number(editingSchedule.miercoles || 0),
+          jueves: Number(editingSchedule.jueves || 0),
+          viernes: Number(editingSchedule.viernes || 0)
+        };
+        updateData.historico = [...existingHistorico, previousTramo];
+      }
+
+      await setDoc(scheduleRef, updateData, { merge: true });
 
       setModal({ isOpen: true, title: 'Éxito', message: 'Horario guardado correctamente.' });
       setIsFormOpen(false);
+      setEditingSchedule(null);
       fetchData();
     } catch (error) {
       console.error("Error saving schedule:", error);
@@ -138,22 +242,34 @@ export default function Schedules() {
   };
 
   const openNewScheduleForm = () => {
+    const currentYearStart = (new Date()).getMonth() >= 8 ? (new Date()).getFullYear() : (new Date()).getFullYear() - 1;
+    const currentYearDoc = academicYears.find(y => y.añoInicio === currentYearStart) || academicYears[0];
+    const defaultDate = currentYearDoc?.fechaInicioClases || new Date().toISOString().split('T')[0];
+
     setFormData({
       imparticionId: '',
-      lunes: 0, martes: 0, miercoles: 0, jueves: 0, viernes: 0
+      lunes: 0, martes: 0, miercoles: 0, jueves: 0, viernes: 0,
+      validoDesde: defaultDate
     });
+    setEditingSchedule(null);
     setIsFormOpen(true);
   };
 
   const openEditScheduleForm = (schedule) => {
+    const a = assignments.find(item => item.id === schedule.imparticionId);
+    const aYear = academicYears.find(y => y.nombre === a?.cursoAcademicoLabel);
+    const defaultDate = schedule.validoDesde || aYear?.fechaInicioClases || new Date().toISOString().split('T')[0];
+
     setFormData({
       imparticionId: schedule.imparticionId,
       lunes: schedule.lunes,
       martes: schedule.martes,
       miercoles: schedule.miercoles,
       jueves: schedule.jueves,
-      viernes: schedule.viernes
+      viernes: schedule.viernes,
+      validoDesde: defaultDate
     });
+    setEditingSchedule(schedule);
     setIsFormOpen(true);
   };
 
@@ -229,15 +345,28 @@ export default function Schedules() {
                 <td colSpan="9" style={styles.emptyState}>No tienes horarios definidos.</td>
               </tr>
             ) : (
-              displayRows.map((row) => {
-                const isLocked = hasStartedThemes(row.id);
-                return (
-                  <tr key={row.id} style={styles.tr}>
+              displayRows.map((row) => (
+                <tr key={row.id} style={styles.tr}>
                     <td style={styles.td}><span style={styles.badge}>{row.cursoAcademicoLabel}</span></td>
                     <td style={styles.td}>{row.grupoNombre}</td>
                     <td style={styles.td}>
                       <div style={{ fontWeight: '600' }}>{row.asignaturaSigla}</div>
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{row.asignaturaNombre}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        {row.schedule.validoDesde && (
+                          <span style={{ fontSize: '0.72rem', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                            Desde {formatDateEs(row.schedule.validoDesde)}
+                          </span>
+                        )}
+                        {row.schedule.historico && row.schedule.historico.length > 0 && (
+                          <span 
+                            style={{ fontSize: '0.72rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', cursor: 'help' }}
+                            title={row.schedule.historico.map((h, i) => `Tramo ${i + 1} (${formatDateEs(h.validoDesde)} - ${formatDateEs(h.validoHasta)}): L:${h.lunes} M:${h.martes} X:${h.miercoles} J:${h.jueves} V:${h.viernes}`).join('\n')}
+                          >
+                            {row.schedule.historico.length} {row.schedule.historico.length === 1 ? 'cambio previo' : 'cambios previos'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{...styles.td, textAlign: 'center'}}>{row.schedule.lunes}</td>
                     <td style={{...styles.td, textAlign: 'center'}}>{row.schedule.martes}</td>
@@ -247,17 +376,15 @@ export default function Schedules() {
                     <td style={{...styles.td, textAlign: 'center'}}>
                       <button 
                         className="btn-secondary" 
-                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', opacity: isLocked ? 0.5 : 1 }}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
                         onClick={() => openEditScheduleForm(row.schedule)}
-                        disabled={isLocked}
-                        title={isLocked ? "No se puede editar: ya hay temas iniciados en el seguimiento." : "Editar horario"}
+                        title="Editar horario"
                       >
                         Editar
                       </button>
                     </td>
                   </tr>
-                );
-              })
+                ))
             )}
           </tbody>
         </table>
@@ -306,6 +433,26 @@ export default function Schedules() {
               )}
             </div>
 
+            <div className="form-group">
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Válido desde</span>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Fecha de entrada en vigor</span>
+              </label>
+              <input 
+                type="date" 
+                className="input-field" 
+                value={formData.validoDesde || ''} 
+                onChange={e => setFormData({...formData, validoDesde: e.target.value})}
+                required 
+              />
+            </div>
+
+            {editingSchedule && hasStartedThemes(formData.imparticionId) && (
+              <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.85rem 1rem', borderRadius: '8px', borderLeft: '4px solid #3b82f6', fontSize: '0.83rem', color: '#93c5fd', lineHeight: '1.4' }}>
+                💡 <strong>Cambio a mitad de curso:</strong> Si este cambio se aplica a partir de una fecha concreta (por ejemplo, el próximo lunes), introduce dicha fecha en <em>"Válido desde"</em> para mantener intacto el histórico de temas ya impartidos.
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
               {['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map(day => (
                 <div key={day} className="form-group" style={{ textAlign: 'center' }}>
@@ -326,6 +473,52 @@ export default function Schedules() {
               <strong>Nota:</strong> Se asume que cada sesión tiene una duración de 55 minutos.
             </div>
           </form>
+        </Modal>
+      )}
+
+      {confirmModal.isOpen && (
+        <Modal 
+          isOpen={confirmModal.isOpen} 
+          onClose={() => setConfirmModal({ ...confirmModal, isOpen: false, onConfirm: null })} 
+          title={confirmModal.title}
+          footer={
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button 
+                type="button" 
+                className="btn-secondary" 
+                style={{ flex: 1 }} 
+                onClick={() => setConfirmModal({ ...confirmModal, isOpen: false, onConfirm: null })}
+                disabled={isProcessing}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                style={{ flex: 1 }} 
+                onClick={confirmModal.onConfirm}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Guardando...' : 'Confirmar y Guardar'}
+              </button>
+            </div>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p style={{ margin: 0, lineHeight: '1.5', color: '#e2e8f0' }}>{confirmModal.message}</p>
+            {confirmModal.warning && (
+              <div style={{ 
+                background: confirmModal.isSuccessHint ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)', 
+                padding: '0.75rem', 
+                borderRadius: '8px', 
+                borderLeft: `4px solid ${confirmModal.isSuccessHint ? '#10b981' : '#eab008'}`, 
+                fontSize: '0.85rem', 
+                color: confirmModal.isSuccessHint ? '#6ee7b7' : '#fde047' 
+              }}>
+                {confirmModal.warning}
+              </div>
+            )}
+          </div>
         </Modal>
       )}
 

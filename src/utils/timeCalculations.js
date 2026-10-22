@@ -87,21 +87,58 @@ const isDateInRanges = (date, ranges) => {
 };
 
 /**
- * Cuenta el número de sesiones entre dos fechas, basándose en el patrón horario,
+ * Obtiene el patrón semanal aplicable a una fecha concreta.
+ * Si el horario contiene un histórico de vigencias, busca el tramo al que pertenece la fecha.
+ * En caso contrario (o si la fecha es posterior a todos los históricos), aplica el patrón principal.
+ * 
+ * @param {Date|string} date 
+ * @param {object} horario 
+ * @returns {object} { lunes, martes, miercoles, jueves, viernes }
+ */
+export const getPatronForDate = (date, horario) => {
+  if (!horario) return {};
+  const activePatron = horario.patron || horario;
+  
+  if (!horario.historico || !Array.isArray(horario.historico) || horario.historico.length === 0) {
+    return activePatron;
+  }
+
+  const d = normalizeDate(date);
+  if (!d) return activePatron;
+  d.setHours(0, 0, 0, 0);
+  const time = d.getTime();
+
+  for (const item of horario.historico) {
+    const start = item.validoDesde ? normalizeDate(item.validoDesde) : null;
+    const end = item.validoHasta ? normalizeDate(item.validoHasta) : (item.hasta ? normalizeDate(item.hasta) : null);
+
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const matchesStart = !start || time >= start.getTime();
+    const matchesEnd = !end || time <= end.getTime();
+
+    if (matchesStart && matchesEnd) {
+      return item.patron || item;
+    }
+  }
+
+  return activePatron;
+};
+
+/**
+ * Cuenta el número de sesiones entre dos fechas, basándose en el patrón horario (o sus tramos históricos),
  * excluyendo festivos y ausencias.
  * 
  * @param {string} fechaInicio YYYY-MM-DD
  * @param {string} fechaFin YYYY-MM-DD
- * @param {object} horario { lunes: 2, martes: 0, ... }
+ * @param {object} horario { lunes: 2, martes: 0, ..., historico: [...] }
  * @param {array} festivos Lista de festivos [{ startDate, endDate }]
  * @param {array} ausencias Lista de ausencias [{ startDate, endDate }]
  * @returns {number} Número total de sesiones
  */
 export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], ausencias = []) => {
   if (!horario) return 0;
-  
-  // Soporte para objetos de horario que vienen con la propiedad 'patron' (Firestore doc)
-  const actualPatron = horario.patron || horario;
 
   const start = normalizeDate(fechaInicio);
   const end = normalizeDate(fechaFin);
@@ -128,7 +165,8 @@ export const contarSesiones = (fechaInicio, fechaFin, horario, festivos = [], au
       const esAusencia = isDateInRanges(current, ausencias);
 
       if (!esFestivo && !esAusencia) {
-        const sesionesDelDia = actualPatron[dayKey] || 0;
+        const patronDia = getPatronForDate(current, horario);
+        const sesionesDelDia = patronDia[dayKey] || 0;
         totalSesiones += sesionesDelDia;
       }
     }
