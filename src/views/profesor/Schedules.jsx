@@ -29,9 +29,19 @@ export default function Schedules() {
     title: '',
     message: '',
     warning: null,
+    hoursWarning: null,
     isSuccessHint: false,
     onConfirm: null
   });
+
+  const getTotalWeeklyHours = (scheduleObj) => {
+    if (!scheduleObj) return 0;
+    const p = scheduleObj.patron || scheduleObj;
+    return (Number(p.lunes) || 0) + (Number(p.martes) || 0) + (Number(p.miercoles) || 0) + (Number(p.jueves) || 0) + (Number(p.viernes) || 0);
+  };
+
+  const newTotalHours = getTotalWeeklyHours(formData);
+  const prevTotalHours = editingSchedule ? getTotalWeeklyHours(editingSchedule) : null;
 
   const activeIesId = localStorage.getItem('activeIesId');
   const uid = auth.currentUser?.uid;
@@ -145,6 +155,12 @@ export default function Schedules() {
     const aYear = academicYears.find(y => y.nombre === a?.cursoAcademicoLabel);
     const originalValidoDesde = editingSchedule.validoDesde || aYear?.fechaInicioClases || '';
 
+    // Comprobación de suma de horas semanales vs anterior
+    const diffHours = prevTotalHours !== null ? newTotalHours - prevTotalHours : 0;
+    const hoursWarning = (prevTotalHours !== null && newTotalHours !== prevTotalHours)
+      ? `El nuevo horario suma ${newTotalHours}h semanales, pero el anterior sumaba ${prevTotalHours}h (diferencia de ${diffHours > 0 ? `+${diffHours}` : diffHours}h/semana). Comprueba que no se trate de una errata involuntaria.`
+      : null;
+
     // Caso B: Misma fecha de vigencia -> Corrección sobre el tramo actual
     if (!originalValidoDesde || formData.validoDesde === originalValidoDesde) {
       const hasThemes = hasStartedThemes(formData.imparticionId);
@@ -152,6 +168,7 @@ export default function Schedules() {
         isOpen: true,
         title: 'Guardar cambios en el horario',
         message: `Se van a guardar los cambios en el patrón horario vigente desde el ${formatDateEs(formData.validoDesde)}.`,
+        hoursWarning,
         warning: hasThemes 
           ? 'Atención: Al mantener la misma fecha de vigencia, si ya hay temas iniciados o finalizados se recalcularán sus horas reales con estos nuevos valores.' 
           : null,
@@ -172,7 +189,8 @@ export default function Schedules() {
         isOpen: true,
         title: 'Nuevo tramo horario',
         message: `A partir del ${formatDateEs(formData.validoDesde)} se aplicará el nuevo patrón horario, sustituyendo al actual (vigente del ${formatDateEs(originalValidoDesde)} al ${formatDateEs(diaAnterior)}).`,
-        warning: 'Las clases y temas impartidos antes de esa fecha mantendrán su cómputo histórico intacto con el horario anterior.',
+        hoursWarning,
+        warning: 'Las clases y temas impartidos antes de esa fecha mantendrán su cómputo histórico intacto con el horario anterior.' + (newTotalHours === prevTotalHours ? ` (Carga semanal: ${newTotalHours}h/semana)` : ''),
         isSuccessHint: true,
         onConfirm: () => saveSchedule({ 
           isNewVersion: true, 
@@ -188,6 +206,7 @@ export default function Schedules() {
       isOpen: true,
       title: 'Modificar fecha de vigencia',
       message: `La fecha seleccionada (${formatDateEs(formData.validoDesde)}) es anterior a la fecha previa (${formatDateEs(originalValidoDesde)}). Se actualizará el horario con esta nueva fecha.`,
+      hoursWarning,
       warning: 'Esto afectará a los cálculos previos.',
       isSuccessHint: false,
       onConfirm: () => saveSchedule({ isNewVersion: false })
@@ -195,7 +214,7 @@ export default function Schedules() {
   };
 
   const saveSchedule = async ({ isNewVersion = false, diaAnterior = '', originalValidoDesde = '' }) => {
-    setConfirmModal({ isOpen: false, title: '', message: '', warning: null, isSuccessHint: false, onConfirm: null });
+    setConfirmModal({ isOpen: false, title: '', message: '', warning: null, hoursWarning: null, isSuccessHint: false, onConfirm: null });
     setIsProcessing(true);
     try {
       const scheduleRef = doc(db, 'profesor_horarios', formData.imparticionId);
@@ -453,20 +472,52 @@ export default function Schedules() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
-              {['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map(day => (
-                <div key={day} className="form-group" style={{ textAlign: 'center' }}>
-                  <label style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{day.charAt(0).toUpperCase()}</label>
-                  <select 
-                    className="input-field" 
-                    style={{ textAlign: 'center', padding: '0.5rem' }}
-                    value={formData[day]} 
-                    onChange={e => setFormData({...formData, [day]: e.target.value})}
-                  >
-                    {[0,1,2,3,4,5,6,7,8].map(num => <option key={num} value={num}>{num}</option>)}
-                  </select>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '600' }}>Carga lectiva semanal</span>
+                <span style={{ 
+                  fontSize: '0.85rem', 
+                  fontWeight: '700', 
+                  color: (editingSchedule && prevTotalHours !== null && newTotalHours !== prevTotalHours) ? '#f59e0b' : '#38bdf8' 
+                }}>
+                  Total: {newTotalHours} {newTotalHours === 1 ? 'hora' : 'horas'}/semana
+                  {editingSchedule && prevTotalHours !== null && (
+                    <span style={{ fontSize: '0.78rem', fontWeight: 'normal', color: '#94a3b8', marginLeft: '6px' }}>
+                      (anterior: {prevTotalHours}h)
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {editingSchedule && prevTotalHours !== null && newTotalHours !== prevTotalHours && (
+                <div style={{ 
+                  background: 'rgba(245, 158, 11, 0.1)', 
+                  padding: '0.5rem 0.75rem', 
+                  borderRadius: '6px', 
+                  borderLeft: '3px solid #f59e0b', 
+                  fontSize: '0.8rem', 
+                  color: '#fcd34d',
+                  marginBottom: '0.75rem'
+                }}>
+                  ⚠️ La suma actual ({newTotalHours}h) difiere de la anterior ({prevTotalHours}h).
                 </div>
-              ))}
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
+                {['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map(day => (
+                  <div key={day} className="form-group" style={{ textAlign: 'center' }}>
+                    <label style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{day.charAt(0).toUpperCase()}</label>
+                    <select 
+                      className="input-field" 
+                      style={{ textAlign: 'center', padding: '0.5rem' }}
+                      value={formData[day]} 
+                      onChange={e => setFormData({...formData, [day]: e.target.value})}
+                    >
+                      {[0,1,2,3,4,5,6,7,8].map(num => <option key={num} value={num}>{num}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
             
             <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #3b82f6', fontSize: '0.85rem' }}>
@@ -506,6 +557,25 @@ export default function Schedules() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <p style={{ margin: 0, lineHeight: '1.5', color: '#e2e8f0' }}>{confirmModal.message}</p>
+
+            {confirmModal.hoursWarning && (
+              <div style={{ 
+                background: 'rgba(239, 68, 68, 0.12)', 
+                padding: '0.85rem 1rem', 
+                borderRadius: '8px', 
+                borderLeft: '4px solid #ef4444', 
+                fontSize: '0.85rem', 
+                color: '#fca5a5',
+                lineHeight: '1.4'
+              }}>
+                <div style={{ fontWeight: '600', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>⚠️</span>
+                  <span>Aviso: Descuadre en las horas semanales</span>
+                </div>
+                {confirmModal.hoursWarning}
+              </div>
+            )}
+
             {confirmModal.warning && (
               <div style={{ 
                 background: confirmModal.isSuccessHint ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)', 
