@@ -230,22 +230,14 @@ export default function Syllabuses() {
           ? { nombre: metrics.temaActual, progress: metrics.progresoTema ?? metrics.progreso } 
           : null;
 
-        // Find Real Current Theme (last started theme)
-        let realCurrentTheme = null;
-        if (p?.temas) {
-          const startedThemes = p.temas.filter(t => t.fechaInicio);
-          if (startedThemes.length > 0) {
-            const lastStarted = startedThemes[startedThemes.length - 1];
-            const themeMetrics = metrics.metricasPorTema?.find(m => m.id === lastStarted.id);
-            const est = Number(lastStarted.horasEstimadas) || 1;
-            
-            realCurrentTheme = { 
-              nombre: lastStarted.nombre, 
-              progress: lastStarted.fechaFin ? 100 : Math.min(100, ((themeMetrics?.hReal || 0) / est) * 100),
-              status: lastStarted.fechaFin ? 'Completado' : 'En curso'
-            };
-          }
-        }
+        // Find Real Current Theme (respecting today via metrics.temaRealActual)
+        const realCurrentTheme = metrics.temaRealActual
+          ? {
+              nombre: metrics.temaRealActual.nombre,
+              progress: metrics.temaRealActual.progreso,
+              status: metrics.temaRealActual.status
+            }
+          : null;
 
         return { 
           ...a,

@@ -1,9 +1,31 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { calcularMetricasSeguimiento, normalizeDate } from '../../utils/timeCalculations';
 import Modal from '../../components/common/Modal';
+
+const toIsoDateStr = (d) => {
+  const date = normalizeDate(d);
+  if (!date || isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const addDaysIso = (isoStr, days) => {
+  const date = normalizeDate(isoStr);
+  if (!date || isNaN(date.getTime())) return '';
+  date.setDate(date.getDate() + days);
+  return toIsoDateStr(date);
+};
+
+const formatDateEs = (d) => {
+  const date = normalizeDate(d);
+  if (!date || isNaN(date.getTime())) return d || '';
+  return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 export default function SyllabusTracking() {
   const { id } = useParams(); // imparticionId
@@ -25,6 +47,127 @@ export default function SyllabusTracking() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, title: '', message: '' });
+  const focusedDateRef = useRef({ identifier: null, field: null, value: '' });
+
+  const courseBounds = useMemo(() => {
+    const startYear = academicYear?.añoInicio || (assignment?.cursoAcademicoLabel ? parseInt(assignment.cursoAcademicoLabel.split('-')[0], 10) : null);
+    const endYear = academicYear?.añoFin || (startYear ? startYear + 1 : null);
+    const min = toIsoDateStr(academicYear?.fechaInicioClases) || (startYear ? `${startYear}-09-01` : '');
+    const max = toIsoDateStr(academicYear?.fechaFinClases) || (endYear ? `${endYear}-06-30` : '');
+    return { min, max };
+  }, [academicYear, assignment]);
+
+  const validateTemaInList = (targetTema, allTemas) => {
+    if (!targetTema) return null;
+    const targetIdx = allTemas.findIndex(
+      t => (t._docId && t._docId === targetTema._docId) || String(t.id) === String(targetTema.id)
+    );
+    const ini = toIsoDateStr(targetTema.fechaInicio);
+    const fin = toIsoDateStr(targetTema.fechaFin);
+
+    // 1) Fechas fuera del curso actual
+    if (ini && ((courseBounds.min && ini < courseBounds.min) || (courseBounds.max && ini > courseBounds.max))) {
+      return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) está fuera del curso académico actual (${formatDateEs(courseBounds.min)} al ${formatDateEs(courseBounds.max)}).`;
+    }
+    if (fin && ((courseBounds.min && fin < courseBounds.min) || (courseBounds.max && fin > courseBounds.max))) {
+      return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) está fuera del curso académico actual (${formatDateEs(courseBounds.min)} al ${formatDateEs(courseBounds.max)}).`;
+    }
+
+    // 3) Fechas de fin anteriores a la fecha de inicio de un tema
+    if (ini && fin && fin < ini) {
+      return `En el Tema ${targetTema.id}, la fecha de fin (${formatDateEs(fin)}) no puede ser anterior a la fecha de inicio (${formatDateEs(ini)}).`;
+    }
+
+    // 2) Fechas que se solapen con algún intervalo de un tema ya completado
+    // (solo se permite coincidir en el día de frontera si alguno de los dos temas tiene ajuste de sesiones)
+    for (let i = 0; i < allTemas.length; i++) {
+      if (i === targetIdx) continue;
+      const other = allTemas[i];
+      if (!other || !other.fechaInicio || !other.fechaFin) continue;
+      const oIni = toIsoDateStr(other.fechaInicio);
+      const oFin = toIsoDateStr(other.fechaFin);
+      if (!oIni || !oFin || oFin < oIni) continue;
+
+      const hasAjuste = (Number(targetTema.ajuste) || 0) !== 0 || (Number(other.ajuste) || 0) !== 0;
+
+      if (i < targetIdx) {
+        // Tema anterior ya completado
+        if (ini) {
+          if (ini < oFin) {
+            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+          }
+          if (ini === oFin && !hasAjuste) {
+            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) coincide con la fecha de fin del Tema ${other.id} (${other.nombre}). Solo pueden solaparse en un mismo día si tienen ajuste de sesiones.`;
+          }
+        }
+        if (fin) {
+          if (fin < oFin || (fin === oFin && !hasAjuste)) {
+            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+          }
+        }
+      } else {
+        // Tema posterior ya completado
+        if (fin) {
+          if (fin > oIni) {
+            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+          }
+          if (fin === oIni && !hasAjuste) {
+            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) coincide con la fecha de inicio del Tema ${other.id} (${other.nombre}). Solo pueden solaparse en un mismo día si tienen ajuste de sesiones.`;
+          }
+        }
+        if (ini) {
+          if (ini > oIni || (ini === oIni && !hasAjuste)) {
+            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const getDateInputBounds = (tema, idx) => {
+    let minFromPrev = '';
+    let maxFromNext = '';
+
+    for (let i = 0; i < temas.length; i++) {
+      if (i === idx) continue;
+      const other = temas[i];
+      if (!other || !other.fechaInicio || !other.fechaFin) continue;
+      const oIni = toIsoDateStr(other.fechaInicio);
+      const oFin = toIsoDateStr(other.fechaFin);
+      if (!oIni || !oFin || oFin < oIni) continue;
+
+      const hasAjuste = (Number(tema.ajuste) || 0) !== 0 || (Number(other.ajuste) || 0) !== 0;
+
+      if (i < idx) {
+        const candidateMin = hasAjuste ? oFin : addDaysIso(oFin, 1);
+        if (candidateMin && (!minFromPrev || candidateMin > minFromPrev)) {
+          minFromPrev = candidateMin;
+        }
+      } else {
+        const candidateMax = hasAjuste ? oIni : addDaysIso(oIni, -1);
+        if (candidateMax && (!maxFromNext || candidateMax < maxFromNext)) {
+          maxFromNext = candidateMax;
+        }
+      }
+    }
+
+    const iniIso = toIsoDateStr(tema.fechaInicio);
+    const finIso = toIsoDateStr(tema.fechaFin);
+
+    const minInicioCandidates = [courseBounds.min, minFromPrev].filter(Boolean);
+    const maxInicioCandidates = [courseBounds.max, maxFromNext, finIso].filter(Boolean);
+    const minFinCandidates = [courseBounds.min, minFromPrev, iniIso].filter(Boolean);
+    const maxFinCandidates = [courseBounds.max, maxFromNext].filter(Boolean);
+
+    return {
+      minInicio: minInicioCandidates.length ? minInicioCandidates.reduce((a, b) => (a > b ? a : b)) : undefined,
+      maxInicio: maxInicioCandidates.length ? maxInicioCandidates.reduce((a, b) => (a < b ? a : b)) : undefined,
+      minFin: minFinCandidates.length ? minFinCandidates.reduce((a, b) => (a > b ? a : b)) : undefined,
+      maxFin: maxFinCandidates.length ? maxFinCandidates.reduce((a, b) => (a < b ? a : b)) : undefined
+    };
+  };
 
   const metrics = useMemo(() => {
     return calcularMetricasSeguimiento(temas, horario, academicYear, festivos, ausencias, undefined, assignment?.updatedAt);
@@ -48,15 +191,17 @@ export default function SyllabusTracking() {
         assignmentData = aSnap.data();
         setAssignment(assignmentData);
         
-        if (assignmentData.cursoAcademicoLabel) {
+        if (assignmentData.cursoAcademicoId || assignmentData.cursoAcademicoLabel) {
           const qYear = query(
             collection(db, 'cursos_academicos'),
-            where('iesId', '==', assignmentData.iesId || activeIesId),
-            where('nombre', '==', assignmentData.cursoAcademicoLabel)
+            where('iesId', '==', assignmentData.iesId || activeIesId)
           );
           const snapYear = await getDocs(qYear);
-          if (!snapYear.empty) {
-            setAcademicYear(snapYear.docs[0].data());
+          const foundYear = snapYear.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .find(y => y.id === assignmentData.cursoAcademicoId || y.nombre === assignmentData.cursoAcademicoLabel);
+          if (foundYear) {
+            setAcademicYear(foundYear);
           }
         }
       }
@@ -156,16 +301,93 @@ export default function SyllabusTracking() {
     }
   };
 
+  const handleDateFocus = (identifier, field, currentValue) => {
+    focusedDateRef.current = { identifier, field, value: currentValue || '' };
+  };
+
   const handleDateChange = (identifier, field, value) => {
+    const prevTema = temas.find(
+      t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+    );
+    const prevVal = prevTema ? prevTema[field] : '';
+
     const newTemas = temas.map(t => 
       ((t._docId && t._docId === identifier) || String(t.id) === String(identifier))
         ? { ...t, [field]: value }
         : t
     );
+
+    if (field === 'ajuste') {
+      const updatedTema = newTemas.find(
+        t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+      );
+      const err = validateTemaInList(updatedTema, newTemas);
+      if (err) {
+        setModal({ isOpen: true, title: 'Fecha incongruente', message: err });
+        return;
+      }
+      setTemas(newTemas);
+      return;
+    }
+
+    if ((field === 'fechaInicio' || field === 'fechaFin') && value) {
+      const yearPart = parseInt(String(value).split('-')[0], 10);
+      // Si el campo estaba vacío y ya tiene un año de 4 dígitos (>= 1900), validamos al instante
+      if (!prevVal && yearPart >= 1900) {
+        const updatedTema = newTemas.find(
+          t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+        );
+        const err = validateTemaInList(updatedTema, newTemas);
+        if (err) {
+          setModal({ isOpen: true, title: 'Fecha incongruente', message: err });
+          return;
+        }
+      }
+    }
+
     setTemas(newTemas);
   };
 
+  const handleDateBlur = (identifier, field) => {
+    const currentTema = temas.find(
+      t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+    );
+    if (!currentTema || !currentTema[field]) return;
+
+    const err = validateTemaInList(currentTema, temas);
+    if (err) {
+      const prevValue =
+        focusedDateRef.current.identifier === identifier && focusedDateRef.current.field === field
+          ? focusedDateRef.current.value
+          : '';
+      // Solo restaurar el valor previo si era válido; si no, limpiar
+      const candidateTemas = temas.map(t =>
+        ((t._docId && t._docId === identifier) || String(t.id) === String(identifier))
+          ? { ...t, [field]: prevValue }
+          : t
+      );
+      const prevTemaCandidate = candidateTemas.find(
+        t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+      );
+      const fallbackVal = validateTemaInList(prevTemaCandidate, candidateTemas) ? '' : prevValue;
+
+      setTemas(temas.map(t =>
+        ((t._docId && t._docId === identifier) || String(t.id) === String(identifier))
+          ? { ...t, [field]: fallbackVal }
+          : t
+      ));
+      setModal({ isOpen: true, title: 'Fecha incongruente', message: err });
+    }
+  };
+
   const saveChanges = async () => {
+    for (const t of temas) {
+      const err = validateTemaInList(t, temas);
+      if (err) {
+        setModal({ isOpen: true, title: 'Fechas incongruentes', message: err });
+        return;
+      }
+    }
     setIsProcessing(true);
     try {
       if (programacion?.source === 'ies_programacion_temas') {
@@ -291,7 +513,7 @@ export default function SyllabusTracking() {
                 <td colSpan="10" style={styles.emptyState}>No hay temas definidos.</td>
               </tr>
             ) : (
-              temas.map((tema) => {
+              temas.map((tema, idx) => {
                 if (!tema) return null;
                 
                 // Use metrics from the library (DRY)
@@ -305,6 +527,8 @@ export default function SyllabusTracking() {
                 const hRealesDisplay = temaMetrics.hReal;
                 const nSesiones = temaMetrics.nSesiones;
                 const desviacion = temaMetrics.desviacion;
+                const dateBounds = getDateInputBounds(tema, idx);
+                const dateError = validateTemaInList(tema, temas);
 
                 let devColor = 'inherit';
                 if (desviacion !== null) {
@@ -332,10 +556,16 @@ export default function SyllabusTracking() {
                           style={{ 
                             padding: '0.3rem', 
                             fontSize: '0.8rem', 
-                            maxWidth: '95px'
+                            maxWidth: '95px',
+                            borderColor: dateError && tema.fechaInicio ? '#ef4444' : undefined
                           }}
+                          min={dateBounds.minInicio}
+                          max={dateBounds.maxInicio}
+                          title={dateError || ''}
                           value={tema.fechaInicio || ''}
+                          onFocus={() => handleDateFocus(tema._docId || tema.id, 'fechaInicio', tema.fechaInicio)}
                           onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaInicio', e.target.value)}
+                          onBlur={() => handleDateBlur(tema._docId || tema.id, 'fechaInicio')}
                         />
                       )}
                     </td>
@@ -351,10 +581,16 @@ export default function SyllabusTracking() {
                           style={{ 
                             padding: '0.3rem', 
                             fontSize: '0.8rem', 
-                            maxWidth: '95px'
+                            maxWidth: '95px',
+                            borderColor: dateError && tema.fechaFin ? '#ef4444' : undefined
                           }}
+                          min={dateBounds.minFin}
+                          max={dateBounds.maxFin}
+                          title={dateError || ''}
                           value={tema.fechaFin || ''}
+                          onFocus={() => handleDateFocus(tema._docId || tema.id, 'fechaFin', tema.fechaFin)}
                           onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaFin', e.target.value)}
+                          onBlur={() => handleDateBlur(tema._docId || tema.id, 'fechaFin')}
                         />
                       )}
                     </td>

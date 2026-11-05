@@ -222,6 +222,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
 
   const duracionSesion = academicYear.duracionSesion || 55;
   const fechaInicioClases = academicYear.fechaInicioClases;
+  const todayDate = normalizeDate(todayIso);
+  if (todayDate) todayDate.setHours(0, 0, 0, 0);
   
   // 1. Horas lectivas que deberían haber transcurrido hasta hoy según el horario
   let horasTranscurridasHoy = 0;
@@ -293,20 +295,64 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     progresoTema = 100;
   }
 
-  // Identificar tema real actual (último tema iniciado en el seguimiento)
+  // Identificar tema real actual respecto al día de hoy (solo temas ya iniciados a fecha de hoy y con fechas congruentes)
   let temaRealActual = null;
-  const startedThemes = temas.filter(t => t.fechaInicio);
+  let maxCompletedEnd = null;
+  let maxCompletedAjuste = 0;
+  const startedThemes = temas.filter(t => {
+    if (!t.fechaInicio) return false;
+    const dIni = normalizeDate(t.fechaInicio);
+    if (!dIni) return false;
+    dIni.setHours(0, 0, 0, 0);
+
+    const dFin = normalizeDate(t.fechaFin);
+    if (dFin) dFin.setHours(0, 0, 0, 0);
+
+    const currentAjuste = Number(t.ajuste) || 0;
+
+    // Ignorar fechas incongruentes:
+    // - Fin anterior a inicio
+    // - Inicio anterior al fin de un tema completado previo (o igual en el mismo día sin ajuste de sesiones)
+    if (dFin && dFin.getTime() < dIni.getTime()) return false;
+    if (maxCompletedEnd) {
+      if (dIni.getTime() < maxCompletedEnd.getTime()) return false;
+      if (dIni.getTime() === maxCompletedEnd.getTime() && currentAjuste === 0 && maxCompletedAjuste === 0) return false;
+    }
+
+    if (dFin && (!maxCompletedEnd || dFin.getTime() >= maxCompletedEnd.getTime())) {
+      maxCompletedEnd = dFin;
+      maxCompletedAjuste = currentAjuste;
+    }
+
+    return !todayDate || dIni.getTime() <= todayDate.getTime();
+  });
+
   if (startedThemes.length > 0) {
     const lastStarted = startedThemes[startedThemes.length - 1];
     const lastStartedMetrics = metricasPorTema.find(m => String(m.id) === String(lastStarted.id));
     const est = Number(lastStarted.horasEstimadas) || 1;
+
+    const dFinLast = normalizeDate(lastStarted.fechaFin);
+    if (dFinLast) dFinLast.setHours(0, 0, 0, 0);
+    const isCompletedToday = Boolean(dFinLast && todayDate && dFinLast.getTime() <= todayDate.getTime());
+
+    let hRealHoy = lastStartedMetrics?.hReal || 0;
+    if (!isCompletedToday) {
+      try {
+        const rawSesionesHoy = contarSesiones(lastStarted.fechaInicio, todayIso, horario, festivos, ausencias);
+        const ajusteLast = Number(lastStarted.ajuste) || 0;
+        const nSesionesHoy = Math.max(0, rawSesionesHoy + ajusteLast);
+        hRealHoy = Math.round((nSesionesHoy * duracionSesion) / 60);
+      } catch (err) {}
+    }
+
     temaRealActual = {
       id: lastStarted.id,
       nombre: lastStarted.nombre || lastStarted.titulo || 'Tema ' + (lastStarted.id || lastStarted.n),
       horasEstimadas: est,
-      horasReales: lastStartedMetrics?.hReal || 0,
-      progreso: lastStarted.fechaFin ? 100 : Math.min(100, Math.round(((lastStartedMetrics?.hReal || 0) / est) * 100)),
-      status: lastStarted.fechaFin ? 'Completado' : 'En curso'
+      horasReales: hRealHoy,
+      progreso: isCompletedToday ? 100 : Math.min(100, Math.round((hRealHoy / est) * 100)),
+      status: isCompletedToday ? 'Completado' : 'En curso'
     };
   }
 
