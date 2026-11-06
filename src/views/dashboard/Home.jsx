@@ -398,40 +398,46 @@ export default function Home() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>
                       {imp.temaRealActual ? 'Tema Actual' : 'Tema Teórico Actual'}
                     </p>
-                    {imp.temaRealActual && (
-                      <span style={{ 
-                        fontSize: '0.7rem', 
-                        color: imp.temaRealActual.status === 'Completado' ? '#10b981' : '#38bdf8', 
-                        background: 'rgba(255,255,255,0.05)', 
-                        padding: '1px 6px', 
-                        borderRadius: '4px',
-                        fontWeight: '600'
-                      }}>
-                        {imp.temaRealActual.status} ({imp.temaRealActual.progreso}%)
-                      </span>
-                    )}
                   </div>
                   <p style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={imp.temaRealActual?.nombre || imp.temaActual}>
                     {imp.temaRealActual?.nombre || imp.temaActual}
                   </p>
-                  {imp.temaActual && imp.temaRealActual && imp.temaActual !== imp.temaRealActual.nombre && (
-                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }} title={`Según calendario lectivo debería ir por: ${imp.temaActual}`}>
-                      Teórico: <span style={{ color: '#cbd5e1' }}>{imp.temaActual}</span> ({imp.progresoTema}%)
-                    </p>
-                  )}
                 </div>
 
                 <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '700' }}>
-                      Progreso teórico:
+                      Progreso:
                     </span>
                     
                     {/* Tema actual */}
                     <div style={{ marginTop: '0.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Tema actual:</span>
-                        <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.05rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', gap: '0.5rem' }}>
+                        <span 
+                          style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={`Tema actual (${imp.temaRealActual?.nombre || imp.temaActual || 'No iniciado'})`}
+                        >
+                          Tema actual ({imp.temaRealActual?.nombre || imp.temaActual || 'No iniciado'}):
+                        </span>
+                        <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.05rem', flexShrink: 0 }}>
+                          {imp.temaRealActual ? (imp.temaRealActual.progreso ?? 0) : (imp.progresoTema ?? 0)}%
+                        </span>
+                      </div>
+                      <div style={{ ...styles.progressBarBg, height: '6px', margin: '4px 0 0.5rem 0' }}>
+                        <div style={{ ...styles.progressBarFill, width: `${Math.min(100, Math.max(0, imp.temaRealActual ? (imp.temaRealActual.progreso ?? 0) : (imp.progresoTema ?? 0)))}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Tema teórico */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', gap: '0.5rem' }}>
+                        <span 
+                          style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={`Tema teórico (${imp.temaActual || 'No iniciado'})`}
+                        >
+                          Tema teórico ({imp.temaActual || 'No iniciado'}):
+                        </span>
+                        <span style={{ fontWeight: '900', color: 'var(--accent-primary)', fontSize: '1.05rem', flexShrink: 0 }}>
                           {imp.progresoTema ?? 0}%
                         </span>
                       </div>
