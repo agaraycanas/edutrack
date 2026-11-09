@@ -629,7 +629,7 @@ export default function Syllabuses() {
                                 {row.realCurrentTheme.nombre}
                               </div>
                               <div style={{...styles.progressBarBg, height: '6px', marginTop: '4px', width: '120px'}}>
-                                <div style={{...styles.progressBarFill, background: '#10b981', width: `${row.realCurrentTheme.progress}%`}} />
+                                <div style={{...styles.progressBarFill, background: '#10b981', width: `${Math.min(100, Math.max(0, row.realCurrentTheme.progress))}%`}} />
                               </div>
                               <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>{row.realCurrentTheme.status} ({Math.round(row.realCurrentTheme.progress)}%)</div>
                             </>

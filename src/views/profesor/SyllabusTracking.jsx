@@ -57,6 +57,10 @@ export default function SyllabusTracking() {
     return { min, max };
   }, [academicYear, assignment]);
 
+  const openTema = useMemo(() => {
+    return temas.find(t => Boolean(t?.fechaInicio && !t?.fechaFin)) || null;
+  }, [temas]);
+
   const validateTemaInList = (targetTema, allTemas) => {
     if (!targetTema) return null;
     const targetIdx = allTemas.findIndex(
@@ -64,6 +68,10 @@ export default function SyllabusTracking() {
     );
     const ini = toIsoDateStr(targetTema.fechaInicio);
     const fin = toIsoDateStr(targetTema.fechaFin);
+
+    if (!ini && fin) {
+      return `En el Tema ${targetTema.id}, no puedes fijar una fecha de fin sin haber fijado antes su fecha de inicio.`;
+    }
 
     // 1) Fechas fuera del curso actual
     if (ini && ((courseBounds.min && ini < courseBounds.min) || (courseBounds.max && ini > courseBounds.max))) {
@@ -73,51 +81,51 @@ export default function SyllabusTracking() {
       return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) está fuera del curso académico actual (${formatDateEs(courseBounds.min)} al ${formatDateEs(courseBounds.max)}).`;
     }
 
-    // 3) Fechas de fin anteriores a la fecha de inicio de un tema
+    // 2) Fechas de fin anteriores a la fecha de inicio de un tema
     if (ini && fin && fin < ini) {
       return `En el Tema ${targetTema.id}, la fecha de fin (${formatDateEs(fin)}) no puede ser anterior a la fecha de inicio (${formatDateEs(ini)}).`;
     }
 
-    // 2) Fechas que se solapen con algún intervalo de un tema ya completado
-    // (solo se permite coincidir en el día de frontera si alguno de los dos temas tiene ajuste de sesiones)
-    for (let i = 0; i < allTemas.length; i++) {
-      if (i === targetIdx) continue;
-      const other = allTemas[i];
-      if (!other || !other.fechaInicio || !other.fechaFin) continue;
-      const oIni = toIsoDateStr(other.fechaInicio);
-      const oFin = toIsoDateStr(other.fechaFin);
-      if (!oIni || !oFin || oFin < oIni) continue;
+    // 3) Solo puede haber un tema abierto (con fechaInicio y sin fechaFin) a la vez,
+    //    y no pueden solaparse los intervalos de fechas entre temas (sin importar el orden numérico de los temas)
+    if (ini) {
+      const effectiveFin = fin || ini;
 
-      const hasAjuste = (Number(targetTema.ajuste) || 0) !== 0 || (Number(other.ajuste) || 0) !== 0;
+      for (let i = 0; i < allTemas.length; i++) {
+        if (i === targetIdx) continue;
+        const other = allTemas[i];
+        if (!other || !other.fechaInicio) continue;
+        const oIni = toIsoDateStr(other.fechaInicio);
+        const oFin = toIsoDateStr(other.fechaFin);
+        if (!oIni) continue;
 
-      if (i < targetIdx) {
-        // Tema anterior ya completado
-        if (ini) {
-          if (ini < oFin) {
-            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+        // Si el otro tema está abierto (sin fecha de fin)
+        if (!oFin) {
+          if (!fin) {
+            return `Ya hay un tema abierto sin fecha de fin: Tema ${other.id} (${other.nombre}). Debes fijar su fecha de fin antes de dejar abierto otro tema.`;
           }
-          if (ini === oFin && !hasAjuste) {
-            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) coincide con la fecha de fin del Tema ${other.id} (${other.nombre}). Solo pueden solaparse en un mismo día si tienen ajuste de sesiones.`;
+          if (ini >= oIni || effectiveFin >= oIni) {
+            return `No puedes fijar fechas en el Tema ${targetTema.id} posteriores o iguales al inicio del Tema ${other.id} (${other.nombre}), que sigue abierto sin fecha de fin.`;
           }
+          continue;
         }
-        if (fin) {
-          if (fin < oFin || (fin === oFin && !hasAjuste)) {
-            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
-          }
-        }
-      } else {
-        // Tema posterior ya completado
-        if (fin) {
-          if (fin > oIni) {
-            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
-          }
-          if (fin === oIni && !hasAjuste) {
-            return `La fecha de fin del Tema ${targetTema.id} (${formatDateEs(fin)}) coincide con la fecha de inicio del Tema ${other.id} (${other.nombre}). Solo pueden solaparse en un mismo día si tienen ajuste de sesiones.`;
-          }
-        }
-        if (ini) {
-          if (ini > oIni || (ini === oIni && !hasAjuste)) {
-            return `La fecha de inicio del Tema ${targetTema.id} (${formatDateEs(ini)}) se solapa con el intervalo completado del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
+
+        if (oFin < oIni) continue;
+
+        const hasAjuste = (Number(targetTema.ajuste) || 0) !== 0 || (Number(other.ajuste) || 0) !== 0;
+
+        // Comprobar solapamiento entre [ini, effectiveFin] y [oIni, oFin] independientemente del orden de tema
+        if (ini <= oFin && effectiveFin >= oIni) {
+          const touchesAtStart = ini === oFin && effectiveFin >= oFin;
+          const touchesAtEnd = effectiveFin === oIni && ini <= oIni && ini < effectiveFin;
+          const isSameSingleDay = ini === oIni && effectiveFin === oFin && ini === effectiveFin;
+
+          if ((touchesAtStart || touchesAtEnd || isSameSingleDay) && ! (ini < oFin && effectiveFin > oIni)) {
+            if (!hasAjuste) {
+              return `Las fechas del Tema ${targetTema.id} coinciden en el día de cambio con el Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}). Solo pueden compartir día si alguno tiene ajuste de sesiones.`;
+            }
+          } else {
+            return `Las fechas del Tema ${targetTema.id} se solapan con el intervalo del Tema ${other.id} (${other.nombre}: ${formatDateEs(oIni)} - ${formatDateEs(oFin)}).`;
           }
         }
       }
@@ -127,8 +135,11 @@ export default function SyllabusTracking() {
   };
 
   const getDateInputBounds = (tema, idx) => {
-    let minFromPrev = '';
-    let maxFromNext = '';
+    const iniIso = toIsoDateStr(tema.fechaInicio);
+    const finIso = toIsoDateStr(tema.fechaFin);
+
+    let minFromCompletedBeforeFin = '';
+    let maxFromCompletedAfterIni = '';
 
     for (let i = 0; i < temas.length; i++) {
       if (i === idx) continue;
@@ -140,26 +151,27 @@ export default function SyllabusTracking() {
 
       const hasAjuste = (Number(tema.ajuste) || 0) !== 0 || (Number(other.ajuste) || 0) !== 0;
 
-      if (i < idx) {
-        const candidateMin = hasAjuste ? oFin : addDaysIso(oFin, 1);
-        if (candidateMin && (!minFromPrev || candidateMin > minFromPrev)) {
-          minFromPrev = candidateMin;
+      // Si este tema ya tiene fechaInicio y el otro tema empieza después, la fechaFin no puede pisar al otro tema
+      if (iniIso && oIni >= iniIso) {
+        const candidateMaxFin = hasAjuste ? oIni : addDaysIso(oIni, -1);
+        if (candidateMaxFin && (!maxFromCompletedAfterIni || candidateMaxFin < maxFromCompletedAfterIni)) {
+          maxFromCompletedAfterIni = candidateMaxFin;
         }
-      } else {
-        const candidateMax = hasAjuste ? oIni : addDaysIso(oIni, -1);
-        if (candidateMax && (!maxFromNext || candidateMax < maxFromNext)) {
-          maxFromNext = candidateMax;
+      }
+
+      // Si este tema ya tiene fechaFin y el otro tema termina antes, la fechaInicio no puede pisar al otro tema
+      if (finIso && oFin <= finIso) {
+        const candidateMinIni = hasAjuste ? oFin : addDaysIso(oFin, 1);
+        if (candidateMinIni && (!minFromCompletedBeforeFin || candidateMinIni > minFromCompletedBeforeFin)) {
+          minFromCompletedBeforeFin = candidateMinIni;
         }
       }
     }
 
-    const iniIso = toIsoDateStr(tema.fechaInicio);
-    const finIso = toIsoDateStr(tema.fechaFin);
-
-    const minInicioCandidates = [courseBounds.min, minFromPrev].filter(Boolean);
-    const maxInicioCandidates = [courseBounds.max, maxFromNext, finIso].filter(Boolean);
-    const minFinCandidates = [courseBounds.min, minFromPrev, iniIso].filter(Boolean);
-    const maxFinCandidates = [courseBounds.max, maxFromNext].filter(Boolean);
+    const minInicioCandidates = [courseBounds.min, minFromCompletedBeforeFin].filter(Boolean);
+    const maxInicioCandidates = [courseBounds.max, finIso].filter(Boolean);
+    const minFinCandidates = [courseBounds.min, iniIso].filter(Boolean);
+    const maxFinCandidates = [courseBounds.max, maxFromCompletedAfterIni].filter(Boolean);
 
     return {
       minInicio: minInicioCandidates.length ? minInicioCandidates.reduce((a, b) => (a > b ? a : b)) : undefined,
@@ -311,11 +323,26 @@ export default function SyllabusTracking() {
     );
     const prevVal = prevTema ? prevTema[field] : '';
 
-    const newTemas = temas.map(t => 
-      ((t._docId && t._docId === identifier) || String(t.id) === String(identifier))
-        ? { ...t, [field]: value }
-        : t
-    );
+    const newTemas = temas.map(t => {
+      if ((t._docId && t._docId === identifier) || String(t.id) === String(identifier)) {
+        if (field === 'fechaInicio' && !value) {
+          return { ...t, fechaInicio: '', fechaFin: '' };
+        }
+        return { ...t, [field]: value };
+      }
+      return t;
+    });
+
+    if (field === 'fechaFin' && !value) {
+      const updatedTema = newTemas.find(
+        t => (t._docId && t._docId === identifier) || String(t.id) === String(identifier)
+      );
+      const err = validateTemaInList(updatedTema, newTemas);
+      if (err) {
+        setModal({ isOpen: true, title: 'Tema abierto', message: err });
+        return;
+      }
+    }
 
     if (field === 'ajuste') {
       const updatedTema = newTemas.find(
@@ -529,6 +556,12 @@ export default function SyllabusTracking() {
                 const desviacion = temaMetrics.desviacion;
                 const dateBounds = getDateInputBounds(tema, idx);
                 const dateError = validateTemaInList(tema, temas);
+                const isOtherOpen = Boolean(
+                  openTema &&
+                  ((openTema._docId && openTema._docId !== tema._docId) || String(openTema.id) !== String(tema.id))
+                );
+                const disableInicio = isOtherOpen && !tema.fechaInicio;
+                const disableFin = !tema.fechaInicio;
 
                 let devColor = 'inherit';
                 if (desviacion !== null) {
@@ -553,15 +586,22 @@ export default function SyllabusTracking() {
                         <input 
                           type="date" 
                           className="input-field" 
+                          disabled={disableInicio}
                           style={{ 
                             padding: '0.3rem', 
                             fontSize: '0.8rem', 
                             maxWidth: '95px',
-                            borderColor: dateError && tema.fechaInicio ? '#ef4444' : undefined
+                            borderColor: dateError && tema.fechaInicio ? '#ef4444' : undefined,
+                            opacity: disableInicio ? 0.45 : 1,
+                            cursor: disableInicio ? 'not-allowed' : undefined
                           }}
                           min={dateBounds.minInicio}
                           max={dateBounds.maxInicio}
-                          title={dateError || ''}
+                          title={
+                            disableInicio
+                              ? `Debes fijar una fecha de fin para el Tema ${openTema.id} (${openTema.nombre}) antes de iniciar otro tema.`
+                              : (dateError || '')
+                          }
                           value={tema.fechaInicio || ''}
                           onFocus={() => handleDateFocus(tema._docId || tema.id, 'fechaInicio', tema.fechaInicio)}
                           onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaInicio', e.target.value)}
@@ -578,15 +618,22 @@ export default function SyllabusTracking() {
                         <input 
                           type="date" 
                           className="input-field" 
+                          disabled={disableFin}
                           style={{ 
                             padding: '0.3rem', 
                             fontSize: '0.8rem', 
                             maxWidth: '95px',
-                            borderColor: dateError && tema.fechaFin ? '#ef4444' : undefined
+                            borderColor: dateError && tema.fechaFin ? '#ef4444' : undefined,
+                            opacity: disableFin ? 0.45 : 1,
+                            cursor: disableFin ? 'not-allowed' : undefined
                           }}
                           min={dateBounds.minFin}
                           max={dateBounds.maxFin}
-                          title={dateError || ''}
+                          title={
+                            disableFin
+                              ? 'Debes fijar primero la fecha de inicio de este tema.'
+                              : (dateError || '')
+                          }
                           value={tema.fechaFin || ''}
                           onFocus={() => handleDateFocus(tema._docId || tema.id, 'fechaFin', tema.fechaFin)}
                           onChange={(e) => handleDateChange(tema._docId || tema.id, 'fechaFin', e.target.value)}

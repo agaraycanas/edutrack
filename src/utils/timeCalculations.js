@@ -295,28 +295,43 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
     progresoTema = 100;
   }
 
-  // Identificar tema real actual respecto al día de hoy (solo temas ya iniciados a fecha de hoy y con fechas congruentes)
+  // Identificar tema real actual respecto al día de hoy (solo temas ya iniciados a fecha de hoy y con fechas congruentes, sin asumir orden numérico)
   let temaRealActual = null;
   let maxCompletedEnd = null;
   let maxCompletedAjuste = 0;
-  const startedThemes = temas.filter(t => {
-    if (!t.fechaInicio) return false;
-    const dIni = normalizeDate(t.fechaInicio);
-    if (!dIni) return false;
-    dIni.setHours(0, 0, 0, 0);
 
-    const dFin = normalizeDate(t.fechaFin);
-    if (dFin) dFin.setHours(0, 0, 0, 0);
+  const candidateStarted = temas
+    .map(t => {
+      if (!t.fechaInicio) return null;
+      const dIni = normalizeDate(t.fechaInicio);
+      if (!dIni) return null;
+      dIni.setHours(0, 0, 0, 0);
 
-    const currentAjuste = Number(t.ajuste) || 0;
+      const dFin = normalizeDate(t.fechaFin);
+      if (dFin) dFin.setHours(0, 0, 0, 0);
 
-    // Ignorar fechas incongruentes:
-    // - Fin anterior a inicio
-    // - Inicio anterior al fin de un tema completado previo (o igual en el mismo día sin ajuste de sesiones)
-    if (dFin && dFin.getTime() < dIni.getTime()) return false;
+      // Ignorar si la fecha de fin es anterior a la de inicio o si empieza en el futuro
+      if (dFin && dFin.getTime() < dIni.getTime()) return null;
+      if (todayDate && dIni.getTime() > todayDate.getTime()) return null;
+
+      return { tema: t, dIni, dFin, currentAjuste: Number(t.ajuste) || 0 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const diffIni = a.dIni.getTime() - b.dIni.getTime();
+      if (diffIni !== 0) return diffIni;
+      if (a.dFin && b.dFin) return a.dFin.getTime() - b.dFin.getTime();
+      if (a.dFin && !b.dFin) return -1;
+      if (!a.dFin && b.dFin) return 1;
+      return 0;
+    });
+
+  const startedThemes = [];
+  for (const item of candidateStarted) {
+    const { tema, dIni, dFin, currentAjuste } = item;
     if (maxCompletedEnd) {
-      if (dIni.getTime() < maxCompletedEnd.getTime()) return false;
-      if (dIni.getTime() === maxCompletedEnd.getTime() && currentAjuste === 0 && maxCompletedAjuste === 0) return false;
+      if (dIni.getTime() < maxCompletedEnd.getTime()) continue;
+      if (dIni.getTime() === maxCompletedEnd.getTime() && currentAjuste === 0 && maxCompletedAjuste === 0) continue;
     }
 
     if (dFin && (!maxCompletedEnd || dFin.getTime() >= maxCompletedEnd.getTime())) {
@@ -324,8 +339,8 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
       maxCompletedAjuste = currentAjuste;
     }
 
-    return !todayDate || dIni.getTime() <= todayDate.getTime();
-  });
+    startedThemes.push(tema);
+  }
 
   if (startedThemes.length > 0) {
     const lastStarted = startedThemes[startedThemes.length - 1];
@@ -351,7 +366,7 @@ export const calcularMetricasSeguimiento = (temas, horario, academicYear, festiv
       nombre: lastStarted.nombre || lastStarted.titulo || 'Tema ' + (lastStarted.id || lastStarted.n),
       horasEstimadas: est,
       horasReales: hRealHoy,
-      progreso: isCompletedToday ? 100 : Math.min(100, Math.round((hRealHoy / est) * 100)),
+      progreso: Math.round((hRealHoy / est) * 100),
       status: isCompletedToday ? 'Completado' : 'En curso'
     };
   }
