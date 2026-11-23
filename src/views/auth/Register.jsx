@@ -4,6 +4,7 @@ import Modal from '../../components/common/Modal';
 import { auth, db } from '../../config/firebase';
 import { signOut } from 'firebase/auth';
 import { collection, getDocs, setDoc, doc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { normalizePersonName } from '../../utils/nameUtils';
 
 
 export default function Register() {
@@ -81,23 +82,26 @@ export default function Register() {
 
     const email = auth.currentUser?.email;
 
-    // Validación de departamento si el rol lo requiere
-    if (['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) && !formData.departamento) {
+    // Validación de departamento obligatoria para todos los roles
+    if (!formData.departamento) {
       setError('Debes seleccionar un departamento');
       setLoading(false);
       return;
     }
+
+    const normalizedNombre = normalizePersonName(formData.nombre);
+    const normalizedApellidos = normalizePersonName(formData.apellidos, { isSurname: true });
 
     try {
       const isAdminSupremo = email === 'alberto.garay.canas@gmail.com' || email === 'agaraycanas@educa.madrid.org';
       
       // 1. Guardar perfil de usuario
       await setDoc(doc(db, 'usuarios', auth.currentUser.uid), {
-        nombre: formData.nombre,
-        apellidos: formData.apellidos,
+        nombre: normalizedNombre,
+        apellidos: normalizedApellidos,
         email: email,
         foto: auth.currentUser?.photoURL || null,
-        roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'superadmin', estado: 'activo' }] : [], 
+        roles: isAdminSupremo ? [{ iesId: formData.iesId, rol: 'superadmin', departamento: formData.departamento, estado: 'activo' }] : [], 
         iesIds: [formData.iesId],
         createdAt: new Date()
       });
@@ -106,12 +110,12 @@ export default function Register() {
       if (!isAdminSupremo) {
         await addDoc(collection(db, 'solicitudes'), {
           userId: auth.currentUser.uid,
-          userName: `${formData.nombre} ${formData.apellidos}`,
+          userName: `${normalizedNombre} ${normalizedApellidos}`,
           userEmail: email,
           iesId: formData.iesId,
           iesNombre: iesList.find(i => i.id === formData.iesId)?.nombre,
           rol: formData.rolSolicitado,
-          departamento: ['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) ? formData.departamento : null,
+          departamento: formData.departamento,
           estado: 'pendiente',
           createdAt: new Date()
         });
@@ -186,6 +190,7 @@ export default function Register() {
             required 
             value={formData.nombre}
             onChange={e => setFormData({...formData, nombre: e.target.value})}
+            onBlur={e => setFormData(prev => ({...prev, nombre: normalizePersonName(e.target.value)}))}
           />
         </div>
 
@@ -197,6 +202,7 @@ export default function Register() {
             required 
             value={formData.apellidos}
             onChange={e => setFormData({...formData, apellidos: e.target.value})}
+            onBlur={e => setFormData(prev => ({...prev, apellidos: normalizePersonName(e.target.value, { isSurname: true })}))}
           />
         </div>
 
@@ -230,22 +236,20 @@ export default function Register() {
           </select>
         </div>
 
-        {['profesor', 'jefe_departamento'].includes(formData.rolSolicitado) && (
-          <div className="animate-fade-in" style={styles.field}>
-            <label>Departamento</label>
-            <select 
-              className="input-field" 
-              required 
-              value={formData.departamento}
-              onChange={e => setFormData({...formData, departamento: e.target.value})}
-            >
-              <option value="">Selecciona un departamento...</option>
-              {deptList.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="animate-fade-in" style={styles.field}>
+          <label>Departamento</label>
+          <select 
+            className="input-field" 
+            required 
+            value={formData.departamento}
+            onChange={e => setFormData({...formData, departamento: e.target.value})}
+          >
+            <option value="">Selecciona un departamento...</option>
+            {deptList.map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+        </div>
 
         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
           <button 

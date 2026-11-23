@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../../config/firebase';
 import Modal from '../../components/common/Modal';
+import OrlaModal from '../../components/management/OrlaModal';
+import { normalizePersonName } from '../../utils/nameUtils';
 import { 
   collection, 
   getDocs, 
@@ -65,6 +67,7 @@ export default function Users() {
   
   const [deptModal, setDeptModal] = useState({ isOpen: false, user: null, newDept: '' });
   const [emailModal, setEmailModal] = useState({ isOpen: false, user: null, newEmail: '' });
+  const [orlaOpen, setOrlaOpen] = useState(false);
   
   const activeRole = localStorage.getItem('activeRole') || 'profesor';
   const myRank = RANKS[activeRole] || 0;
@@ -159,15 +162,30 @@ export default function Users() {
         const querySnapshot = await getDocs(q);
         const allUsers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
-        // Auto-normalización de correos de prueba @example.com a @educa.madrid.org
+        // Auto-normalización de correos de prueba @example.com y nombres/apellidos en mayúsculas o con espacios sobrantes
         for (const u of allUsers) {
+          const updates = {};
           if (u.email && u.email.endsWith('@example.com')) {
-            const fixedEmail = u.email.replace('@example.com', '@educa.madrid.org');
+            updates.email = u.email.replace('@example.com', '@educa.madrid.org');
+          }
+          if (u.nombre) {
+            const fixedNombre = normalizePersonName(u.nombre);
+            if (fixedNombre && fixedNombre !== u.nombre) {
+              updates.nombre = fixedNombre;
+            }
+          }
+          if (u.apellidos) {
+            const fixedApellidos = normalizePersonName(u.apellidos, { isSurname: true });
+            if (fixedApellidos && fixedApellidos !== u.apellidos) {
+              updates.apellidos = fixedApellidos;
+            }
+          }
+          if (Object.keys(updates).length > 0) {
             try {
-              await updateDoc(doc(db, 'usuarios', u.id), { email: fixedEmail });
-              u.email = fixedEmail;
+              await updateDoc(doc(db, 'usuarios', u.id), updates);
+              Object.assign(u, updates);
             } catch (err) {
-              console.warn("No se pudo auto-actualizar email en Firestore:", err);
+              console.warn("No se pudo auto-actualizar usuario en Firestore:", err);
             }
           }
         }
@@ -397,6 +415,23 @@ export default function Users() {
     ? `Profesores de ${myDeptName || 'Departamento'}`
     : 'Profesores';
 
+  // Profesores y curso para la Orla del Jefe de Departamento
+  const orlaTeachers = users.filter(u => {
+    const isMe = (currentUser?.uid && u.id === currentUser.uid) ||
+                 (currentUser?.email && u.email?.toLowerCase() === currentUser.email?.toLowerCase());
+    if (selectedYearId !== 'all' && !isMe) {
+      if (!assignedTeacherIds.has(u.id)) return false;
+    }
+    return true;
+  });
+
+  const selectedYearObj = selectedYearId === 'current'
+    ? currentAcademicYear
+    : academicYears.find(y => y.id === selectedYearId);
+  const orlaAcademicYearLabel = selectedYearId === 'all'
+    ? (currentAcademicYear?.nombre || 'Todos los cursos')
+    : (selectedYearObj?.nombre || currentAcademicYear?.nombre || '');
+
   return (
     <div className="animate-fade-in" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
       <style>{`
@@ -412,7 +447,30 @@ export default function Users() {
       `}</style>
       
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{ margin: 0 }}>{pageTitle}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0 }}>{pageTitle}</h1>
+          {activeRole === 'jefe_departamento' && (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setOrlaOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                fontSize: '0.9rem'
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              Ver Orla
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Barra de Filtros */}
@@ -740,6 +798,17 @@ export default function Users() {
           </p>
         </div>
       </Modal>
+
+      {/* Modal de Orla del Departamento */}
+      <OrlaModal
+        isOpen={orlaOpen}
+        onClose={() => setOrlaOpen(false)}
+        departmentName={myDeptName}
+        iesName={currentIes?.nombre}
+        academicYearLabel={orlaAcademicYearLabel}
+        teachers={orlaTeachers}
+        selectedIesId={selectedIesId}
+      />
     </div>
   );
 }

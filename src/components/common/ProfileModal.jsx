@@ -4,6 +4,7 @@ import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthP
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Modal from './Modal';
+import { normalizePersonName } from '../../utils/nameUtils';
 
 export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate }) {
   const [nombre, setNombre] = useState('');
@@ -35,17 +36,22 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
     e.preventDefault();
     setLoading(true);
     try {
+      const normalizedNombre = normalizePersonName(nombre);
+      const normalizedApellidos = normalizePersonName(apellidos, { isSurname: true });
+      setNombre(normalizedNombre);
+      setApellidos(normalizedApellidos);
+
       // Update Firestore
       const userRef = doc(db, 'usuarios', auth.currentUser.uid);
       await updateDoc(userRef, {
-        nombre,
-        apellidos,
+        nombre: normalizedNombre,
+        apellidos: normalizedApellidos,
         foto
       });
 
       // Update Auth Profile (display name)
       await updateProfile(auth.currentUser, {
-        displayName: `${nombre} ${apellidos}`,
+        displayName: `${normalizedNombre} ${normalizedApellidos}`,
         photoURL: foto
       });
 
@@ -218,6 +224,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
                   className="input-field" 
                   value={nombre} 
                   onChange={(e) => setNombre(e.target.value)} 
+                  onBlur={(e) => setNombre(normalizePersonName(e.target.value))}
                   required 
                 />
               </div>
@@ -228,6 +235,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
                   className="input-field" 
                   value={apellidos} 
                   onChange={(e) => setApellidos(e.target.value)} 
+                  onBlur={(e) => setApellidos(normalizePersonName(e.target.value, { isSurname: true }))}
                   required 
                 />
               </div>
