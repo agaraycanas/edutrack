@@ -4,7 +4,8 @@ import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthP
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import Modal from './Modal';
-import { normalizePersonName } from '../../utils/nameUtils';
+import PhotoEditorModal from './PhotoEditorModal';
+import { normalizePersonName, hasRealPhoto } from '../../utils/nameUtils';
 
 export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate }) {
   const [nombre, setNombre] = useState('');
@@ -16,6 +17,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('general'); // 'general' or 'password'
+  const [editorState, setEditorState] = useState({ isOpen: false, src: '', isObjectUrl: false });
 
   const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -68,32 +70,39 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
     }
   };
 
-  const handleImageUpload = async (e) => {
+  const closePhotoEditor = () => {
+    if (editorState.isObjectUrl && editorState.src) {
+      URL.revokeObjectURL(editorState.src);
+    }
+    setEditorState({ isOpen: false, src: '', isObjectUrl: false });
+  };
+
+  const handleImageUpload = (e) => {
     const file = e.target.files[0];
+    e.target.value = '';
     if (!file) return;
 
-    // Validar tipo y tamaño (opcional pero recomendado)
     if (!file.type.startsWith('image/')) {
       showMessage('Por favor, selecciona una imagen válida', 'error');
       return;
     }
 
+    const objectUrl = URL.createObjectURL(file);
+    setEditorState({ isOpen: true, src: objectUrl, isObjectUrl: true });
+  };
+
+  const handleConfirmEditedPhoto = async (blob) => {
     setUploading(true);
-    console.log('Iniciando subida de imagen...', file.name);
     try {
       const storageRef = ref(storage, `profiles/${auth.currentUser.uid}`);
-      console.log('Referencia de storage creada:', storageRef.fullPath);
-      
-      const uploadTask = await uploadBytes(storageRef, file);
-      console.log('Imagen subida con éxito:', uploadTask);
-      
+      await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
       const downloadURL = await getDownloadURL(storageRef);
-      console.log('URL de descarga obtenida:', downloadURL);
-      
+
       setFoto(downloadURL);
-      showMessage('Imagen subida correctamente. No olvides guardar los cambios para aplicarlos.');
+      closePhotoEditor();
+      showMessage('Imagen ajustada y subida correctamente. No olvides guardar los cambios para aplicarlos.');
     } catch (error) {
-      console.error('Error detallado en handleImageUpload:', error);
+      console.error('Error detallado en handleConfirmEditedPhoto:', error);
       let errorMsg = 'Error al subir la imagen';
       if (error.code === 'storage/unauthorized') errorMsg = 'Error: No tienes permiso para subir archivos (revisa las reglas de Storage)';
       if (error.code === 'storage/canceled') errorMsg = 'Subida cancelada';
@@ -135,6 +144,7 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
   };
 
   return (
+    <>
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
@@ -209,10 +219,28 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
                   </div>
                 </div>
               </label>
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Haz clic sobre la imagen para cambiar tu avatar
+                  Haz clic sobre la imagen para subir y ajustar tu foto
                 </p>
+                {hasRealPhoto({ foto }) && (
+                  <button
+                    type="button"
+                    onClick={() => setEditorState({ isOpen: true, src: foto, isObjectUrl: false })}
+                    disabled={uploading}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--accent-primary)',
+                      fontSize: '0.78rem',
+                      padding: '0.3rem 0.75rem',
+                      borderRadius: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Ajustar foto actual
+                  </button>
+                )}
               </div>
             </div>
             
@@ -279,6 +307,15 @@ export default function ProfileModal({ isOpen, onClose, userProfile, onUpdate })
         )}
       </div>
     </Modal>
+
+    <PhotoEditorModal
+      isOpen={editorState.isOpen}
+      imageSrc={editorState.src}
+      onClose={closePhotoEditor}
+      onConfirm={handleConfirmEditedPhoto}
+      saving={uploading}
+    />
+    </>
   );
 }
 
